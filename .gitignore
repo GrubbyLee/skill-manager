@@ -1,0 +1,17 @@
+# 依赖与构建产物
+node_modules/
+coverage/
+
+# 日志与临时文件
+*.log
+npm-debug.log*
+*.tmp
+
+# 环境变量与敏感信息（禁止入库）
+.env
+.env.*
+
+# 编辑器与系统文件
+.DS_Store
+.idea/
+.vscode/
