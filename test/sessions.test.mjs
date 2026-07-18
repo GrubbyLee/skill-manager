@@ -55,3 +55,17 @@ key = "v"
   assert.ok(!off.text.includes('#skm# [model_providers.bar]'));
   assert.ok(!off.text.includes('#skm# key'));
 });
+
+test('TOML 段落注释：用户手工注释掉的表头（# [other]）同样终止块', () => {
+  const toml = `[mcp_servers.foo]
+command = "npx"
+# [other]
+stray = "v"
+`;
+  const off = toggleTomlSection(toml, 'foo', true);
+  assert.equal(off.touched, 2);
+  assert.ok(off.text.includes('\n# [other]'));
+  assert.ok(!off.text.includes('#skm# stray'));
+  const on = toggleTomlSection(off.text, 'foo', false);
+  assert.equal(on.text, toml);
+});

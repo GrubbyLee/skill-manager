@@ -32,6 +32,19 @@ args = ["run", "--flag=a,b", "含 空格"]
   assert.deepEqual(sections['mcp_servers.demo'].args, ['run', '--flag=a,b', '含 空格']);
 });
 
+test('TOML：键值的行尾内联注释被剥离', () => {
+  const toml = `
+[mcp_servers.demo]
+command = "npx" # runner
+port = 8080 # 端口
+flag = true # 开关
+`;
+  const s = parseTomlSections(toml)['mcp_servers.demo'];
+  assert.equal(s.command, 'npx');
+  assert.equal(s.port, 8080);
+  assert.equal(s.flag, true);
+});
+
 test('相似度：相同文本为 1，无交集为 0', () => {
   const a = tokenize('generate ppt slides 生成演示文稿');
   assert.equal(jaccard(a, a), 1);
@@ -46,8 +59,10 @@ test('表格：中文按宽度 2 计算并正确截断补齐', () => {
   assert.ok(t.endsWith('…'));
 });
 
-test('时间：按 Asia/Shanghai 展示（UTC 20:00 = 北京次日）', () => {
+test('时间：按 Asia/Shanghai 展示（UTC 20:00 = 北京次日），脏时间戳不显示 Invalid Date', () => {
   assert.equal(fmtDay('2026-07-18T20:00:00Z'), '2026-07-19');
   assert.equal(fmtDateTime('2026-07-18T20:00:00Z'), '2026-07-19 04:00');
   assert.equal(fmtDay(null), '—');
+  assert.equal(fmtDay('not-a-date'), '—');
+  assert.equal(fmtDateTime('garbage'), '—');
 });

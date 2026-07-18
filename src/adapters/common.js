@@ -92,21 +92,31 @@ function dirStats(dir, depth = 0, budget = { remaining: 5000 }) {
   for (const ent of entries) {
     if (budget.remaining <= 0) break;
     const p = path.join(dir, ent.name);
-    if (ent.isDirectory()) {
+    // Dirent 方法不跟随软链，软链目录/文件需补 stat 判断，否则体积统计低估
+    const st = ent.isSymbolicLink() ? safeStat(p) : null;
+    if (ent.isDirectory() || st?.isDirectory()) {
       const sub = dirStats(p, depth + 1, budget);
       fileCount += sub.fileCount;
       totalBytes += sub.totalBytes;
-    } else if (ent.isFile()) {
+    } else if (ent.isFile() || st?.isFile()) {
       budget.remaining--;
       fileCount++;
       try {
-        totalBytes += fs.statSync(p).size;
+        totalBytes += (st ?? fs.statSync(p)).size;
       } catch {
         /* 忽略统计失败的文件 */
       }
     }
   }
   return { fileCount, totalBytes };
+}
+
+function safeStat(p) {
+  try {
+    return fs.statSync(p);
+  } catch {
+    return null; // 断链
+  }
 }
 
 // 粗略估算 token：CJK 每字约 1 token，其余按 4 字符 1 token

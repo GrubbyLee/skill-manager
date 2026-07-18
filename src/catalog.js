@@ -13,19 +13,21 @@ export function loadCatalog() {
   return c;
 }
 
-// 合并同名 skill（多数是 claude/codex 双份安装），供 list/dupes 展示"去重后的清单"
+// 合并同名 skill（多数是 claude/codex 双份安装），供 list/dupes 展示"去重后的清单"。
+// 对缺失字段做防御：catalog.json 可能被外部编辑或来自不兼容版本
 export function mergeByDirName(skills) {
   const map = new Map();
   for (const s of skills) {
+    const desc = typeof s.description === 'string' ? s.description : '';
     let m = map.get(s.dirName);
     if (!m) {
-      m = { ...s, tools: [], entries: [] };
+      m = { ...s, description: desc, tools: [], entries: [] };
       map.set(s.dirName, m);
     }
     if (!m.tools.includes(s.tool)) m.tools.push(s.tool);
     m.entries.push(s);
     // 描述优先取更长的那份（信息量更大）
-    if (s.description.length > m.description.length) m.description = s.description;
+    if (desc.length > m.description.length) m.description = desc;
   }
   return [...map.values()];
 }

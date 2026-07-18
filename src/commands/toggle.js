@@ -103,9 +103,15 @@ async function toggleMcp({ names, yes }, disable) {
         console.log(`  claude：已从 ~/.claude.json 移除 ${name}（配置已存入 ${MCP_STORE}，备份：${backupPath}）`);
         touched = true;
       } else if (!disable && store.claude[name]) {
-        // 用户已手动重新添加过同名配置时不覆盖（暂存保留，需要时手动比对）
+        // 用户已手动重新添加过同名配置时不覆盖；若两者内容一致则顺手清理暂存，避免残留
         if (config.mcpServers?.[name]) {
-          console.error(`  claude：~/.claude.json 已存在 ${name} 配置，跳过恢复以免覆盖（暂存仍保留在 ${MCP_STORE}）`);
+          if (JSON.stringify(config.mcpServers[name]) === JSON.stringify(store.claude[name])) {
+            delete store.claude[name];
+            saveStore(store);
+            console.log(`  claude：~/.claude.json 中已有与暂存一致的 ${name} 配置，已清理暂存`);
+          } else {
+            console.error(`  claude：~/.claude.json 已存在 ${name} 配置且与暂存不同，跳过恢复以免覆盖（暂存仍保留在 ${MCP_STORE}）`);
+          }
           touched = true;
         } else {
           const backupPath = backupFile(CLAUDE_CONFIG_FILE, `claude.json.${name}`);
@@ -149,6 +155,9 @@ export function toggleTomlSection(text, name, disable) {
     if (header) {
       const section = header[1].replace(/"/g, '');
       inBlock = section === `mcp_servers.${name}` || section.startsWith(`mcp_servers.${name}.`);
+    } else if (/^#+\s*\[[^\]]+\]/.test(clean.trim())) {
+      // 用户手工注释掉的表头（# [other]）同样视为块边界终止，避免其后的行被连带处理
+      inBlock = false;
     }
     if (!inBlock || lines[i].trim() === '') continue;
     if (disable && !lines[i].startsWith('#skm# ')) {

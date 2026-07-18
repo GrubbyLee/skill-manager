@@ -91,6 +91,12 @@ if (values.scope && !['user', 'project', 'plugin'].includes(values.scope)) {
   console.error(`--scope 取值应为 user|project|plugin，收到：${values.scope}`);
   process.exit(1);
 }
+for (const flag of ['keep', 'days']) {
+  if (values[flag] != null && !/^\d+$/.test(values[flag])) {
+    console.error(`--${flag} 需要非负整数，收到：${values[flag]}`);
+    process.exit(1);
+  }
+}
 
 const cmd = positionals[0] || 'help';
 const ctx = { cwd: process.cwd(), ...values };

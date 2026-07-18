@@ -3,8 +3,17 @@ import { HOME, DATA_DIR } from './paths.js';
 import { walkFiles, forEachLine, loadJsonFile, saveJsonFile } from './utils.js';
 
 const CACHE_PATH = path.join(DATA_DIR, 'usage-cache.json');
-// v2：解析层不再按已知 skill 名过滤（过滤上移到消费侧），旧 v1 缓存作废自动全量重扫
-const CACHE_VERSION = 2;
+// v3：内置斜杠命令不计入统计、codex 路径正则锚定；解析规则变更需作废旧缓存全量重扫
+const CACHE_VERSION = 3;
+
+// Claude Code 的内置斜杠命令：出现在 <command-name> 里但不是 skill，不应计入使用统计
+const BUILTIN_COMMANDS = new Set([
+  'clear', 'compact', 'help', 'config', 'cost', 'doctor', 'exit', 'quit', 'login', 'logout',
+  'model', 'permissions', 'resume', 'status', 'memory', 'hooks', 'mcp', 'agents', 'export',
+  'bug', 'vim', 'terminal-setup', 'install-github-app', 'release-notes', 'migrate-installer',
+  'add-dir', 'statusline', 'output-style', 'bashes', 'todos', 'tasks', 'context', 'rewind',
+  'upgrade', 'privacy-settings', 'ide', 'fast', 'usage', 'workflows',
+]);
 
 // 使用统计：从会话日志里还原每个 skill / MCP 的实际使用情况。
 // 日志只增不改，按 文件路径+大小+mtime 增量缓存，首轮全量扫描后续秒级。
@@ -89,7 +98,10 @@ function scanClaudeFile(file) {
       if (hasCommand) {
         const text = extractText(content);
         const m = text.match(/<command-name>\/?([A-Za-z0-9:_-]+)<\/command-name>/);
-        if (m) bump(skills, normalizeSkillName(m[1]), ts);
+        if (m) {
+          const name = normalizeSkillName(m[1]);
+          if (!BUILTIN_COMMANDS.has(name)) bump(skills, name, ts);
+        }
       }
     });
   } catch {
@@ -112,11 +124,13 @@ function scanCodexFile(file) {
         return;
       }
       if (obj.type !== 'response_item' || obj.payload?.type !== 'function_call') return;
-      const re = /skills\/([A-Za-z0-9._-]+)\/SKILL\.md/g;
+      // 锚定 skills/ 前必须是路径分隔符，避免 myskills/foo 误匹配；支持嵌套 skill 目录（取叶子名）
+      const re = /[\\/]skills\/((?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+)\/SKILL\.md/g;
       let m;
       while ((m = re.exec(line)) !== null) {
+        const name = m[1].split('/').pop();
         const ts = obj.timestamp || null;
-        if (!seen.has(m[1]) || (ts && ts > seen.get(m[1]))) seen.set(m[1], ts);
+        if (!seen.has(name) || (ts && ts > seen.get(name))) seen.set(name, ts);
       }
     });
   } catch {

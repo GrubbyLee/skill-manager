@@ -57,8 +57,9 @@ export function runScan({ cwd, json = false, verbose = false, silent = false }) 
   line('claude-code', 'Claude Code：');
   line('codex', 'Codex：      ');
   print(`  去重后共 ${merged.length} 个 skill，其中 ${both} 个在两侧同名安装`);
-  const totalTokens = merged.reduce((sum, m) => sum + m.descTokens, 0);
-  print(`  常驻上下文开销估算（name+description）：约 ${totalTokens} token/侧`);
+  // 分侧统计：每侧的常驻开销是该侧实际加载条目的 name+description 之和
+  const tokensFor = (tool) => skills.filter((s) => s.tool === tool).reduce((sum, s) => sum + s.descTokens, 0);
+  print(`  常驻上下文开销估算（name+description）：Claude 约 ${tokensFor('claude-code')} token，Codex 约 ${tokensFor('codex')} token`);
   print(`  分类分布：${catSummary}`);
   if (catalog.archived['claude-code'] + catalog.archived.codex > 0) {
     print(`  已归档目录（_ 或 . 开头，未计入）：claude ${catalog.archived['claude-code']}，codex ${catalog.archived.codex}`);

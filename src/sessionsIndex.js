@@ -22,11 +22,15 @@ export function buildSessionIndex() {
     { root: CODEX_SESSIONS_ROOT, tool: 'codex' },
   ]) {
     for (const f of walkFiles(root)) {
-      let workspace = cache.files[f.path]?.workspace;
-      if (workspace === undefined) {
+      const cached = cache.files[f.path];
+      let workspace;
+      // 缓存命中需比对 size+mtime：路径复用（同名文件被替换）时头部 cwd 可能已不同
+      if (cached && cached.size === f.size && cached.mtimeMs === f.mtimeMs) {
+        workspace = cached.workspace;
+      } else {
         workspace = parseCwd(f.path);
         if (workspace !== null) {
-          cache.files[f.path] = { tool, workspace };
+          cache.files[f.path] = { tool, workspace, size: f.size, mtimeMs: f.mtimeMs };
           dirty = true;
         }
       }
@@ -60,15 +64,23 @@ export function selectDeletions(files, { keep = null, days = null, nowMs = Date.
 }
 
 function parseCwd(file) {
+  let fd = null;
   try {
-    const fd = fs.openSync(file, 'r');
+    fd = fs.openSync(file, 'r');
     const buf = Buffer.alloc(16384);
     const n = fs.readSync(fd, buf, 0, buf.length, 0);
-    fs.closeSync(fd);
     const m = buf.toString('utf8', 0, n).match(/"cwd":"([^"]+)"/);
     if (m) return m[1];
   } catch {
     /* 读不到按未知处理 */
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        /* 关闭失败无需处理 */
+      }
+    }
   }
   return null;
 }

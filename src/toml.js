@@ -29,8 +29,13 @@ function parseValue(v) {
     const tokens = inner.match(/"(?:[^"\\]|\\.)*"|'[^']*'|[^,\s]+/g) || [];
     return tokens.map((t) => stripQuotes(t));
   }
+  // 引号字符串：只取引号内内容，行尾内联注释（command = "npx" # runner）自然被丢弃
+  const quoted = v.match(/^"((?:[^"\\]|\\.)*)"|^'([^']*)'/);
+  if (quoted) return quoted[1] ?? quoted[2];
+  // 非引号标量：剥离行尾注释后再判定类型
+  v = v.split('#')[0].trim();
   if (v === 'true') return true;
   if (v === 'false') return false;
   if (/^-?\d+$/.test(v)) return Number(v);
-  return stripQuotes(v);
+  return v;
 }

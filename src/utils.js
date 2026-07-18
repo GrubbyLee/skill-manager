@@ -9,20 +9,21 @@ export const DAY_MS = 86400e3;
 const TZ = 'Asia/Shanghai';
 
 function tzParts(t) {
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return null; // 脏时间戳不显示 "Invalid Date"
   // sv-SE locale 恰好输出 'YYYY-MM-DD HH:mm:ss'
-  const s = new Date(t).toLocaleString('sv-SE', { timeZone: TZ });
+  const s = d.toLocaleString('sv-SE', { timeZone: TZ });
   const [date, time] = s.split(' ');
   return { date, time };
 }
 
 export function fmtDay(t) {
-  return t == null ? '—' : tzParts(t).date;
+  return (t == null ? null : tzParts(t)?.date) ?? '—';
 }
 
 export function fmtDateTime(t) {
-  if (t == null) return '—';
-  const p = tzParts(t);
-  return `${p.date} ${p.time.slice(0, 5)}`;
+  const p = t == null ? null : tzParts(t);
+  return p ? `${p.date} ${p.time.slice(0, 5)}` : '—';
 }
 
 // 文件名安全的时间戳（本地时区，含秒）
@@ -51,7 +52,7 @@ export function groupBy(list, fn) {
 }
 
 // ---------- 文件系统 ----------
-// 递归收集指定后缀的文件（含 stat），软链后的目录按 stat 处理
+// 递归收集指定后缀的文件（含 stat）；目录/文件均跟随软链（Dirent 方法不跟随，需补 stat 判断）
 export function walkFiles(root, { ext = '.jsonl', maxDepth = 4 } = {}) {
   const out = [];
   const walk = (dir, depth) => {
@@ -64,19 +65,28 @@ export function walkFiles(root, { ext = '.jsonl', maxDepth = 4 } = {}) {
     }
     for (const ent of entries) {
       const p = path.join(dir, ent.name);
-      if (ent.isDirectory()) walk(p, depth + 1);
+      const isDir = ent.isDirectory() || (ent.isSymbolicLink() && safeStatIsDir(p));
+      if (isDir) walk(p, depth + 1);
       else if (ent.name.endsWith(ext)) {
         try {
           const st = fs.statSync(p);
           out.push({ path: p, size: st.size, mtimeMs: st.mtimeMs });
         } catch {
-          /* 文件可能在扫描期间被删除 */
+          /* 文件可能在扫描期间被删除，或为断链 */
         }
       }
     }
   };
   walk(root, 0);
   return out;
+}
+
+function safeStatIsDir(p) {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false; // 断链
+  }
 }
 
 // 同步流式逐行读取：1MB 块 + StringDecoder 处理多字节边界。

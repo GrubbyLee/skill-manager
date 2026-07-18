@@ -75,29 +75,38 @@ async function clean(byWorkspace, opts) {
   const allFiles = plan.flatMap((p) => p.toDelete);
   const totalBytes = sum(allFiles, 'size');
   const policyDesc = `${[keep != null ? `每工作区最近 ${keep} 个` : '', days != null ? `${days} 天以内` : ''].filter(Boolean).join(' ∪ ')} ∪ ${SAFE_HOURS}小时内活跃`;
+  // --json 模式全程只输出一个 JSON 对象（dry-run 为计划；实际删除后附带 result 字段）
+  const planData = {
+    keep,
+    days,
+    dryRun: !!opts['dry-run'],
+    skippedUnknown,
+    groups: plan.map((p) => ({
+      workspace: p.workspace,
+      deleteCount: p.toDelete.length,
+      bytes: sum(p.toDelete, 'size'),
+      files: p.toDelete.map((f) => f.path),
+    })),
+    totalFiles: allFiles.length,
+    totalBytes,
+  };
 
-  if (opts.json) {
-    console.log(JSON.stringify({
-      keep,
-      days,
-      dryRun: !!opts['dry-run'],
-      skippedUnknown,
-      groups: plan.map((p) => ({
-        workspace: p.workspace,
-        deleteCount: p.toDelete.length,
-        bytes: sum(p.toDelete, 'size'),
-        files: p.toDelete.map((f) => f.path),
-      })),
-      totalFiles: allFiles.length,
-      totalBytes,
-    }, null, 2));
-    if (opts['dry-run'] || !allFiles.length) return;
-  } else {
-    if (!allFiles.length) {
+  if (!allFiles.length) {
+    if (opts.json) {
+      console.log(JSON.stringify(planData, null, 2));
+    } else {
       console.log('按该策略没有可清理的会话。');
       if (skippedUnknown) console.log(`（另有 ${skippedUnknown} 个未知工作区会话仅接受 --days 策略，已整组跳过）`);
+    }
+    return;
+  }
+
+  if (opts.json) {
+    if (opts['dry-run']) {
+      console.log(JSON.stringify(planData, null, 2));
       return;
     }
+  } else {
     console.log(`清理计划（保留策略：${policyDesc}）：\n`);
     for (const p of plan.sort((a, b) => sum(b.toDelete, 'size') - sum(a.toDelete, 'size'))) {
       console.log(`  ${p.workspace ?? UNKNOWN_LABEL}`);
@@ -136,17 +145,17 @@ async function clean(byWorkspace, opts) {
     }
   }
   const result = `已删除 ${deleted} 个会话文件，释放约 ${fmtBytes(totalBytes)}${failed ? `；失败 ${failed} 个` : ''}`;
-  if (opts.json) console.log(JSON.stringify({ deleted, failed, totalBytes }, null, 2));
+  if (opts.json) console.log(JSON.stringify({ ...planData, result: { deleted, failed } }, null, 2));
   else console.log(`\n完成：${result}。`);
 }
 
+// 严格非负整数：拒绝空串、十六进制、科学计数法等 Number() 会静默放行的形态
 function parsePositiveInt(v, flag) {
-  const n = Number(v);
-  if (!Number.isInteger(n) || n < 0) {
+  if (!/^\d+$/.test(String(v))) {
     console.error(`${flag} 需要非负整数，收到：${v}`);
     process.exit(1);
   }
-  return n;
+  return Number(v);
 }
 
 const sum = (list, key) => list.reduce((s, x) => s + x[key], 0);
