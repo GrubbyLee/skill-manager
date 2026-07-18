@@ -4,6 +4,8 @@
 
 skm 是一个清点、梳理并治理 AIDE（Claude Code / Codex CLI）中 skill 与 MCP 的命令行工具：一眼看清当前装了哪些 skill、按能力自动分类、检测四种层次的重复、统计**真实使用频率**、识别僵尸 skill，并能安全地清理会话日志、软禁用不需要的 skill / MCP。默认只读，零第三方依赖（仅需 Node.js ≥ 18 运行环境）。
 
+![skm 演示](docs/demo.png)
+
 ## 特性
 
 - **双工具覆盖**：同时扫描 Claude Code（用户级 / 项目级 / 插件自带 skill、`~/.claude.json` 与 `.mcp.json` 的 MCP）和 Codex（`~/.codex/skills`、`config.toml` 的 MCP）
@@ -18,6 +20,10 @@ skm 是一个清点、梳理并治理 AIDE（Claude Code / Codex CLI）中 skill
 ## 安装
 
 ```bash
+# 方式一：npm 全局安装
+npm i -g aide-skill-manager --registry=https://registry.npmmirror.com
+
+# 方式二：源码安装
 git clone https://gitee.com/synovation/skill-manager.git
 cd skill-manager
 npm link        # 之后可全局使用 skm 命令；不想 link 就用 node bin/skm.js

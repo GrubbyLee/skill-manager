@@ -1,16 +1,42 @@
 {
-  "name": "skill-manager",
+  "name": "aide-skill-manager",
   "version": "0.1.0",
-  "description": "扫描并梳理 Claude Code / Codex 加载的 skill 与 MCP：清单、分类、重复检测",
+  "description": "AIDE（Claude Code / Codex）skill 与 MCP 清点、梳理与治理 CLI：分类清单、重复检测、使用频率审计、僵尸识别、会话日志清理",
   "type": "module",
   "bin": {
     "skm": "./bin/skm.js"
   },
+  "files": [
+    "bin",
+    "src",
+    "integrations",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --test"
   },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "mcp",
+    "skill",
+    "cli",
+    "aide",
+    "ai-tools",
+    "agent"
+  ],
+  "author": "Li_Js",
+  "license": "MIT",
+  "homepage": "https://gitee.com/synovation/skill-manager",
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitee.com/synovation/skill-manager.git"
+  },
+  "bugs": {
+    "url": "https://gitee.com/synovation/skill-manager/issues"
+  },
   "engines": {
     "node": ">=18"
-  },
-  "license": "MIT"
+  }
 }
