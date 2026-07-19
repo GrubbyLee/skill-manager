@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { parseTomlSections } from '../src/toml.js';
 import { tokenize, jaccard } from '../src/similarity.js';
 import { displayWidth, truncate, pad } from '../src/table.js';
-import { fmtDay, fmtDateTime } from '../src/utils.js';
+import { fmtDay, fmtDateTime, fmtAgo, fmtBytes, DAY_MS } from '../src/utils.js';
+import { computeHealthScore } from '../src/commands/status.js';
+import { planClean } from '../src/sessionsIndex.js';
 
 test('TOML：抽取 mcp_servers 小节及键值', () => {
   const toml = `
@@ -65,4 +67,37 @@ test('时间：按 Asia/Shanghai 展示（UTC 20:00 = 北京次日），脏时�
   assert.equal(fmtDay(null), '—');
   assert.equal(fmtDay('not-a-date'), '—');
   assert.equal(fmtDateTime('garbage'), '—');
+});
+
+test('相对时间：今天/昨天/N 天前/N 个月前，脏值回退', () => {
+  const now = Date.now();
+  assert.equal(fmtAgo(new Date(now - 3.5 * DAY_MS).toISOString(), now), '3 天前');
+  assert.equal(fmtAgo(new Date(now - 0.2 * DAY_MS).toISOString(), now), '今天');
+  assert.equal(fmtAgo(new Date(now - 1.5 * DAY_MS).toISOString(), now), '昨天');
+  assert.equal(fmtAgo(new Date(now - 65 * DAY_MS).toISOString(), now), '2 个月前');
+  assert.equal(fmtAgo(null, now), '—');
+  assert.equal(fmtAgo('bad', now), '—');
+});
+
+test('健康分：边界与扣分上限', () => {
+  assert.equal(computeHealthScore({ zombieRate: 0, dupGroups: 0, idleMcp: 0, logBytes: 0 }), 100);
+  // 65% 僵尸(-26) + 39 组双份(上限-20) + 1 闲置 MCP(-5) + 1.8GB 日志(上限-15) = 34
+  assert.equal(computeHealthScore({ zombieRate: 0.65, dupGroups: 39, idleMcp: 1, logBytes: 1.8e9 }), 34);
+  // 极端情况不为负
+  assert.equal(computeHealthScore({ zombieRate: 1, dupGroups: 99, idleMcp: 9, logBytes: 9e9 }), 10);
+  assert.equal(fmtBytes(1.8e9), '1.8GB');
+});
+
+test('清理规划：未知工作区仅按天数，无 --days 时整组跳过', () => {
+  const now = 100 * DAY_MS;
+  const mk = (path, workspace, ageDays) => ({ path, workspace, size: 1, mtimeMs: now - ageDays * DAY_MS });
+  const sessions = [mk('a', '/w1', 60), mk('b', '/w1', 2), mk('u1', null, 60), mk('u2', null, 50)];
+  // 只有 keep：未知组整组跳过
+  let r = planClean(sessions, { keep: 1, nowMs: now });
+  assert.equal(r.skippedUnknown, 2);
+  assert.deepEqual(r.groups.flatMap((g) => g.toDelete.map((f) => f.path)), ['a']);
+  // 有 days：未知组按天数参与清理
+  r = planClean(sessions, { days: 30, nowMs: now });
+  assert.equal(r.skippedUnknown, 0);
+  assert.deepEqual(r.groups.flatMap((g) => g.toDelete.map((f) => f.path)).sort(), ['a', 'u1', 'u2']);
 });

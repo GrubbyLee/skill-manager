@@ -1,8 +1,8 @@
 import fs from 'node:fs';
-import { buildSessionIndex, selectDeletions, SAFE_WINDOW_MS } from '../sessionsIndex.js';
+import { buildSessionIndex, planClean, SAFE_WINDOW_MS } from '../sessionsIndex.js';
 import { scanUsage } from '../usage.js';
 import { renderTable, termWidth } from '../table.js';
-import { groupBy, confirm, fmtDay } from '../utils.js';
+import { groupBy, confirm, fmtDay, fmtBytes, paint } from '../utils.js';
 
 const UNKNOWN_LABEL = '（未知工作区）';
 const SAFE_HOURS = SAFE_WINDOW_MS / 3600e3;
@@ -14,14 +14,13 @@ export function runSessions(opts) {
     console.log('未发现任何会话日志。');
     return;
   }
-  // 工作区解析失败的会话以 null 分组，展示层统一映射为占位文案，--json 保持 null 供脚本判断
-  const byWorkspace = groupBy(sessions, (s) => s.workspace);
-
-  if (!opts.clean && !opts['dry-run']) return report(byWorkspace, sessions, opts);
-  return clean(byWorkspace, opts);
+  if (!opts.clean && !opts['dry-run']) return report(sessions, opts);
+  return clean(sessions, opts);
 }
 
-function report(byWorkspace, sessions, { json = false }) {
+function report(sessions, { json = false }) {
+  // 工作区解析失败的会话以 null 分组，展示层统一映射为占位文案，--json 保持 null 供脚本判断
+  const byWorkspace = groupBy(sessions, (s) => s.workspace);
   const rows = [...byWorkspace.entries()]
     .map(([ws, list]) => ({
       workspace: ws,
@@ -46,7 +45,7 @@ function report(byWorkspace, sessions, { json = false }) {
   console.log(`清理：skm sessions --clean --days 30 [--keep 3] [--dry-run]（每工作区保留 最近N个 ∪ N天内 ∪ ${SAFE_HOURS}小时内活跃；未知工作区只按天数清理）`);
 }
 
-async function clean(byWorkspace, opts) {
+async function clean(sessions, opts) {
   const keep = opts.keep != null ? parsePositiveInt(opts.keep, '--keep') : null;
   const days = opts.days != null ? parsePositiveInt(opts.days, '--days') : null;
   if (keep == null && days == null) {
@@ -55,23 +54,7 @@ async function clean(byWorkspace, opts) {
     return;
   }
 
-  const plan = [];
-  let skippedUnknown = 0;
-  for (const [ws, list] of byWorkspace) {
-    // 未知工作区可能混着多个真实项目的会话，不参与"每工作区保留 N 个"的配额：
-    // 有 --days 时只按天数清理，只有 --keep 时整组跳过（宁多留不少留）
-    let toDelete;
-    if (ws === null) {
-      if (days == null) {
-        skippedUnknown = list.length;
-        continue;
-      }
-      ({ toDelete } = selectDeletions(list, { keep: null, days }));
-    } else {
-      ({ toDelete } = selectDeletions(list, { keep, days }));
-    }
-    if (toDelete.length) plan.push({ workspace: ws, toDelete });
-  }
+  const { groups: plan, skippedUnknown } = planClean(sessions, { keep, days });
   const allFiles = plan.flatMap((p) => p.toDelete);
   const totalBytes = sum(allFiles, 'size');
   const policyDesc = `${[keep != null ? `每工作区最近 ${keep} 个` : '', days != null ? `${days} 天以内` : ''].filter(Boolean).join(' ∪ ')} ∪ ${SAFE_HOURS}小时内活跃`;
@@ -161,4 +144,3 @@ function parsePositiveInt(v, flag) {
 const sum = (list, key) => list.reduce((s, x) => s + x[key], 0);
 const min = (list, key) => list.reduce((s, x) => Math.min(s, x[key]), Infinity);
 const max = (list, key) => list.reduce((s, x) => Math.max(s, x[key]), -Infinity);
-const fmtBytes = (n) => (n >= 1e9 ? (n / 1e9).toFixed(1) + 'GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'MB' : Math.round(n / 1e3) + 'KB');

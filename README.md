@@ -31,7 +31,30 @@ npm link        # 之后可全局使用 skm 命令；不想 link 就用 node bin
 
 ## 使用方法与结果示例
 
-以下示例均为真实运行输出（表格截取前几行，工作区路径已泛化）。所有命令都支持 `--json` 输出供脚本或 AI 消费。
+以下示例均为真实运行输出（表格截取前几行，工作区路径已泛化）。所有命令都支持 `--json` 输出供脚本或 AI 消费；输出在终端中带颜色高亮（管道/重定向时自动关闭，遵守 `NO_COLOR` 约定）。
+
+### skm —— 一屏健康体检（裸命令即仪表盘）
+
+不带任何参数直接运行 `skm`，得到当前 AIDE 的整体健康状况与可直接复制执行的建议：
+
+```
+$ skm
+📊 skill 健康体检（目录扫描于今天，过期可 skm scan）
+  能力总量   165 个 skill / 6 个 MCP
+  僵尸 skill  105 个从未使用（64%）
+  重复安装   40 组实体双份
+  闲置 MCP   drawio
+  会话日志   1.8GB（按 30 天 ∪ 留 3 个策略可释放 219.2MB）
+  健康分     35 / 100
+
+建议
+  1. 双份且从未使用 20 个，最优先清理：skm disable baoyu-compress-image …
+  2. 禁用闲置 MCP：skm disable --mcp drawio
+  3. 会话瘦身（先看计划）：skm sessions --clean --days 30 --keep 3 --dry-run
+  4. 完整报告：skm audit | skm dupes
+```
+
+健康分为启发式（僵尸率最高扣 40、实体双份每组扣 1、闲置 MCP 每个扣 5、会话日志每 GB 扣 10），用于自我对比与清理前后的量化反馈。
 
 ### skm scan —— 扫描并建立目录
 
@@ -116,25 +139,30 @@ $ skm audit
 一、使用频率 Top 20（共 57 个 skill 被用过）
 名称             次数   最近使用    分类
 ───────────────  ─────  ──────────  ────────────
-baoyu-image-gen  117    2026-07-16  图像与视觉
-baoyu-comic      12     2026-07-13  图像与视觉
-ui-ux-pro-max    12     2026-07-13  设计与 UI
+baoyu-image-gen  117    3 天前      图像与视觉
+ui-ux-pro-max    12     6 天前      设计与 UI
+taste-skill      11     昨天        设计与 UI
 …
 
-二、僵尸 skill：从未使用 108 个（占 65%）
+二、僵尸 skill：从未使用 105 个（占 64%）
   【办公协作（飞书）】22 个：lark-approval、lark-attendance、…
   …
 
 三、MCP 使用情况（Claude 侧 tool 调用计数）
 名称              次数    最近使用
 ────────────────  ──────  ──────────
-codex             10      2026-07-07
-web-search-prime  10      2026-07-07
+codex             10      12 天前
+web-search-prime  10      12 天前
 drawio            0       —
   ⚠ 从未使用的 MCP：drawio —— MCP schema 全量注入上下文，建议优先禁用
 
 四、常驻上下文开销 Top 10（name+description 估算）
   …
+
+建议
+  1. 双份且从未使用 20 个，最优先清理：skm disable baoyu-compress-image …
+  2. 禁用闲置 MCP：skm disable --mcp drawio
+  3. 清理前交叉核对重复明细：skm dupes
 ```
 
 ```

@@ -63,6 +63,32 @@ export function selectDeletions(files, { keep = null, days = null, nowMs = Date.
   };
 }
 
+// 统一的清理规划（sessions --clean 与 status 概览共用）：
+// 真实工作区应用 keep∪days 并集；未知工作区仅接受 days，无 days 时整组跳过
+export function planClean(sessions, { keep = null, days = null, nowMs = Date.now() }) {
+  const byWorkspace = new Map();
+  for (const s of sessions) {
+    if (!byWorkspace.has(s.workspace)) byWorkspace.set(s.workspace, []);
+    byWorkspace.get(s.workspace).push(s);
+  }
+  const groups = [];
+  let skippedUnknown = 0;
+  for (const [workspace, list] of byWorkspace) {
+    let toDelete;
+    if (workspace === null) {
+      if (days == null) {
+        skippedUnknown = list.length;
+        continue;
+      }
+      ({ toDelete } = selectDeletions(list, { keep: null, days, nowMs }));
+    } else {
+      ({ toDelete } = selectDeletions(list, { keep, days, nowMs }));
+    }
+    if (toDelete.length) groups.push({ workspace, toDelete });
+  }
+  return { groups, skippedUnknown };
+}
+
 function parseCwd(file) {
   let fd = null;
   try {

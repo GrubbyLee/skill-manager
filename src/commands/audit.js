@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { mergeByDirName, toolLabel } from '../catalog.js';
-import { scanUsage } from '../usage.js';
+import { scanUsage, buildUsageLookup } from '../usage.js';
 import { renderTable, termWidth } from '../table.js';
 import { ensureCatalog } from './scan.js';
 import { DATA_DIR } from '../paths.js';
-import { fmtDay, fmtDateTime, fileStamp, DAY_MS } from '../utils.js';
+import { fmtDay, fmtDateTime, fmtAgo, fileStamp, DAY_MS, paint } from '../utils.js';
 
 const ZOMBIE_DAYS = 90;
 const HISTORY_DIR = path.join(DATA_DIR, 'audit-history');
@@ -23,18 +23,7 @@ export function runAudit({ cwd, json = false, history = false }) {
 
   console.error('正在解析会话日志（首次较慢，之后增量缓存秒级）…');
   const usage = scanUsage({ log: (msg) => console.error(msg) });
-
-  // 调用名可能是 frontmatter name 或目录名；name 键只在不与其他 skill 的目录名冲突时才计入，
-  // 避免"A 的 name 恰好等于 B 的 dirName"时同一批调用被记到两个 skill 头上
-  const allDirNames = new Set(merged.map((m) => m.dirName));
-  const usageOf = (m) => {
-    const a = usage.skills[m.dirName];
-    const b = m.name !== m.dirName && !allDirNames.has(m.name) ? usage.skills[m.name] : null;
-    return {
-      count: (a?.count || 0) + (b?.count || 0),
-      lastUsed: [a?.lastUsed, b?.lastUsed].filter(Boolean).sort().pop() || null,
-    };
-  };
+  const usageOf = buildUsageLookup(merged, usage);
 
   const now = Date.now();
   const rows = merged
@@ -72,14 +61,14 @@ export function runAudit({ cwd, json = false, history = false }) {
 
   console.log(`观察窗口：${fmtDay(usage.earliest)} 起（以现存会话日志与已聚合的墓碑统计为准）\n`);
 
-  console.log(`一、使用频率 Top 20（共 ${used.length} 个 skill 被用过）`);
+  console.log(paint.bold(`一、使用频率 Top 20`) + `（共 ${used.length} 个 skill 被用过）`);
   console.log(renderTable(
     [{ title: '名称', width: 30 }, { title: '次数', width: 5 }, { title: '最近使用', width: 10 }, { title: '分类', width: 0 }],
-    used.slice(0, 20).map((r) => [r.m.dirName, r.u.count, fmtDay(r.u.lastUsed), r.m.category]),
+    used.slice(0, 20).map((r) => [r.m.dirName, r.u.count, fmtAgo(r.u.lastUsed), r.m.category]),
     width,
   ));
 
-  console.log(`\n二、僵尸 skill：从未使用 ${neverUsed.length} 个（占 ${Math.round((neverUsed.length / merged.length) * 100)}%）`);
+  console.log('\n' + paint.bold('二、僵尸 skill：') + paint.red(`从未使用 ${neverUsed.length} 个（占 ${Math.round((neverUsed.length / merged.length) * 100)}%）`));
   const byCat = new Map();
   for (const r of neverUsed) {
     if (!byCat.has(r.m.category)) byCat.set(r.m.category, []);
@@ -92,11 +81,11 @@ export function runAudit({ cwd, json = false, history = false }) {
     console.log(`  另有 ${stale.length} 个超过 ${ZOMBIE_DAYS} 天未用：${stale.map((r) => r.m.dirName).join('、')}`);
   }
 
-  console.log('\n三、MCP 使用情况（Claude 侧 tool 调用计数）');
+  console.log('\n' + paint.bold('三、MCP 使用情况（Claude 侧 tool 调用计数）'));
   const mcpNames = new Set(catalog.mcpServers.map((s) => s.name));
   const mcpRows = [...mcpNames].map((name) => {
     const u = usage.mcp[name];
-    return [name, u?.count || 0, fmtDay(u?.lastUsed ?? null)];
+    return [name, u?.count || 0, fmtAgo(u?.lastUsed ?? null)];
   }).sort((a, b) => b[1] - a[1]);
   console.log(renderTable(
     [{ title: '名称', width: 20 }, { title: '次数', width: 6 }, { title: '最近使用', width: 0 }],
@@ -104,16 +93,26 @@ export function runAudit({ cwd, json = false, history = false }) {
     Math.min(width, 60),
   ));
   const idleMcp = mcpRows.filter((r) => r[1] === 0).map((r) => r[0]);
-  if (idleMcp.length) console.log(`  ⚠ 从未使用的 MCP：${idleMcp.join('、')} —— MCP schema 全量注入上下文，建议优先禁用`);
+  if (idleMcp.length) console.log(paint.yellow(`  ⚠ 从未使用的 MCP：${idleMcp.join('、')} —— MCP schema 全量注入上下文，建议优先禁用`));
 
-  console.log('\n四、常驻上下文开销 Top 10（name+description 估算）');
+  console.log('\n' + paint.bold('四、常驻上下文开销 Top 10（name+description 估算）'));
   const costTop = [...merged].sort((a, b) => b.descTokens - a.descTokens).slice(0, 10);
   for (const m of costTop) {
     const u = usageOf(m);
     console.log(`  ${String(m.descTokens).padStart(4)} token  ${m.dirName}（${toolLabel(m.tools)}，用过 ${u.count} 次）`);
   }
 
-  console.log('\n建议：先清"从未使用 + 实体双份"的交集，再处理未使用的 MCP；清理前可用 skm dupes 交叉核对。');
+  // 建议直接给出可复制执行的命令，打通"审计 → 行动"的最后一公里
+  const dupSet = new Set(merged.filter((m) => m.entries.length > 1 && new Set(m.entries.map((e) => e.realPath)).size > 1).map((m) => m.dirName));
+  const primaryTargets = neverUsed.map((r) => r.m.dirName).filter((n) => dupSet.has(n));
+  console.log('\n' + paint.bold('建议'));
+  let n = 0;
+  if (primaryTargets.length) {
+    const show = primaryTargets.slice(0, 5).join(' ');
+    console.log(`  ${++n}. 双份且从未使用 ${primaryTargets.length} 个，最优先清理：${paint.cyan(`skm disable ${show}${primaryTargets.length > 5 ? ' …' : ''}`)}`);
+  }
+  if (idleMcp.length) console.log(`  ${++n}. 禁用闲置 MCP：${paint.cyan(`skm disable --mcp ${idleMcp.join(' ')}`)}`);
+  console.log(`  ${++n}. 清理前交叉核对重复明细：${paint.cyan('skm dupes')}`);
 }
 
 function archiveSnapshot(snapshot) {

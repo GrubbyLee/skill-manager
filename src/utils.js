@@ -32,6 +32,37 @@ export function fileStamp(t = Date.now()) {
   return `${p.date}T${p.time.replace(/:/g, '-')}`;
 }
 
+// 相对时间："今天 / 昨天 / N 天前 / N 个月前"，比绝对日期更符合直觉；未来时间与脏数据回退到绝对日期
+export function fmtAgo(t, nowMs = Date.now()) {
+  if (t == null) return '—';
+  const diff = nowMs - new Date(t).getTime();
+  if (Number.isNaN(diff)) return '—';
+  if (diff < 0) return fmtDay(t);
+  const days = Math.floor(diff / DAY_MS);
+  if (days === 0) return '今天';
+  if (days === 1) return '昨天';
+  if (days < 30) return `${days} 天前`;
+  if (days < 365) return `${Math.floor(days / 30)} 个月前`;
+  return `${Math.floor(days / 365)} 年前`;
+}
+
+// ---------- 字节格式化 ----------
+export function fmtBytes(n) {
+  return n >= 1e9 ? (n / 1e9).toFixed(1) + 'GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'MB' : Math.round(n / 1e3) + 'KB';
+}
+
+// ---------- 终端颜色：仅 TTY 且未设 NO_COLOR 时启用 ----------
+const colorEnabled = !!process.stdout.isTTY && !process.env.NO_COLOR;
+const code = (n) => (s) => (colorEnabled ? `[${n}m${s}[0m` : String(s));
+export const paint = {
+  red: code(31),
+  green: code(32),
+  yellow: code(33),
+  cyan: code(36),
+  gray: code(90),
+  bold: code(1),
+};
+
 // ---------- 字符串 ----------
 export function stripQuotes(s) {
   if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {

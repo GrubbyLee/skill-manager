@@ -1,7 +1,9 @@
-// 终端对齐输出：中文等全角字符按宽度 2 计算，保证表格不错位
+// 终端对齐输出：中文等全角字符按宽度 2 计算，保证表格不错位；测量前剥离 ANSI 颜色序列
+const ANSI_RE = /\[[0-9;]*m/g;
+
 export function displayWidth(str) {
   let w = 0;
-  for (const ch of str) w += charWidth(ch.codePointAt(0));
+  for (const ch of String(str).replace(ANSI_RE, '')) w += charWidth(ch.codePointAt(0));
   return w;
 }
 

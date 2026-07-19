@@ -195,3 +195,18 @@ function loadCache() {
   if (c?.version === CACHE_VERSION && c.files && c.retired) return c;
   return { version: CACHE_VERSION, files: {}, retired: { skills: {}, mcp: {}, earliest: null } };
 }
+
+// 构造 skill → 使用情况 的查询函数（audit 与 status 共用）。
+// 调用名可能是 frontmatter name 或目录名；name 键只在不与其他 skill 的目录名冲突时才计入，
+// 避免"A 的 name 恰好等于 B 的 dirName"时同一批调用被记到两个 skill 头上
+export function buildUsageLookup(merged, usage) {
+  const allDirNames = new Set(merged.map((m) => m.dirName));
+  return (m) => {
+    const a = usage.skills[m.dirName];
+    const b = m.name !== m.dirName && !allDirNames.has(m.name) ? usage.skills[m.name] : null;
+    return {
+      count: (a?.count || 0) + (b?.count || 0),
+      lastUsed: [a?.lastUsed, b?.lastUsed].filter(Boolean).sort().pop() || null,
+    };
+  };
+}

@@ -1,7 +1,7 @@
 import { mergeByDirName } from '../catalog.js';
 import { tokenize, jaccard } from '../similarity.js';
 import { ensureCatalog } from './scan.js';
-import { groupBy } from '../utils.js';
+import { groupBy, paint } from '../utils.js';
 
 const SIMILAR_THRESHOLD = 0.4;
 const SIMILAR_TOP = 15;
@@ -81,10 +81,10 @@ export function runDupes({ cwd, json = false }) {
   for (const g of sameName) {
     const where = g.installs.map((i) => `${i.tool === 'claude-code' ? 'claude' : i.tool}/${i.scope}`).join(' + ');
     const verdict = g.shared
-      ? '软链共享同一实体，无需处理'
+      ? paint.green('软链共享同一实体，无需处理')
       : g.identical
-        ? '内容完全相同，可考虑软链化或保留一份'
-        : '⚠ 内容不同，需先对比再清理';
+        ? paint.yellow('内容完全相同，可考虑软链化或保留一份')
+        : paint.red('⚠ 内容不同，需先对比再清理');
     console.log(`  ${g.dirName}  [${where}]  ${verdict}`);
   }
 

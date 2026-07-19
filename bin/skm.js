@@ -8,6 +8,7 @@ import { runAudit } from '../src/commands/audit.js';
 import { runSearch } from '../src/commands/search.js';
 import { runSessions } from '../src/commands/sessions.js';
 import { runDisable, runEnable } from '../src/commands/toggle.js';
+import { runStatus } from '../src/commands/status.js';
 
 const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 （默认只读；仅 sessions --clean / disable / enable 会改动文件，均有确认与备份防护）
@@ -15,6 +16,8 @@ const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 用法：skm <命令> [选项]
 
 命令：
+  （无命令）      健康体检概览：总量 / 僵尸率 / 重复 / 会话体积 / 健康分 + 建议
+  status          同上（显式写法）
   scan            扫描 Claude Code 与 Codex，生成 ~/.skill-manager/catalog.json
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）
@@ -98,11 +101,12 @@ for (const flag of ['keep', 'days']) {
   }
 }
 
-const cmd = positionals[0] || 'help';
+const cmd = positionals[0] || 'status';
 const ctx = { cwd: process.cwd(), ...values };
 
 async function main() {
   if (values.help || cmd === 'help') console.log(HELP);
+  else if (cmd === 'status') runStatus(ctx);
   else if (cmd === 'scan') runScan(ctx);
   else if (cmd === 'list') runList(ctx);
   else if (cmd === 'search') runSearch({ ...ctx, keywords: positionals.slice(1) });
