@@ -1,0 +1,26 @@
+name: 同步到 Gitee
+
+# push 到 GitHub 的 main 分支或任何标签时，自动将完整仓库同步到 Gitee 镜像
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出完整历史
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 推送到 Gitee
+        # 需要在仓库 Settings → Secrets and variables → Actions 配置两个 secret：
+        #   GITEE_USERNAME —— Gitee 登录名（如 synovation 或绑定手机/邮箱对应的用户名）
+        #   GITEE_TOKEN    —— Gitee 私人令牌，必须勾选 projects 权限（仅 issues 权限无法推代码）
+        run: |
+          git remote add gitee "https://${{ secrets.GITEE_USERNAME }}:${{ secrets.GITEE_TOKEN }}@gitee.com/synovation/skill-manager.git"
+          git push gitee HEAD:main --force
+          git push gitee --tags --force
