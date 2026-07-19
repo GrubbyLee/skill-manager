@@ -11,6 +11,7 @@ skm 是一个清点、梳理并治理 AIDE（Claude Code / Codex CLI）中 skill
 - **双工具覆盖**：同时扫描 Claude Code（用户级 / 项目级 / 插件自带 skill、`~/.claude.json` 与 `.mcp.json` 的 MCP）和 Codex（`~/.codex/skills`、`config.toml` 的 MCP）
 - **软链感知**：正确处理指向共享库（如 `~/.agents/skills`）的符号链接，区分"软链共享一份实体"与"实体双份拷贝"
 - **规则分类**：内置中文分类规则（可通过 `~/.skill-manager/rules.json` 扩展/覆盖），未分类率趋近 0
+- **任务推荐**：直接输入“我要做什么”，推荐最合适的 skill，结合文本相关性、转换方向、历史使用、最近使用与两侧可用性
 - **四级重复检测**：同名多处安装 → 异名同内容 → 同类多实现 → 文本高度相似
 - **使用审计**：解析两侧会话日志统计每个 skill / MCP 的真实使用频率，识别从未使用的僵尸项，快照自动归档
 - **会话治理**：按工作区查看会话日志分布，按保留策略安全清理（确认式，统计先聚合再删除）
@@ -39,6 +40,8 @@ npm link        # 之后可全局使用 skm 命令；不想 link 就用 node bin
 | `skm list` | 按分类列出 skill，默认合并两侧同名项 | `--category <关键字>`、`--tool claude\|codex`、`--scope user\|project\|plugin`、`--raw` |
 | `skm list --mcp` | 列出 MCP server | `--tool claude\|codex`、`--json` |
 | `skm search <词>` | 搜索名称、分类、描述，回答“该用哪个 skill” | 支持多个关键词；`--json` |
+| `skm recommend <任务>` | 根据自然语言任务描述推荐最合适的 skill | `--top <N>`、`--tool claude\|codex`、`--category <关键字>`、`--why`、`--json` |
+| `skm ask <任务>` | 以问答口吻给出首选 skill、理由和备选 | `--tool claude\|codex`、`--category <关键字>`、`--json` |
 | `skm dupes` | 四级重复检测：同名安装、同内容、同类多实现、文本相似 | `--json` |
 | `skm audit` | 使用频率、僵尸 skill、MCP 使用、上下文开销审计 | `--history` 看归档；`--json` |
 | `skm sessions` | 按工作区查看 Claude/Codex 会话日志分布 | `--json` |
@@ -173,6 +176,80 @@ baoyu-format-markdown       两侧    内容抓取与转换  Formats plain text 
 baoyu-markdown-to-html      两侧    内容抓取与转换  Converts Markdown to styled HTML…
 baoyu-url-to-markdown       两侧    内容抓取与转换  Fetch any URL and convert to…
 wechat-to-markdown          codex   发布分发        Fetch WeChat Official Account…
+```
+
+### skm recommend —— 任务推荐
+
+当你只知道“我要做什么”，但不确定该用哪个 skill 时，优先使用 `skm recommend` 或 `skm ask`。这两个命令不调用外部模型，不上传任何目录信息，只基于本机扫描目录与使用统计做本地启发式推荐。
+
+推荐排序会综合以下信号：
+
+- **文本相关性**：匹配目录名、frontmatter `name`、分类、description
+- **中文同义词**：例如“小红书”会扩展到 `xhs` / `image cards`，“网页”会扩展到 `url` / `web`
+- **转换方向**：识别 `markdown to html`、`html to markdown`、`网页转 markdown`，避免推荐反向 skill
+- **使用记录**：历史用过、最近 30/90 天用过的 skill 会加权，但不会让不相关的热门 skill 混入
+- **可用范围**：Claude/Codex 两侧都可用的 skill 会优先
+
+`recommend` 输出排序表，适合快速比较；`ask` 输出首选、理由和备选，适合直接问“该用哪个”。
+
+```
+$ skm recommend "把网页转成 markdown"
+正在结合目录与使用统计生成推荐…
+推荐任务：把网页转成 markdown
+
+推荐  名称                        工具    分类            最近使用    理由
+────  ──────────────────────────  ──────  ──────────────  ──────────  ─────────────────────────────
+1     baoyu-url-to-markdown       两侧    内容抓取与转换  3 天前      名称高度匹配；描述匹配；历史用过 8 次；最近 30 天用过
+2     baoyu-markdown-to-html      两侧    内容抓取与转换  —           名称高度匹配；分类匹配；Claude/Codex 两侧可用
+3     baoyu-format-markdown       两侧    内容抓取与转换  12 天前     名称高度匹配；历史用过 2 次；最近 30 天用过
+
+提示：recommend 是本地启发式推荐；复杂任务可结合 skm search 与 skm audit 交叉确认。
+```
+
+查看详细命中词与分数：
+
+```
+$ skm recommend "把网页转成 markdown" --why
+推荐任务：把网页转成 markdown
+
+推荐  分数   名称                          工具    最近使用    命中 / 理由
+────  ─────  ────────────────────────────  ──────  ──────────  ─────────────────────────────────────
+1     58     baoyu-url-to-markdown         两侧    6 天前      命中 markdown, url, web；方向匹配：url → markdown；…
+2     32     baoyu-danger-x-to-markdown    两侧    —           命中 markdown, url；目标匹配：markdown；…
+```
+
+问答式推荐：
+
+```
+$ skm ask "把网页转成 markdown"
+任务：把网页转成 markdown
+
+首选：baoyu-url-to-markdown（两侧，内容抓取与转换）
+理由：方向匹配：url → markdown；名称高度匹配；描述匹配；Claude/Codex 两侧可用；最近 30 天用过。
+
+备选：
+  - baoyu-danger-x-to-markdown：目标匹配：markdown；名称高度匹配；描述匹配
+  - wechat-to-markdown：目标匹配：markdown；名称高度匹配；任务词相似
+```
+
+常用参数：
+
+| 参数 | 作用 | 示例 |
+|---|---|---|
+| `--top <N>` | 指定推荐数量（最多 20） | `skm recommend "生成封面图" --top 5` |
+| `--tool claude\|codex` | 只推荐某一侧可用的 skill | `skm recommend "小红书图片卡片" --tool codex` |
+| `--category <关键字>` | 限制分类范围 | `skm recommend "封面图" --category 图像` |
+| `--why` | 显示分数、命中词、方向识别 | `skm recommend "markdown to html" --why` |
+| `--json` | 输出结构化结果，供 AI 或脚本消费 | `skm recommend "写邮件" --json` |
+
+推荐功能可以这样自测：
+
+```bash
+skm recommend "markdown to html" --why
+skm recommend "html to markdown" --why
+skm recommend "做小红书图片卡片" --tool codex --category 图像 --top 2
+skm ask "把网页转成 markdown"
+skm recommend "生成封面图" --category 图像 --json
 ```
 
 ### skm dupes —— 四级重复检测

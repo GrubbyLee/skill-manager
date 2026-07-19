@@ -6,6 +6,7 @@ import { runList } from '../src/commands/list.js';
 import { runDupes } from '../src/commands/dupes.js';
 import { runAudit } from '../src/commands/audit.js';
 import { runSearch } from '../src/commands/search.js';
+import { runAsk, runRecommend } from '../src/commands/recommend.js';
 import { runSessions } from '../src/commands/sessions.js';
 import { runDisable, runEnable } from '../src/commands/toggle.js';
 import { runStatus } from '../src/commands/status.js';
@@ -22,6 +23,8 @@ const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   scan            扫描 Claude Code 与 Codex，生成 ~/.skill-manager/catalog.json
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）
+  recommend <事>  根据自然语言任务描述推荐最合适的 skill（结合使用频率与两侧可用性）
+  ask <事>        以问答口吻给出首选 skill、理由和备选
   dupes           重复检测：同名安装 / 内容相同 / 同类多实现 / 文本相似
   audit           健康审计：使用频率、僵尸 skill、MCP 使用、上下文开销（--history 看归档）
   sessions        按工作区展示会话日志分布；--clean 按保留策略清理
@@ -42,6 +45,12 @@ list 选项：
 scan 选项：
   --verbose               显示全部解析警告
 
+recommend 选项：
+  --top <N>               推荐数量（默认 3）
+  --tool <claude|codex>   只推荐某个工具可用的 skill
+  --category <关键字>      限制推荐分类
+  --why                   显示更详细的命中词与分数
+
 sessions 选项：
   --clean                 进入清理模式（需配 --keep 和/或 --days）
   --keep <N>              每工作区保留最近 N 个会话
@@ -53,6 +62,8 @@ sessions 选项：
   skm scan
   skm list --category ppt
   skm search 转 markdown
+  skm recommend "把网页转成 markdown"
+  skm ask "做小红书图片卡片"
   skm audit
   skm sessions --clean --days 30 --keep 3 --dry-run
   skm disable gsap-plugins
@@ -72,8 +83,10 @@ try {
       'dry-run': { type: 'boolean', default: false },
       yes: { type: 'boolean', default: false },
       history: { type: 'boolean', default: false },
+      why: { type: 'boolean', default: false },
       keep: { type: 'string' },
       days: { type: 'string' },
+      top: { type: 'string' },
       tool: { type: 'string' },
       category: { type: 'string' },
       scope: { type: 'string' },
@@ -101,6 +114,10 @@ for (const flag of ['keep', 'days']) {
     process.exit(1);
   }
 }
+if (values.top != null && !/^\d+$/.test(values.top)) {
+  console.error(`--top 需要正整数，收到：${values.top}`);
+  process.exit(1);
+}
 
 const cmd = positionals[0] || 'status';
 const ctx = { cwd: process.cwd(), ...values };
@@ -111,6 +128,8 @@ async function main() {
   else if (cmd === 'scan') runScan(ctx);
   else if (cmd === 'list') runList(ctx);
   else if (cmd === 'search') runSearch({ ...ctx, keywords: positionals.slice(1) });
+  else if (cmd === 'recommend') runRecommend({ ...ctx, keywords: positionals.slice(1) });
+  else if (cmd === 'ask') runAsk({ ...ctx, keywords: positionals.slice(1) });
   else if (cmd === 'dupes') runDupes(ctx);
   else if (cmd === 'audit') runAudit(ctx);
   else if (cmd === 'sessions') await runSessions(ctx);
