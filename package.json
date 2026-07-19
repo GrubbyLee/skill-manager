@@ -10,6 +10,7 @@
     "bin",
     "src",
     "integrations",
+    "docs/graphic.png",
     "README.md",
     "LICENSE"
   ],

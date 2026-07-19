@@ -335,6 +335,10 @@ skm graph --format html --output skill-graph.html
 xdg-open skill-graph.html
 ```
 
+图谱效果示例：
+
+![skm skill 知识图谱示意图](docs/graphic.png)
+
 导出结构化数据或 Mermaid：
 
 ```bash
