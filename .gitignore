@@ -19,3 +19,6 @@ npm-debug.log*
 # 本地推广草稿（不入库）
 promo/
 .npmrc
+
+# AI 编码代理本地指令（不入库）
+AGENTS.md
