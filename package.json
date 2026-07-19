@@ -28,13 +28,13 @@
   ],
   "author": "Li_Js",
   "license": "MIT",
-  "homepage": "https://gitee.com/synovation/skill-manager",
+  "homepage": "https://github.com/GrubbyLee/skill-manager",
   "repository": {
     "type": "git",
-    "url": "git+https://gitee.com/synovation/skill-manager.git"
+    "url": "git+https://github.com/GrubbyLee/skill-manager.git"
   },
   "bugs": {
-    "url": "https://gitee.com/synovation/skill-manager/issues"
+    "url": "https://github.com/GrubbyLee/skill-manager/issues"
   },
   "engines": {
     "node": ">=18"

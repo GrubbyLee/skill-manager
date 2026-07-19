@@ -23,8 +23,8 @@ skm 是一个清点、梳理并治理 AIDE（Claude Code / Codex CLI）中 skill
 # 方式一：npm 全局安装
 npm i -g aide-skill-manager --registry=https://registry.npmmirror.com
 
-# 方式二：源码安装
-git clone https://gitee.com/synovation/skill-manager.git
+# 方式二：源码安装（GitHub 主仓；国内可用 Gitee 镜像 https://gitee.com/synovation/skill-manager）
+git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
 npm link        # 之后可全局使用 skm 命令；不想 link 就用 node bin/skm.js
 ```
@@ -298,7 +298,7 @@ test/                   node --test 单元测试
 
 skill 和 MCP 的生态越繁荣，"装得多、理不清"就越是每个 AIDE 重度用户的必经之痛。skm 不替你做删除的决定——它只负责把事实摆清楚：哪些重复、哪些从未被用过、哪些在拖慢启动。看清之后，清理就只是顺手的事。
 
-如果这个工具帮你找回了对 skill 目录的掌控感，欢迎 Star ⭐；遇到问题或有新想法，欢迎提 [Issue](https://gitee.com/synovation/skill-manager/issues)。
+如果这个工具帮你找回了对 skill 目录的掌控感，欢迎在 [GitHub](https://github.com/GrubbyLee/skill-manager) 点 Star ⭐（Gitee 同步镜像：<https://gitee.com/synovation/skill-manager>）；遇到问题或有新想法，欢迎提 [Issue](https://github.com/GrubbyLee/skill-manager/issues)。
 
 ## 许可证
 
