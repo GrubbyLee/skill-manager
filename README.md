@@ -20,10 +20,7 @@ skm 是一个清点、梳理并治理 AIDE（Claude Code / Codex CLI）中 skill
 ## 安装
 
 ```bash
-# 方式一：npm 全局安装
-npm i -g aide-skill-manager --registry=https://registry.npmmirror.com
-
-# 方式二：源码安装（GitHub 主仓；国内可用 Gitee 镜像 https://gitee.com/synovation/skill-manager）
+# 源码安装（GitHub 主仓；国内可用 Gitee 镜像 https://gitee.com/synovation/skill-manager）
 git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
 npm link        # 之后可全局使用 skm 命令；不想 link 就用 node bin/skm.js
@@ -32,6 +29,59 @@ npm link        # 之后可全局使用 skm 命令；不想 link 就用 node bin
 ## 使用方法与结果示例
 
 以下示例均为真实运行输出（表格截取前几行，工作区路径已泛化）。所有命令都支持 `--json` 输出供脚本或 AI 消费；输出在终端中带颜色高亮（管道/重定向时自动关闭，遵守 `NO_COLOR` 约定）。
+
+### 命令速查表
+
+| 命令 | 用途 | 常用选项 / 说明 |
+|---|---|---|
+| `skm` / `skm status` | 一屏健康体检：总量、僵尸率、重复、会话体积、健康分与建议 | `--json` 输出结构化结果 |
+| `skm scan` | 扫描 Claude Code / Codex 的 skill 与 MCP，重建 `~/.skill-manager/catalog.json` | `--verbose` 显示解析警告 |
+| `skm list` | 按分类列出 skill，默认合并两侧同名项 | `--category <关键字>`、`--tool claude\|codex`、`--scope user\|project\|plugin`、`--raw` |
+| `skm list --mcp` | 列出 MCP server | `--tool claude\|codex`、`--json` |
+| `skm search <词>` | 搜索名称、分类、描述，回答“该用哪个 skill” | 支持多个关键词；`--json` |
+| `skm dupes` | 四级重复检测：同名安装、同内容、同类多实现、文本相似 | `--json` |
+| `skm audit` | 使用频率、僵尸 skill、MCP 使用、上下文开销审计 | `--history` 看归档；`--json` |
+| `skm sessions` | 按工作区查看 Claude/Codex 会话日志分布 | `--json` |
+| `skm sessions --clean` | 按保留策略清理会话日志 | 必须配 `--days <N>` 和/或 `--keep <N>`；先用 `--dry-run`；脚本模式加 `--yes` |
+| `skm disable <名>` | 软禁用 skill（目录加 `_disabled-` 前缀，可逆） | 可一次传多个名称 |
+| `skm enable [名]` | 恢复 skill；不带名称时列出已禁用项 | 可一次传多个名称 |
+| `skm disable --mcp <名>` | 禁用 MCP（修改配置前自动备份） | 需确认；可一次传多个名称 |
+| `skm enable --mcp <名>` | 恢复被 skm 禁用的 MCP | 需确认；遇到用户已手动重建的同名配置会跳过不覆盖 |
+| `skm help` | 查看内置帮助 | 同 `skm -h` |
+
+### 一般排查流程
+
+当你觉得 skill / MCP 太多、启动变慢、重复安装难以判断，或会话日志占用过大时，建议按下面顺序排查：先刷新事实，再看整体，再定位重复与闲置，最后才执行可逆禁用或清理。
+
+```bash
+# 1. 刷新目录：新装 / 删除 / 移动 skill 后先跑一次
+skm scan
+
+# 2. 看整体健康体检：总量、僵尸率、重复安装、闲置 MCP、会话体积与建议
+skm
+
+# 3. 查重复：区分软链共享、实体双份、同内容复制、同类多实现
+skm dupes
+
+# 4. 查真实使用频率：确认哪些 skill 从未使用、哪些最近没再用
+skm audit
+
+# 5. 查 MCP：先看装了哪些，再结合 audit 判断 Claude 侧是否闲置
+skm list --mcp
+skm audit
+
+# 6. 查会话日志体积：按工作区看 Claude / Codex 日志分布
+skm sessions
+
+# 7. 清理日志必须先 dry-run，看清楚计划再执行
+skm sessions --clean --days 30 --keep 3 --dry-run
+
+# 8. 确认后再做软禁用（可逆）；MCP 会改配置，执行前会备份并要求确认
+skm disable <skill名>
+skm disable --mcp <MCP名>
+```
+
+排查时优先处理“实体双份 + 从未使用”的 skill，以及 Claude 侧从未调用过的 MCP。只想浏览事实时停在第 6 步即可；第 7、8 步属于写操作，建议确认报告无误后再执行。
 
 ### skm —— 一屏健康体检（裸命令即仪表盘）
 
