@@ -2,7 +2,7 @@
 
 > 当你的 Claude Code / Codex 里装了上百个 skill 和一堆 MCP——功能重复的、从来没用过的、连名字都想不起来的——启动越来越慢，想用时却分不清该用哪个。skm 就是为这个时刻准备的。
 
-skm 是一个清点、梳理并治理 AIDE（Claude Code / Codex CLI）中 skill 与 MCP 的命令行工具：一眼看清当前装了哪些 skill、按能力自动分类、检测四种层次的重复、统计**真实使用频率**、识别僵尸 skill，并能安全地清理会话日志、软禁用不需要的 skill / MCP。默认只读，零第三方依赖（仅需 Node.js ≥ 18 运行环境）。
+skm 是一个清点、梳理并治理 AIDE（Claude Code / Codex CLI）中 skill 与 MCP 的命令行工具：一眼看清当前装了哪些 skill、按能力自动分类、检测四种层次的重复、统计**真实使用频率**、识别僵尸 skill，并能安全地清理会话日志、软禁用不需要的 skill / MCP。尤为重要的是，它能够在众多功能重复的skills中推荐你到底该使用哪一个。默认只读，零第三方依赖（仅需 Node.js ≥ 18 运行环境）。
 
 ![skm 演示](docs/demo.png)
 
