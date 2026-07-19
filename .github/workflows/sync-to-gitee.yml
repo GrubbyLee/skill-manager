@@ -11,16 +11,26 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: 校验必需的 Secret
+        # 缺 Secret 时给出清晰的中文错误，而不是下面 git 报的费解空 URL 认证失败
+        env:
+          GITEE_USERNAME: ${{ secrets.GITEE_USERNAME }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          [ -n "$GITEE_USERNAME" ] || { echo "::error::缺少 Secret：GITEE_USERNAME（个人 Gitee 登录名，非组织名）"; exit 1; }
+          [ -n "$GITEE_TOKEN" ] || { echo "::error::缺少 Secret：GITEE_TOKEN（需在 Gitee 生成勾选 projects 权限的令牌）"; exit 1; }
+          echo "两个 Secret 均已配置，开始同步"
+
       - name: 检出完整历史
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: 推送到 Gitee
-        # 需要在仓库 Settings → Secrets and variables → Actions 配置两个 secret：
-        #   GITEE_USERNAME —— Gitee 登录名（如 synovation 或绑定手机/邮箱对应的用户名）
-        #   GITEE_TOKEN    —— Gitee 私人令牌，必须勾选 projects 权限（仅 issues 权限无法推代码）
+        env:
+          GITEE_USERNAME: ${{ secrets.GITEE_USERNAME }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
-          git remote add gitee "https://${{ secrets.GITEE_USERNAME }}:${{ secrets.GITEE_TOKEN }}@gitee.com/synovation/skill-manager.git"
+          git remote add gitee "https://${GITEE_USERNAME}:${GITEE_TOKEN}@gitee.com/synovation/skill-manager.git"
           git push gitee HEAD:main --force
           git push gitee --tags --force
