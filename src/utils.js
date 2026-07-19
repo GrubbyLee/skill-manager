@@ -32,17 +32,18 @@ export function fileStamp(t = Date.now()) {
   return `${p.date}T${p.time.replace(/:/g, '-')}`;
 }
 
-// 相对时间："今天 / 昨天 / N 天前 / N 个月前"，比绝对日期更符合直觉；未来时间与脏数据回退到绝对日期
+// 相对时间：按 Asia/Shanghai 的日历日计算（昨晚 23:30 在今晨查看应显示"昨天"而非"今天"）；
+// 未来时间与脏数据回退到绝对日期
 export function fmtAgo(t, nowMs = Date.now()) {
   if (t == null) return '—';
-  const diff = nowMs - new Date(t).getTime();
-  if (Number.isNaN(diff)) return '—';
-  if (diff < 0) return fmtDay(t);
-  const days = Math.floor(diff / DAY_MS);
+  const target = tzParts(t);
+  if (!target) return '—';
+  const days = Math.round((Date.parse(tzParts(nowMs).date) - Date.parse(target.date)) / DAY_MS);
+  if (days < 0) return fmtDay(t);
   if (days === 0) return '今天';
   if (days === 1) return '昨天';
   if (days < 30) return `${days} 天前`;
-  if (days < 365) return `${Math.floor(days / 30)} 个月前`;
+  if (days < 365) return `${Math.min(11, Math.floor(days / 30))} 个月前`;
   return `${Math.floor(days / 365)} 年前`;
 }
 
@@ -51,17 +52,14 @@ export function fmtBytes(n) {
   return n >= 1e9 ? (n / 1e9).toFixed(1) + 'GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'MB' : Math.round(n / 1e3) + 'KB';
 }
 
-// ---------- 终端颜色：仅 TTY 且未设 NO_COLOR 时启用 ----------
-const colorEnabled = !!process.stdout.isTTY && !process.env.NO_COLOR;
-const code = (n) => (s) => (colorEnabled ? `[${n}m${s}[0m` : String(s));
-export const paint = {
-  red: code(31),
-  green: code(32),
-  yellow: code(33),
-  cyan: code(36),
-  gray: code(90),
-  bold: code(1),
-};
+// ---------- 终端颜色：按目标流独立判断（stdout/stderr 可能一个是 TTY 一个被重定向） ----------
+function makePaint(stream) {
+  const enabled = !!stream.isTTY && !process.env.NO_COLOR;
+  const code = (n) => (s) => (enabled ? `\u001b[${n}m${s}\u001b[0m` : String(s));
+  return { red: code(31), green: code(32), yellow: code(33), cyan: code(36), gray: code(90), bold: code(1) };
+}
+export const paint = makePaint(process.stdout);
+export const paintErr = makePaint(process.stderr);
 
 // ---------- 字符串 ----------
 export function stripQuotes(s) {

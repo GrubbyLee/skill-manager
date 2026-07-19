@@ -1,5 +1,7 @@
-// 终端对齐输出：中文等全角字符按宽度 2 计算，保证表格不错位；测量前剥离 ANSI 颜色序列
+// 终端对齐输出：中文等全角字符按宽度 2 计算，保证表格不错位；
+// 全部宽度计算与截断均兼容 ANSI 颜色序列（测量时剥离、截断时跳过并补重置码）
 const ANSI_RE = /\[[0-9;]*m/g;
+const ANSI_SPLIT = new RegExp(`(${ANSI_RE.source})`);
 
 export function displayWidth(str) {
   let w = 0;
@@ -23,18 +25,27 @@ function charWidth(cp) {
   return 1;
 }
 
-// 截断到指定显示宽度，超出以 … 结尾
+// 截断到指定显示宽度，超出以 … 结尾；颜色序列按零宽跳过，截断后补重置码防止颜色泄漏到后续单元格
 export function truncate(str, width) {
-  if (displayWidth(str) <= width) return str;
+  const s = String(str);
+  if (displayWidth(s) <= width) return s;
   let out = '';
   let w = 0;
-  for (const ch of str) {
-    const cw = charWidth(ch.codePointAt(0));
-    if (w + cw > width - 1) break;
-    out += ch;
-    w += cw;
+  let hadAnsi = false;
+  outer: for (const part of s.split(ANSI_SPLIT)) {
+    if (part.startsWith('')) {
+      out += part;
+      hadAnsi = true;
+      continue;
+    }
+    for (const ch of part) {
+      const cw = charWidth(ch.codePointAt(0));
+      if (w + cw > width - 1) break outer;
+      out += ch;
+      w += cw;
+    }
   }
-  return out + '…';
+  return out + '…' + (hadAnsi ? '[0m' : '');
 }
 
 export function pad(str, width) {

@@ -11,7 +11,8 @@ import { runDisable, runEnable } from '../src/commands/toggle.js';
 import { runStatus } from '../src/commands/status.js';
 
 const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
-（默认只读；仅 sessions --clean / disable / enable 会改动文件，均有确认与备份防护）
+（不修改 AIDE 的配置与 skill 文件，仅 sessions --clean / disable / enable 例外且均有确认与备份；
+ 工具自身的目录与缓存写在 ~/.skill-manager，首次运行会解析会话日志建立缓存，需数秒到几十秒）
 
 用法：skm <命令> [选项]
 

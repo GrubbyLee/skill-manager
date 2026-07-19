@@ -37,4 +37,11 @@ export function toolLabel(tools) {
   return tools[0] === 'claude-code' ? 'claude' : tools[0];
 }
 
+// 实体双份：同名多处安装且并非软链共享同一实体。
+// status / audit / dupes 三处共用同一谓词，保证"多少组双份"口径一致；
+// realPath 缺失（外部编辑过的 catalog）时退回 path 判断，避免假阳性/假阴性
+export function isDupEntity(m) {
+  return m.entries.length > 1 && new Set(m.entries.map((e) => e.realPath ?? e.path)).size > 1;
+}
+
 export const CATALOG_REL = path.join('~', '.skill-manager', 'catalog.json');

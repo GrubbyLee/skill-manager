@@ -40,21 +40,21 @@ npm link        # 之后可全局使用 skm 命令；不想 link 就用 node bin
 ```
 $ skm
 📊 skill 健康体检（目录扫描于今天，过期可 skm scan）
-  能力总量   165 个 skill / 6 个 MCP
+  能力总量    165 个 skill / 6 个 MCP
   僵尸 skill  105 个从未使用（64%）
-  重复安装   40 组实体双份
-  闲置 MCP   drawio
-  会话日志   1.8GB（按 30 天 ∪ 留 3 个策略可释放 219.2MB）
-  健康分     35 / 100
+  重复安装    40 组实体双份
+  闲置 MCP    drawio
+  会话日志    1.8GB（按 30 天 ∪ 留 3 个策略可释放 219.2MB）
+  健康分      35 / 100
 
 建议
-  1. 双份且从未使用 20 个，最优先清理：skm disable baoyu-compress-image …
+  1. 双份且从未使用 20 个，最优先清理：skm disable baoyu-compress-image baoyu-cover-image …（先清前 5 个，完整清单见 skm audit --json）
   2. 禁用闲置 MCP：skm disable --mcp drawio
   3. 会话瘦身（先看计划）：skm sessions --clean --days 30 --keep 3 --dry-run
-  4. 完整报告：skm audit | skm dupes
+  4. 完整报告：skm audit（使用频率与僵尸清单） | skm dupes（重复明细）
 ```
 
-健康分为启发式（僵尸率最高扣 40、实体双份每组扣 1、闲置 MCP 每个扣 5、会话日志每 GB 扣 10），用于自我对比与清理前后的量化反馈。
+健康分为 0-100 的启发式评分：僵尸率最高扣 40 分，实体双份每组扣 1 分（上限 20），闲置 MCP 每个扣 5 分（上限 15），会话日志每 GB 扣 10 分（上限 15）。上例中双份与日志两项均已触顶，故为 100−26−20−5−15=35 分（说明：闲置 MCP 的判定只依据 Claude 侧的调用记录，仅在 Codex 侧配置的 MCP 无法观测、不会被建议禁用）。评分用于自我对比与清理前后的量化反馈。
 
 ### skm scan —— 扫描并建立目录
 
@@ -66,7 +66,7 @@ $ skm scan
   Claude Code：skill 87（用户 72 / 插件 15），MCP 6
   Codex：      skill 118（用户 118），MCP 3
   去重后共 165 个 skill，其中 40 个在两侧同名安装
-  常驻上下文开销估算（name+description）：约 15712 token/侧
+  常驻上下文开销估算（name+description）：Claude 约 9529 token，Codex 约 10577 token
   分类分布：办公协作（飞书） 25 | 内容抓取与转换 15 | 第三方服务集成 15 | 图像与视觉 14 | …
   已归档目录（_ 或 . 开头，未计入）：claude 0，codex 2
 目录已写入 ~/.skill-manager/catalog.json
@@ -148,19 +148,19 @@ taste-skill      11     昨天        设计与 UI
   【办公协作（飞书）】22 个：lark-approval、lark-attendance、…
   …
 
-三、MCP 使用情况（Claude 侧 tool 调用计数）
+三、MCP 使用情况（使用信号来自 Claude 侧调用；仅 Codex 侧配置的无法观测）
 名称              次数    最近使用
 ────────────────  ──────  ──────────
-codex             10      12 天前
+codex             13      今天
 web-search-prime  10      12 天前
 drawio            0       —
-  ⚠ 从未使用的 MCP：drawio —— MCP schema 全量注入上下文，建议优先禁用
+  ⚠ Claude 侧从未使用的 MCP：drawio —— MCP schema 全量注入上下文，建议优先禁用
 
 四、常驻上下文开销 Top 10（name+description 估算）
   …
 
 建议
-  1. 双份且从未使用 20 个，最优先清理：skm disable baoyu-compress-image …
+  1. 双份且从未使用 20 个，最优先清理：skm disable baoyu-compress-image …（先清前 5 个，完整清单见 skm audit --json）
   2. 禁用闲置 MCP：skm disable --mcp drawio
   3. 清理前交叉核对重复明细：skm dupes
 ```
@@ -229,7 +229,7 @@ $ skm disable --mcp drawio
 
 ## 写操作边界
 
-工具默认只读；仅以下三个动作会改动文件，且各有防护：
+工具不修改 AIDE 的配置与 skill 文件（自身的目录、缓存与审计归档写在 `~/.skill-manager/`）；仅以下三个动作例外，且各有防护：
 
 | 动作 | 改动内容 | 防护 |
 |---|---|---|

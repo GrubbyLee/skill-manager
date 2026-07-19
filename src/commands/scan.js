@@ -2,11 +2,13 @@ import { scanClaudeCode } from '../adapters/claudeCode.js';
 import { scanCodex } from '../adapters/codex.js';
 import { loadRules, classify } from '../classify.js';
 import { saveCatalog, loadCatalog, mergeByDirName, CATALOG_REL } from '../catalog.js';
-import { paint } from '../utils.js';
+import { paint, paintErr } from '../utils.js';
 
 // silent 模式：汇总走 stderr，保证 --json 消费方的 stdout 干净（兜底重扫场景）
 export function runScan({ cwd, json = false, verbose = false, silent = false }) {
   const print = silent ? console.error : console.log;
+  // 着色按实际写入的流判断（stdout 与 stderr 的 TTY 状态可能不同）
+  const pal = silent ? paintErr : paint;
   const claude = scanClaudeCode({ cwd });
   const codex = scanCodex();
   const ruleSet = loadRules();
@@ -54,7 +56,7 @@ export function runScan({ cwd, json = false, verbose = false, silent = false }) 
     print(`  ${label}skill ${list.length}（${scopes || '无'}），MCP ${mcp}`);
   };
 
-  print(paint.green('扫描完成 ✓'));
+  print(pal.green('扫描完成 ✓'));
   line('claude-code', 'Claude Code：');
   line('codex', 'Codex：      ');
   print(`  去重后共 ${merged.length} 个 skill，其中 ${both} 个在两侧同名安装`);
@@ -66,8 +68,8 @@ export function runScan({ cwd, json = false, verbose = false, silent = false }) 
     print(`  已归档目录（_ 或 . 开头，未计入）：claude ${catalog.archived['claude-code']}，codex ${catalog.archived.codex}`);
   }
   if (warnings.length) {
-    print(paint.yellow(`  警告 ${warnings.length} 条${verbose ? '：' : '（--verbose 查看）'}`));
-    if (verbose) for (const w of warnings) print(paint.yellow(`    - ${w}`));
+    print(pal.yellow(`  警告 ${warnings.length} 条${verbose ? '：' : '（--verbose 查看）'}`));
+    if (verbose) for (const w of warnings) print(pal.yellow(`    - ${w}`));
   }
   print(`目录已写入 ${CATALOG_REL}`);
 }

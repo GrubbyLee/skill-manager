@@ -1,4 +1,4 @@
-import { mergeByDirName } from '../catalog.js';
+import { mergeByDirName, isDupEntity } from '../catalog.js';
 import { tokenize, jaccard } from '../similarity.js';
 import { ensureCatalog } from './scan.js';
 import { groupBy, paint } from '../utils.js';
@@ -16,12 +16,12 @@ export function runDupes({ cwd, json = false }) {
   const skills = catalog.skills;
   const merged = mergeByDirName(skills);
 
-  // 一级：同名。若各处 realPath 相同则是软链共享同一实体，并非真正的重复
+  // 一级：同名。软链共享同一实体的并非真正重复（与 status/audit 的"实体双份"用同一谓词）
   const sameName = merged
     .filter((m) => m.entries.length > 1)
     .map((m) => ({
       dirName: m.dirName,
-      shared: new Set(m.entries.map((e) => e.realPath)).size === 1,
+      shared: !isDupEntity(m),
       identical: new Set(m.entries.map((e) => e.skillMdHash)).size === 1,
       installs: m.entries.map((e) => ({ tool: e.tool, scope: e.scope, path: e.path, realPath: e.realPath, hash: e.skillMdHash })),
     }));

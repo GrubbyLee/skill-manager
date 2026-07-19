@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { HOME, DATA_DIR } from './paths.js';
-import { walkFiles, loadJsonFile, saveJsonFile, DAY_MS } from './utils.js';
+import { DATA_DIR, CLAUDE_SESSIONS_ROOT, CODEX_SESSIONS_ROOT } from './paths.js';
+import { walkFiles, loadJsonFile, saveJsonFile, groupBy, DAY_MS } from './utils.js';
 
 const INDEX_PATH = path.join(DATA_DIR, 'session-index.json');
-export const CLAUDE_SESSIONS_ROOT = path.join(HOME, '.claude', 'projects');
-export const CODEX_SESSIONS_ROOT = path.join(HOME, '.codex', 'sessions');
+export { CLAUDE_SESSIONS_ROOT, CODEX_SESSIONS_ROOT };
 
 // 安全底线：该窗口内活跃的会话永不进入删除清单（sessions.js 的提示文案也由此换算）
 export const SAFE_WINDOW_MS = DAY_MS;
@@ -66,14 +65,9 @@ export function selectDeletions(files, { keep = null, days = null, nowMs = Date.
 // 统一的清理规划（sessions --clean 与 status 概览共用）：
 // 真实工作区应用 keep∪days 并集；未知工作区仅接受 days，无 days 时整组跳过
 export function planClean(sessions, { keep = null, days = null, nowMs = Date.now() }) {
-  const byWorkspace = new Map();
-  for (const s of sessions) {
-    if (!byWorkspace.has(s.workspace)) byWorkspace.set(s.workspace, []);
-    byWorkspace.get(s.workspace).push(s);
-  }
   const groups = [];
   let skippedUnknown = 0;
-  for (const [workspace, list] of byWorkspace) {
+  for (const [workspace, list] of groupBy(sessions, (s) => s.workspace)) {
     let toDelete;
     if (workspace === null) {
       if (days == null) {

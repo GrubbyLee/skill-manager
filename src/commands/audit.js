@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { mergeByDirName, toolLabel } from '../catalog.js';
 import { scanUsage, buildUsageLookup } from '../usage.js';
+import { buildCleanupTips, findIdleMcp } from '../advice.js';
 import { renderTable, termWidth } from '../table.js';
 import { ensureCatalog } from './scan.js';
 import { DATA_DIR } from '../paths.js';
@@ -81,19 +82,21 @@ export function runAudit({ cwd, json = false, history = false }) {
     console.log(`  另有 ${stale.length} 个超过 ${ZOMBIE_DAYS} 天未用：${stale.map((r) => r.m.dirName).join('、')}`);
   }
 
-  console.log('\n' + paint.bold('三、MCP 使用情况（Claude 侧 tool 调用计数）'));
+  console.log('\n' + paint.bold('三、MCP 使用情况（使用信号来自 Claude 侧调用；仅 Codex 侧配置的无法观测）'));
+  const { idle: idleMcp, unobservable: codexOnlyMcp } = findIdleMcp(catalog.mcpServers, usage);
+  const codexOnlySet = new Set(codexOnlyMcp);
   const mcpNames = new Set(catalog.mcpServers.map((s) => s.name));
   const mcpRows = [...mcpNames].map((name) => {
+    if (codexOnlySet.has(name)) return [name, '不可观测', '—'];
     const u = usage.mcp[name];
     return [name, u?.count || 0, fmtAgo(u?.lastUsed ?? null)];
-  }).sort((a, b) => b[1] - a[1]);
+  }).sort((a, b) => (typeof b[1] === 'number' ? b[1] : -1) - (typeof a[1] === 'number' ? a[1] : -1));
   console.log(renderTable(
-    [{ title: '名称', width: 20 }, { title: '次数', width: 6 }, { title: '最近使用', width: 0 }],
+    [{ title: '名称', width: 20 }, { title: '次数', width: 8 }, { title: '最近使用', width: 0 }],
     mcpRows,
     Math.min(width, 60),
   ));
-  const idleMcp = mcpRows.filter((r) => r[1] === 0).map((r) => r[0]);
-  if (idleMcp.length) console.log(paint.yellow(`  ⚠ 从未使用的 MCP：${idleMcp.join('、')} —— MCP schema 全量注入上下文，建议优先禁用`));
+  if (idleMcp.length) console.log(paint.yellow(`  ⚠ Claude 侧从未使用的 MCP：${idleMcp.join('、')} —— MCP schema 全量注入上下文，建议优先禁用`));
 
   console.log('\n' + paint.bold('四、常驻上下文开销 Top 10（name+description 估算）'));
   const costTop = [...merged].sort((a, b) => b.descTokens - a.descTokens).slice(0, 10);
@@ -102,16 +105,13 @@ export function runAudit({ cwd, json = false, history = false }) {
     console.log(`  ${String(m.descTokens).padStart(4)} token  ${m.dirName}（${toolLabel(m.tools)}，用过 ${u.count} 次）`);
   }
 
-  // 建议直接给出可复制执行的命令，打通"审计 → 行动"的最后一公里
-  const dupSet = new Set(merged.filter((m) => m.entries.length > 1 && new Set(m.entries.map((e) => e.realPath)).size > 1).map((m) => m.dirName));
-  const primaryTargets = neverUsed.map((r) => r.m.dirName).filter((n) => dupSet.has(n));
+  // 建议与 status 仪表盘共用同一生成逻辑，保证命令与口径一致
+  const { tips } = buildCleanupTips({ merged, usageOf, idleMcp });
   console.log('\n' + paint.bold('建议'));
   let n = 0;
-  if (primaryTargets.length) {
-    const show = primaryTargets.slice(0, 5).join(' ');
-    console.log(`  ${++n}. 双份且从未使用 ${primaryTargets.length} 个，最优先清理：${paint.cyan(`skm disable ${show}${primaryTargets.length > 5 ? ' …' : ''}`)}`);
+  for (const tip of tips) {
+    console.log(`  ${++n}. ${tip.text}：${paint.cyan(tip.command)}${tip.note ? paint.gray(tip.note) : ''}`);
   }
-  if (idleMcp.length) console.log(`  ${++n}. 禁用闲置 MCP：${paint.cyan(`skm disable --mcp ${idleMcp.join(' ')}`)}`);
   console.log(`  ${++n}. 清理前交叉核对重复明细：${paint.cyan('skm dupes')}`);
 }
 

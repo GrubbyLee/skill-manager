@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { HOME, DATA_DIR } from './paths.js';
+import { DATA_DIR, CLAUDE_SESSIONS_ROOT, CODEX_SESSIONS_ROOT } from './paths.js';
 import { walkFiles, forEachLine, loadJsonFile, saveJsonFile } from './utils.js';
 
 const CACHE_PATH = path.join(DATA_DIR, 'usage-cache.json');
@@ -29,8 +29,8 @@ const BUILTIN_COMMANDS = new Set([
 export function scanUsage({ log = () => {} } = {}) {
   const cache = loadCache();
   const files = [
-    ...walkFiles(path.join(HOME, '.claude', 'projects')).map((f) => ({ ...f, kind: 'claude' })),
-    ...walkFiles(path.join(HOME, '.codex', 'sessions')).map((f) => ({ ...f, kind: 'codex' })),
+    ...walkFiles(CLAUDE_SESSIONS_ROOT).map((f) => ({ ...f, kind: 'claude' })),
+    ...walkFiles(CODEX_SESSIONS_ROOT).map((f) => ({ ...f, kind: 'codex' })),
   ];
 
   let dirty = false;
