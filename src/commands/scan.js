@@ -2,6 +2,7 @@ import { scanClaudeCode } from '../adapters/claudeCode.js';
 import { scanCodex } from '../adapters/codex.js';
 import { loadRules, classify } from '../classify.js';
 import { saveCatalog, loadCatalog, mergeByDirName, CATALOG_REL } from '../catalog.js';
+import { renderTable, termWidth } from '../table.js';
 import { paint, paintErr } from '../utils.js';
 
 // silent 模式：汇总走 stderr，保证 --json 消费方的 stdout 干净（兜底重扫场景）
@@ -40,38 +41,76 @@ export function runScan({ cwd, json = false, verbose = false, silent = false }) 
   const both = merged.filter((m) => m.tools.length > 1).length;
   const byCat = new Map();
   for (const m of merged) byCat.set(m.category, (byCat.get(m.category) || 0) + 1);
-  const catSummary = [...byCat.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([c, n]) => `${c} ${n}`)
-    .join(' | ');
 
-  const line = (tool, label) => {
+  const skillStats = (tool) => {
     const list = skills.filter((s) => s.tool === tool);
-    const scopes = ['user', 'project', 'plugin']
-      .map((sc) => [sc, list.filter((s) => s.scope === sc).length])
-      .filter(([, n]) => n > 0)
-      .map(([sc, n]) => `${{ user: '用户', project: '项目', plugin: '插件' }[sc]} ${n}`)
-      .join(' / ');
-    const mcp = mcpServers.filter((s) => s.tool === tool).length;
-    print(`  ${label}skill ${list.length}（${scopes || '无'}），MCP ${mcp}`);
+    return {
+      skills: list.length,
+      user: list.filter((s) => s.scope === 'user').length,
+      project: list.filter((s) => s.scope === 'project').length,
+      plugin: list.filter((s) => s.scope === 'plugin').length,
+      mcp: mcpServers.filter((s) => s.tool === tool).length,
+      archived: catalog.archived[tool],
+      tokens: list.reduce((sum, s) => sum + s.descTokens, 0),
+    };
   };
 
   print(pal.green('扫描完成 ✓'));
-  line('claude-code', 'Claude Code：');
-  line('codex', 'Codex：      ');
-  print(`  去重后共 ${merged.length} 个 skill，其中 ${both} 个在两侧同名安装`);
-  // 分侧统计：每侧的常驻开销是该侧实际加载条目的 name+description 之和
-  const tokensFor = (tool) => skills.filter((s) => s.tool === tool).reduce((sum, s) => sum + s.descTokens, 0);
-  print(`  常驻上下文开销估算（name+description）：Claude 约 ${tokensFor('claude-code')} token，Codex 约 ${tokensFor('codex')} token`);
-  print(`  分类分布：${catSummary}`);
+  const width = termWidth();
+  const claudeStats = skillStats('claude-code');
+  const codexStats = skillStats('codex');
+
+  print('\n扫描概览');
+  print(renderTable(
+    [
+      { title: '工具', width: 12 },
+      { title: 'skill', width: 6 },
+      { title: '用户', width: 6 },
+      { title: '项目', width: 6 },
+      { title: '插件', width: 6 },
+      { title: 'MCP', width: 5 },
+      { title: '已归档', width: 8 },
+      { title: '上下文估算', width: 0 },
+    ],
+    [
+      ['Claude Code', claudeStats.skills, claudeStats.user, claudeStats.project, claudeStats.plugin, claudeStats.mcp, claudeStats.archived, `约 ${claudeStats.tokens} token`],
+      ['Codex', codexStats.skills, codexStats.user, codexStats.project, codexStats.plugin, codexStats.mcp, codexStats.archived, `约 ${codexStats.tokens} token`],
+    ],
+    Math.min(width, 100),
+  ));
+
+  print('\n汇总');
+  print(renderTable(
+    [
+      { title: '指标', width: 24 },
+      { title: '数值', width: 0 },
+    ],
+    [
+      ['去重后 skill', `${merged.length} 个`],
+      ['两侧同名安装', `${both} 个`],
+      ['解析警告', `${warnings.length} 条`],
+      ['目录文件', CATALOG_REL],
+    ],
+    Math.min(width, 90),
+  ));
+
+  print('\n分类分布');
+  print(renderTable(
+    [
+      { title: '分类', width: 24 },
+      { title: '数量', width: 0 },
+    ],
+    [...byCat.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => [c, `${n} 个`]),
+    Math.min(width, 80),
+  ));
   if (catalog.archived['claude-code'] + catalog.archived.codex > 0) {
-    print(`  已归档目录（_ 或 . 开头，未计入）：claude ${catalog.archived['claude-code']}，codex ${catalog.archived.codex}`);
+    print('\n说明：已归档目录指名称以 _ 或 . 开头、扫描时未计入的目录。');
   }
   if (warnings.length) {
     print(pal.yellow(`  警告 ${warnings.length} 条${verbose ? '：' : '（--verbose 查看）'}`));
     if (verbose) for (const w of warnings) print(pal.yellow(`    - ${w}`));
   }
-  print(`目录已写入 ${CATALOG_REL}`);
+  print(`\n目录已写入 ${CATALOG_REL}`);
 }
 
 // 各命令的统一兜底：目录缺失/损坏 → 静默重扫（汇总走 stderr）→ 仍失败则抛出明确错误
