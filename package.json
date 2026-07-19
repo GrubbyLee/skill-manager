@@ -11,7 +11,9 @@
     "src",
     "integrations",
     "scripts",
+    "docs/demo.png",
     "docs/graphic.png",
+    "docs/comic-*.jpg",
     "README.md",
     "LICENSE"
   ],
