@@ -22,7 +22,7 @@ jobs:
           echo "两个 Secret 均已配置，开始同步"
 
       - name: 检出完整历史
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
