@@ -10,11 +10,13 @@
     "bin",
     "src",
     "integrations",
+    "scripts",
     "docs/graphic.png",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
+    "check": "node scripts/check-syntax.mjs",
     "test": "node --test"
   },
   "keywords": [

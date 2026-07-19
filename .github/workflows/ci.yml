@@ -1,0 +1,52 @@
+name: 三端验证
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['18.x']
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: 显示运行环境
+        run: node -e "console.log(process.platform, process.arch, process.version)"
+
+      - name: 安装校验
+        run: npm install --ignore-scripts
+
+      - name: 语法检查
+        run: npm run check
+
+      - name: 单元测试
+        run: npm test
+
+      - name: CLI 基础命令验证
+        run: |
+          node bin/skm.js help
+          node bin/skm.js scan --json
+          node bin/skm.js graph --format json --output skill-graph.json
+          node bin/skm.js graph --format html --output skill-graph.html
+
+      - name: 打包预检
+        run: npm pack --dry-run --registry=https://registry.npmmirror.com

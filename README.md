@@ -1,5 +1,7 @@
 # skill-manager（skm）
 
+[![三端验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
+
 > 当你的 Claude Code / Codex 里装了上百个 skill 和一堆 MCP——功能重复的、从来没用过的、连名字都想不起来的——启动越来越慢，想用时却分不清该用哪个。skm 就是为这个时刻准备的。
 
 skm 是一个清点、梳理并治理 AIDE（Claude Code / Codex CLI）中 skill 与 MCP 的命令行工具：一眼看清当前装了哪些 skill、按能力自动分类、检测四种层次的重复、统计**真实使用频率**、识别僵尸 skill，并能安全地清理会话日志、软禁用不需要的 skill / MCP。尤为重要的是，它能够在众多功能重复的skills中推荐你到底该使用哪一个。默认只读，零第三方依赖（仅需 Node.js ≥ 18 运行环境）。
@@ -515,18 +517,31 @@ cp -r integrations/skill-navigator ~/.codex/skills/     # Codex
 - 上下文开销估算：skill 常驻部分只有 `name + description`（正文按需加载）；MCP 则是全量 tool schema 注入，治理收益更大
 - 归档约定：目录名加 `_` 前缀即被扫描忽略（如 `_archived-xxx`）
 
+## 三端验证
+
+本仓库通过 GitHub Actions 自动验证 Linux、macOS、Windows 三端。每次 push 到 `main`、提交 Pull Request，或在 Actions 页面手动触发 `三端验证` workflow，都会在三种系统上执行：
+
+- `npm install --ignore-scripts`
+- `npm run check`：用 Node.js 对 `bin` / `src` / `test` 下的 `.js` / `.mjs` 做语法检查
+- `npm test`：运行全部 `node --test` 单元测试
+- CLI smoke test：执行 `help`、`scan --json`、`graph --format json/html`
+- `npm pack --dry-run`：确认发布包内容完整
+
+验证入口：[GitHub Actions / 三端验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)。
+
 ## 目录结构
 
 ```
 bin/skm.js              CLI 入口（参数解析与校验、命令分发）
 src/adapters/           claude-code / codex 扫描适配器
-src/commands/           scan / list / search / dupes / audit / sessions / toggle(disable+enable)
+src/commands/           scan / list / search / recommend / graph / dupes / audit / sessions / toggle(disable+enable)
 src/classify.js         分类规则引擎（DEFAULT_RULES + DEFAULT_OVERRIDES + 用户规则）
 src/usage.js            会话日志使用统计（流式解析、增量缓存、墓碑聚合）
 src/sessionsIndex.js    会话文件 → 工作区索引与清理策略
 src/catalog.js          目录读写与同名合并
 src/utils.js            共享工具（时区格式化、原子 JSON 读写、确认交互等）
 integrations/           skill-navigator 薄入口 skill
+scripts/                本地与 CI 共用的辅助脚本
 test/                   node --test 单元测试
 ```
 
