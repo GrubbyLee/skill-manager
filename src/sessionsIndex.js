@@ -89,8 +89,7 @@ function parseCwd(file) {
     fd = fs.openSync(file, 'r');
     const buf = Buffer.alloc(16384);
     const n = fs.readSync(fd, buf, 0, buf.length, 0);
-    const m = buf.toString('utf8', 0, n).match(/"cwd":"([^"]+)"/);
-    if (m) return m[1];
+    return parseCwdFromText(buf.toString('utf8', 0, n));
   } catch {
     /* 读不到按未知处理 */
   } finally {
@@ -99,6 +98,28 @@ function parseCwd(file) {
         fs.closeSync(fd);
       } catch {
         /* 关闭失败无需处理 */
+      }
+    }
+  }
+  return null;
+}
+
+export function parseCwdFromText(text) {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    try {
+      const obj = JSON.parse(line);
+      if (typeof obj.cwd === 'string') return obj.cwd;
+    } catch {
+      /* 非完整 JSON 行时走正则兜底 */
+    }
+    const m = line.match(/"cwd"\s*:\s*"((?:\\.|[^"\\])*)"/);
+    if (m) {
+      try {
+        return JSON.parse(`"${m[1]}"`);
+      } catch {
+        return m[1];
       }
     }
   }

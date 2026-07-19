@@ -77,7 +77,7 @@ async function toggleSkills({ cwd, names }, disable) {
   }
 }
 
-async function toggleMcp({ names, yes }, disable) {
+async function toggleMcp({ cwd, names, yes }, disable) {
   if (!names.length) {
     console.error(`用法：skm ${disable ? 'disable' : 'enable'} --mcp <名称>`);
     process.exitCode = 1;
@@ -87,6 +87,7 @@ async function toggleMcp({ names, yes }, disable) {
   console.log(`将${action} MCP：${names.join('、')}（会修改 AIDE 配置文件，修改前自动备份到 ${BACKUP_DIR}）`);
   if (!(await confirm('确认执行？输入 yes 继续，其他任意键取消：', { yes }))) return;
 
+  let touchedAny = false;
   for (const name of names) {
     let touched = false;
 
@@ -102,6 +103,7 @@ async function toggleMcp({ names, yes }, disable) {
         saveStore(store);
         console.log(`  claude：已从 ~/.claude.json 移除 ${name}（配置已存入 ${MCP_STORE}，备份：${backupPath}）`);
         touched = true;
+        touchedAny = true;
       } else if (!disable && store.claude[name]) {
         // 用户已手动重新添加过同名配置时不覆盖；若两者内容一致则顺手清理暂存，避免残留
         if (config.mcpServers?.[name]) {
@@ -113,6 +115,7 @@ async function toggleMcp({ names, yes }, disable) {
             console.error(`  claude：~/.claude.json 已存在 ${name} 配置且与暂存不同，跳过恢复以免覆盖（暂存仍保留在 ${MCP_STORE}）`);
           }
           touched = true;
+          touchedAny = true;
         } else {
           const backupPath = backupFile(CLAUDE_CONFIG_FILE, `claude.json.${name}`);
           config.mcpServers ??= {};
@@ -122,6 +125,7 @@ async function toggleMcp({ names, yes }, disable) {
           saveStore(store);
           console.log(`  claude：已恢复 ${name} 到 ~/.claude.json（备份：${backupPath}）`);
           touched = true;
+          touchedAny = true;
         }
       }
     }
@@ -135,10 +139,19 @@ async function toggleMcp({ names, yes }, disable) {
         fs.writeFileSync(CODEX_CONFIG_FILE, result.text);
         console.log(`  codex：已${action} config.toml 中的 [mcp_servers.${name}]（${result.touched} 行，备份：${backupPath}）`);
         touched = true;
+        touchedAny = true;
       }
     }
 
     if (!touched) console.error(`  ${name}：两侧均未找到${disable ? '' : '可恢复的'}该 MCP 配置`);
+  }
+  if (touchedAny) {
+    console.log('\n重新扫描目录…');
+    try {
+      runScan({ cwd });
+    } catch (e) {
+      console.error(`目录刷新失败：${e.message}。MCP 配置已修改，可稍后手动运行 skm scan。`);
+    }
   }
   console.log(`\n注意：MCP 变更对已打开的 AIDE 会话不生效，重启 claude / codex 后生效。`);
 }

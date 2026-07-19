@@ -110,10 +110,11 @@ function scanClaudeFile(file) {
   return { skills, mcp, earliest };
 }
 
-function scanCodexFile(file) {
+export function scanCodexFile(file) {
   // 只认 function_call 里实际读取 SKILL.md 的行为；解析层不过滤名称（过滤在消费侧做），
   // 避免"skill 安装晚于日志扫描 → 历史使用被缓存永久抹掉"
   const seen = new Map(); // name -> 最近时间戳
+  let earliest = null;
   try {
     forEachLine(file, (line) => {
       if (!line.includes('SKILL.md') || !line.includes('function_call')) return;
@@ -130,6 +131,7 @@ function scanCodexFile(file) {
       while ((m = re.exec(line)) !== null) {
         const name = m[1].split('/').pop();
         const ts = obj.timestamp || null;
+        if (ts && (!earliest || ts < earliest)) earliest = ts;
         if (!seen.has(name) || (ts && ts > seen.get(name))) seen.set(name, ts);
       }
     });
@@ -138,7 +140,7 @@ function scanCodexFile(file) {
   }
   const skills = {};
   for (const [name, ts] of seen) skills[name] = { count: 1, lastUsed: ts };
-  return { skills, mcp: {}, earliest: null };
+  return { skills, mcp: {}, earliest };
 }
 
 // mcp__<server>__<tool> → server；server 名本身可含双下划线，故从最后一个 __ 切

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectDeletions } from '../src/sessionsIndex.js';
+import { parseCwdFromText, selectDeletions } from '../src/sessionsIndex.js';
 import { toggleTomlSection } from '../src/commands/toggle.js';
 
 const DAY = 86400e3;
@@ -18,6 +18,13 @@ test('清理策略：keep 与 days 取并集，24 小时内活跃永不删', () 
   // keep 0 且 days 0：仍保留 24 小时内的 a
   r = selectDeletions(files, { keep: 0, days: 0, nowMs: now });
   assert.deepEqual(r.kept.map((f) => f.path), ['a']);
+});
+
+test('会话 cwd 解析：兼容紧凑 JSON、空白与转义字符', () => {
+  assert.equal(parseCwdFromText('{"cwd":"/tmp/a"}\n'), '/tmp/a');
+  assert.equal(parseCwdFromText('{ "cwd": "/tmp/b" }\n'), '/tmp/b');
+  assert.equal(parseCwdFromText('{ "cwd": "/tmp/带 空格/\\"quoted\\"" }\n'), '/tmp/带 空格/"quoted"');
+  assert.equal(parseCwdFromText('{"type":"event"}\n'), null);
 });
 
 test('TOML 段落注释：只动目标 server 及其子表，且可逆', () => {

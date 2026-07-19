@@ -241,7 +241,7 @@ $ skm disable --mcp drawio
 
 - Claude Code：解析 `~/.claude/projects/**/*.jsonl` 中的 Skill 工具调用与斜杠命令记录，MCP 按 `mcp__<server>__` 工具调用计数
 - Codex：解析 `~/.codex/sessions/**/*.jsonl`，**只统计 function_call 中实际读取 `SKILL.md` 的行为**（Codex 会把全部可用 skill 路径注入会话上下文，直接匹配路径会严重虚高，已规避），同一会话同一 skill 只计 1 次
-- 流式逐行读取（恒定内存，GB 级单文件也不受 Node 字符串上限影响）；按文件大小+mtime 增量缓存（`~/.skill-manager/usage-cache.json`，v2），首轮约十秒，之后毫秒级
+- 流式逐行读取（恒定内存，GB 级单文件也不受 Node 字符串上限影响）；按文件大小+mtime 增量缓存（`~/.skill-manager/usage-cache.json`，v3），首轮约十秒，之后毫秒级
 - 解析层不做名称过滤（过滤在消费侧），skill 晚于日志安装也能追溯到历史使用
 - **墓碑机制**：日志文件被清理后，已聚合的统计并入常驻聚合桶永久保留；每次 audit 还会把快照归档到 `~/.skill-manager/audit-history/`
 - 所有日期展示统一为 Asia/Shanghai 时区；数据文件内仍存 ISO/UTC
