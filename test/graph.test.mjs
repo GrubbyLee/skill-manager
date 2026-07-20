@@ -102,3 +102,29 @@ test('知识图谱 HTML：关系说明与节点拖拽保持单文件实现', () 
   assert.match(html, /function updateConnectedEdges/);
   assert.match(html, /pointermove/);
 });
+
+test('知识图谱 HTML：支持重点节点、闲置隐藏、标签开关与搜索聚焦', () => {
+  const catalog = {
+    scannedAt: '2026-07-20T00:00:00Z',
+    skills: [
+      skill('baoyu-url-to-markdown', 'Fetch any URL and convert to markdown.'),
+      skill('baoyu-markdown-to-html', 'Converts Markdown to styled HTML.'),
+      skill('email-draft-polish', 'Draft and polish emails.', { category: '商务与文书' }),
+    ],
+    mcpServers: [],
+  };
+  const graph = buildKnowledgeGraph(catalog, {
+    skills: { 'baoyu-url-to-markdown': { count: 2, lastUsed: '2026-07-19T00:00:00Z' } },
+  });
+  const html = renderGraph(graph, 'html');
+
+  assert.match(html, /id="only-important"/);
+  assert.match(html, /id="hide-idle"/);
+  assert.match(html, /id="show-labels"/);
+  assert.match(html, /id="reset-layout"/);
+  assert.match(html, /data-important="/);
+  assert.match(html, /data-search="/);
+  assert.match(html, /focusedNodeIds/);
+  assert.match(html, /搜索会显示匹配节点及其一跳关系/);
+  assert.match(html, /viewBox="0 0 \d+ \d+"/);
+});

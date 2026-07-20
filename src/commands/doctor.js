@@ -1,0 +1,133 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { loadCatalog, mergeByDirName } from '../catalog.js';
+import {
+  CLAUDE_SKILLS_DIR,
+  CODEX_SKILLS_DIR,
+  CLAUDE_CONFIG_FILE,
+  CODEX_CONFIG_FILE,
+  CLAUDE_SESSIONS_ROOT,
+  CODEX_SESSIONS_ROOT,
+  CATALOG_PATH,
+} from '../paths.js';
+import { fmtAgo, fmtDateTime, paint } from '../utils.js';
+import { renderTable, termWidth } from '../table.js';
+
+const MIN_NODE_MAJOR = 18;
+
+// skm doctor：只读环境诊断。用于新用户安装后确认 Node、目录、catalog、advisor CLI 与项目约束。
+export function runDoctor({ cwd, json = false }) {
+  const report = collectDoctor({ cwd });
+  if (json) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  console.log(paint.bold('skm 环境诊断\n'));
+  console.log(renderTable(
+    [{ title: '项目', width: 22 }, { title: '状态', width: 8 }, { title: '说明', width: 0 }],
+    report.checks.map((c) => [c.name, label(c.status), c.detail]),
+    termWidth(),
+  ));
+
+  const fail = report.summary.fail;
+  const warn = report.summary.warn;
+  console.log(`\n结论：${fail ? paint.red(`${fail} 项失败`) : paint.green('无失败项')}${warn ? paint.yellow(`，${warn} 项提醒`) : ''}`);
+  if (report.nextSteps.length) {
+    console.log('\n建议下一步：');
+    for (const [i, step] of report.nextSteps.entries()) console.log(`  ${i + 1}. ${step}`);
+  }
+}
+
+export function collectDoctor({ cwd, spawnImpl = spawnSync, nodeVersion = process.versions.node }) {
+  const checks = [];
+  const add = (status, name, detail, data = {}) => checks.push({ status, name, detail, ...data });
+
+  const nodeMajor = Number(String(nodeVersion).split('.')[0]);
+  add(nodeMajor >= MIN_NODE_MAJOR ? 'ok' : 'fail', 'Node.js 版本', `当前 ${nodeVersion}，要求 >= ${MIN_NODE_MAJOR}`);
+
+  const pkg = readPackage(cwd);
+  if (!pkg) {
+    add('fail', 'package.json', '未找到或无法解析 package.json');
+  } else {
+    const depCount = Object.keys(pkg.dependencies || {}).length;
+    add(depCount === 0 ? 'ok' : 'fail', '零第三方依赖', depCount === 0 ? 'dependencies 为空' : `发现 ${depCount} 个 dependencies`);
+    add(pkg.type === 'module' ? 'ok' : 'fail', 'ES Modules', pkg.type === 'module' ? 'type=module' : 'package.json 缺少 type=module');
+    add(pkg.bin?.skm ? 'ok' : 'fail', 'skm 命令入口', pkg.bin?.skm ? pkg.bin.skm : 'package.json 缺少 bin.skm');
+  }
+
+  for (const [name, file] of [
+    ['Claude skill 目录', CLAUDE_SKILLS_DIR],
+    ['Codex skill 目录', CODEX_SKILLS_DIR],
+    ['Claude 配置', CLAUDE_CONFIG_FILE],
+    ['Codex 配置', CODEX_CONFIG_FILE],
+    ['Claude 会话日志', CLAUDE_SESSIONS_ROOT],
+    ['Codex 会话日志', CODEX_SESSIONS_ROOT],
+  ]) {
+    add(fs.existsSync(file) ? 'ok' : 'warn', name, fs.existsSync(file) ? file : `未发现：${file}`);
+  }
+
+  const catalog = loadCatalog();
+  if (!catalog) {
+    add('warn', '扫描目录', `未找到有效 ${CATALOG_PATH}，建议先运行 skm scan`);
+  } else {
+    const uniqueSkills = mergeByDirName(catalog.skills).length;
+    add('ok', '扫描目录', `${uniqueSkills} 个去重 skill / ${catalog.skills.length} 条安装记录 / ${catalog.mcpServers.length} 个 MCP，扫描于 ${fmtDateTime(catalog.scannedAt)}（${fmtAgo(catalog.scannedAt)}）`);
+  }
+
+  for (const cmd of ['codex', 'claude']) {
+    const found = probeCommand(cmd, spawnImpl);
+    add(found.ok ? 'ok' : 'warn', `${cmd} advisor`, found.ok ? found.detail : `${cmd} 不在 PATH；仅影响 --advisor ${cmd}`);
+  }
+
+  const ci = path.join(cwd, '.github', 'workflows', 'ci.yml');
+  add(fs.existsSync(ci) ? 'ok' : 'warn', 'macOS/Windows CI', fs.existsSync(ci) ? '.github/workflows/ci.yml 已存在' : '未发现跨端验证工作流');
+
+  const summary = countStatuses(checks);
+  return {
+    generatedAt: new Date().toISOString(),
+    summary,
+    checks,
+    nextSteps: buildNextSteps(checks),
+  };
+}
+
+function readPackage(cwd) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function probeCommand(command, spawnImpl) {
+  const r = spawnImpl(command, ['--version'], { encoding: 'utf8', timeout: 3000, windowsHide: true });
+  if (r.error) return { ok: false, detail: r.error.code === 'ENOENT' ? '未找到命令' : r.error.message };
+  if (r.status === 0) {
+    const text = `${r.stdout || ''}${r.stderr || ''}`.trim().split(/\r?\n/)[0];
+    return { ok: true, detail: text || '命令可用' };
+  }
+  return { ok: false, detail: `退出码 ${r.status}` };
+}
+
+function countStatuses(checks) {
+  const out = { ok: 0, warn: 0, fail: 0 };
+  for (const c of checks) out[c.status] = (out[c.status] || 0) + 1;
+  return out;
+}
+
+function buildNextSteps(checks) {
+  const steps = [];
+  if (checks.some((c) => c.name === 'Node.js 版本' && c.status === 'fail')) steps.push('升级 Node.js 到 18 或更高版本。');
+  if (checks.some((c) => c.name === '扫描目录' && c.status !== 'ok')) steps.push('运行 skm scan 建立本机 skill / MCP 目录。');
+  if (checks.some((c) => c.name.endsWith('advisor') && c.status !== 'ok')) steps.push('如需增强推荐，确认 codex / claude 已安装、已登录且在 PATH 中；默认推荐不受影响。');
+  if (checks.some((c) => c.name === 'macOS/Windows CI' && c.status !== 'ok')) steps.push('开源发布前建议补充 macOS / Windows CI；Linux 可在本机验证。');
+  return steps;
+}
+
+function label(status) {
+  if (status === 'ok') return paint.green('正常');
+  if (status === 'fail') return paint.red('失败');
+  return paint.yellow('提醒');
+}

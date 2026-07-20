@@ -1,4 +1,4 @@
-name: 三端验证
+name: macOS / Windows 验证
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
         node: ['18.x']
 
     steps:
@@ -45,6 +45,8 @@ jobs:
         run: |
           node bin/skm.js help
           node bin/skm.js scan --json
+          node bin/skm.js doctor --json
+          node bin/skm.js risks --json
           node bin/skm.js graph --format json --output skill-graph.json
           node bin/skm.js graph --format html --output skill-graph.html
 

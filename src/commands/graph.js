@@ -405,19 +405,23 @@ function renderMermaid(graph) {
 
 function renderHtml(graph) {
   const layout = layoutGraph(graph);
+  const positions = layout.positions;
+  const degrees = graphDegrees(graph.edges);
   const edges = graph.edges.map((e) => {
-    const a = layout.get(e.source);
-    const b = layout.get(e.target);
+    const a = positions.get(e.source);
+    const b = positions.get(e.target);
     if (!a || !b) return '';
     const color = EDGE_COLORS[e.type] || '#94a3b8';
     return `<line class="edge edge-${e.type}" data-type="${e.type}" data-source="${escapeHtml(e.source)}" data-target="${escapeHtml(e.target)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${color}" stroke-width="${edgeWidth(e)}"><title>${escapeHtml(e.label)}：${escapeHtml(e.reason || '')}</title></line>`;
   }).join('\n');
   const nodes = graph.nodes.map((n) => {
-    const p = layout.get(n.id);
+    const p = positions.get(n.id);
     const color = nodeColor(n);
     const radius = nodeRadius(n);
     const muted = n.type === 'skill' && !n.usageCount ? ' muted' : '';
-    return `<g class="node node-${n.type}${muted}" data-type="${n.type}" data-id="${escapeHtml(n.id)}" data-x="${p.x}" data-y="${p.y}" transform="translate(${p.x},${p.y})">
+    const degree = degrees.get(n.id) || 0;
+    const important = isImportantNode(n, degree);
+    return `<g class="node node-${n.type}${muted}" data-type="${n.type}" data-id="${escapeHtml(n.id)}" data-x="${p.x}" data-y="${p.y}" data-initial-x="${p.x}" data-initial-y="${p.y}" data-degree="${degree}" data-usage="${n.usageCount || 0}" data-important="${important}" data-search="${escapeHtml(nodeSearchText(n))}" transform="translate(${p.x},${p.y})">
       <circle r="${radius}" fill="${color}" stroke="${nodeStroke(n)}" stroke-width="${n.duplicateEntity ? 3 : 1.5}"></circle>
       <text y="${radius + 13}" text-anchor="middle">${escapeHtml(shortLabel(n.label, n.type === 'skill' ? 22 : 18))}</text>
       <title>${escapeHtml(nodeTitle(n))}</title>
@@ -456,7 +460,12 @@ function renderHtml(graph) {
   .edge-help::after { content:attr(data-help); position:absolute; left:0; top:calc(100% + 8px); width:250px; box-sizing:border-box; padding:10px 12px; border:1px solid #334155; border-radius:8px; background:#020617; color:#e5e7eb; box-shadow:0 12px 28px rgba(0,0,0,.35); font-size:12px; line-height:1.55; white-space:normal; visibility:hidden; opacity:0; transform:translateY(-3px); transition:opacity .12s, transform .12s; z-index:5; pointer-events:none; }
   .edge-help:hover::after, .edge-help:focus::after { visibility:visible; opacity:1; transform:translateY(0); }
   input[type="search"] { width:100%; box-sizing:border-box; margin:8px 0 16px; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#020617; color:var(--text); }
-  svg { display:block; min-width:1400px; min-height:1000px; background:radial-gradient(circle at 50% 45%, #111827 0, #020617 70%); user-select:none; }
+  .toggles { display:grid; gap:8px; margin:12px 0 16px; }
+  .toggle { display:flex; align-items:center; gap:8px; }
+  .toolbar { display:flex; gap:8px; margin:8px 0 14px; }
+  button { cursor:pointer; border:1px solid #334155; border-radius:8px; background:#1e293b; color:#e5e7eb; padding:7px 10px; font-size:12px; }
+  button:hover { background:#334155; }
+  svg { display:block; min-width:${layout.width}px; min-height:${layout.height}px; background:radial-gradient(circle at 50% 45%, #111827 0, #020617 70%); user-select:none; }
   .edge { opacity:.38; transition:opacity .15s; }
   .node { cursor:grab; touch-action:none; }
   .node text { fill:#dbeafe; font-size:11px; pointer-events:none; }
@@ -464,6 +473,7 @@ function renderHtml(graph) {
   .node.dragging { cursor:grabbing; }
   .node.dragging circle { stroke:#f8fafc; stroke-width:3; }
   .node.muted circle { opacity:.42; }
+  svg.labels-off .node text { display:none; }
   .hidden { display:none; }
   footer { color:var(--muted); font-size:12px; line-height:1.5; margin-top:18px; }
 </style>
@@ -483,12 +493,18 @@ function renderHtml(graph) {
       <div class="stat"><b>${graph.stats.edges}</b><span>关系</span></div>
     </div>
     <div id="visible-count" class="meta"></div>
+    <div class="toolbar"><button id="reset-layout" type="button">重置布局</button></div>
+    <div class="toggles">
+      <label class="toggle"><input id="only-important" type="checkbox"> 只看重点节点</label>
+      <label class="toggle"><input id="hide-idle" type="checkbox"> 隐藏从未使用的 skill</label>
+      <label class="toggle"><input id="show-labels" type="checkbox" checked> 显示节点标签</label>
+    </div>
     <h3>关系过滤</h3>
     ${edgeControls}
-    <footer>节点大小与使用频率相关；灰色 skill 表示从未使用；双圈表示两侧实体双份安装。每条边都带有关系来源与置信度，悬停节点或边可查看详情。</footer>
+    <footer>搜索会显示匹配节点及其一跳关系；节点大小与使用频率相关；灰色 skill 表示从未使用；双圈表示两侧实体双份安装。每条边都带有关系来源与置信度，悬停节点或边可查看详情。</footer>
   </aside>
   <main>
-    <svg viewBox="0 0 1400 1000" role="img" aria-label="skill 知识图谱">
+    <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="skill 知识图谱">
       <g class="edges">${edges}</g>
       <g class="nodes">${nodes}</g>
     </svg>
@@ -500,6 +516,10 @@ const nodes = [...document.querySelectorAll('.node')];
 const edges = [...document.querySelectorAll('.edge')];
 const edgeChecks = [...document.querySelectorAll('[data-edge]')];
 const visibleCount = document.querySelector('#visible-count');
+const onlyImportant = document.querySelector('#only-important');
+const hideIdle = document.querySelector('#hide-idle');
+const showLabels = document.querySelector('#show-labels');
+const resetLayout = document.querySelector('#reset-layout');
 const nodeById = new Map(nodes.map(n => [n.dataset.id, n]));
 const svg = document.querySelector('svg');
 let dragging = null;
@@ -508,17 +528,33 @@ function applyFilters() {
   const enabledTypes = new Set(edgeChecks.filter(cb => cb.checked).map(cb => cb.dataset.edge));
   const term = q.value.trim().toLowerCase();
   const relationNodeIds = new Set();
+  const matchedNodeIds = new Set();
+  const focusedNodeIds = new Set();
 
   for (const edge of edges) {
     if (!enabledTypes.has(edge.dataset.type)) continue;
     relationNodeIds.add(edge.dataset.source);
     relationNodeIds.add(edge.dataset.target);
   }
+  if (term) {
+    for (const node of nodes) {
+      if (node.dataset.search.includes(term)) matchedNodeIds.add(node.dataset.id);
+    }
+    for (const edge of edges) {
+      if (!enabledTypes.has(edge.dataset.type)) continue;
+      if (!matchedNodeIds.has(edge.dataset.source) && !matchedNodeIds.has(edge.dataset.target)) continue;
+      focusedNodeIds.add(edge.dataset.source);
+      focusedNodeIds.add(edge.dataset.target);
+    }
+    for (const id of matchedNodeIds) focusedNodeIds.add(id);
+  }
 
   for (const node of nodes) {
     const matchesRelation = relationNodeIds.has(node.dataset.id);
-    const matchesSearch = !term || node.textContent.toLowerCase().includes(term);
-    node.classList.toggle('hidden', !matchesRelation || !matchesSearch);
+    const matchesSearch = !term || focusedNodeIds.has(node.dataset.id);
+    const matchesImportant = !onlyImportant.checked || node.dataset.important === 'true';
+    const matchesIdle = !(hideIdle.checked && node.dataset.type === 'skill' && Number(node.dataset.usage) === 0);
+    node.classList.toggle('hidden', !matchesRelation || !matchesSearch || !matchesImportant || !matchesIdle);
   }
 
   let visibleEdges = 0;
@@ -538,6 +574,9 @@ function applyFilters() {
 }
 
 edgeChecks.forEach(cb => cb.addEventListener('change', applyFilters));
+onlyImportant.addEventListener('change', applyFilters);
+hideIdle.addEventListener('change', applyFilters);
+showLabels.addEventListener('change', () => svg.classList.toggle('labels-off', !showLabels.checked));
 q.addEventListener('input', applyFilters);
 applyFilters();
 
@@ -566,6 +605,12 @@ function updateConnectedEdges(nodeId) {
     edge.setAttribute('y2', target.dataset.y);
   }
 }
+
+resetLayout.addEventListener('click', () => {
+  for (const node of nodes) {
+    setNodePosition(node, Number(node.dataset.initialX), Number(node.dataset.initialY));
+  }
+});
 
 nodes.forEach(node => {
   node.addEventListener('pointerdown', event => {
@@ -606,22 +651,29 @@ svg.addEventListener('pointercancel', () => {
 
 function layoutGraph(graph) {
   const map = new Map();
-  const cx = 700;
-  const cy = 500;
+  const skillCount = graph.nodes.filter((n) => n.type === 'skill').length;
+  const width = Math.min(3600, Math.max(1600, Math.ceil(Math.sqrt(Math.max(1, skillCount)) * 260)));
+  const height = Math.min(2600, Math.max(1100, Math.ceil(width * 0.68)));
+  const cx = width / 2;
+  const cy = height / 2;
+  const base = Math.min(width, height);
   const categories = graph.nodes.filter((n) => n.type === 'category').sort((a, b) => a.label.localeCompare(b.label));
   const angleForCategory = new Map();
   categories.forEach((c, i) => {
     const angle = (Math.PI * 2 * i) / Math.max(1, categories.length) - Math.PI / 2;
     angleForCategory.set(c.label, angle);
-    map.set(c.id, { x: cx + Math.cos(angle) * 260, y: cy + Math.sin(angle) * 260 });
+    map.set(c.id, { x: cx + Math.cos(angle) * (base * 0.24), y: cy + Math.sin(angle) * (base * 0.24) });
   });
   const skillsByCat = groupBy(graph.nodes.filter((n) => n.type === 'skill'), (n) => n.category || '未分类');
   for (const [category, list] of skillsByCat) {
     const base = angleForCategory.get(category) ?? 0;
     list.sort((a, b) => b.usageCount - a.usageCount || a.label.localeCompare(b.label));
+    const perRing = Math.max(7, Math.ceil(Math.sqrt(list.length) * 2.6));
+    const spread = Math.min(1.05, 0.28 + list.length * 0.018);
     list.forEach((n, i) => {
-      const ring = 340 + Math.floor(i / 8) * 55;
-      const offset = ((i % 8) - 3.5) * 0.055;
+      const ring = Math.min(width, height) * 0.36 + Math.floor(i / perRing) * 74;
+      const slot = i % perRing;
+      const offset = (slot - (perRing - 1) / 2) * (spread / Math.max(1, perRing - 1));
       const angle = base + offset;
       map.set(n.id, { x: cx + Math.cos(angle) * ring, y: cy + Math.sin(angle) * ring });
     });
@@ -633,10 +685,10 @@ function layoutGraph(graph) {
       map.set(n.id, { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius });
     });
   };
-  placeRing('family', 160, Math.PI / 12);
-  placeRing('platform', 85, Math.PI / 6);
-  placeRing('mcp', 34, 0);
-  return map;
+  placeRing('family', base * 0.17, Math.PI / 12);
+  placeRing('platform', base * 0.105, Math.PI / 6);
+  placeRing('mcp', base * 0.055, 0);
+  return { positions: map, width, height };
 }
 
 function resolveFormat({ format, output, json }) {
@@ -777,6 +829,33 @@ function edgeWidth(e) {
   if (e.type === 'duplicate') return 2.4;
   if (e.type === 'pipeline') return 2;
   return 1.2;
+}
+
+function graphDegrees(edges) {
+  const degrees = new Map();
+  for (const edge of edges) {
+    degrees.set(edge.source, (degrees.get(edge.source) || 0) + 1);
+    degrees.set(edge.target, (degrees.get(edge.target) || 0) + 1);
+  }
+  return degrees;
+}
+
+function isImportantNode(n, degree) {
+  if (n.type !== 'skill') return true;
+  return Boolean(n.duplicateEntity || n.usageCount > 0 || degree >= 3);
+}
+
+function nodeSearchText(n) {
+  return [
+    n.id,
+    n.label,
+    n.type,
+    n.category,
+    n.toolLabel,
+    n.family,
+    ...(n.platforms || []),
+    n.description,
+  ].filter(Boolean).join(' ').toLowerCase();
 }
 
 function nodeTitle(n) {

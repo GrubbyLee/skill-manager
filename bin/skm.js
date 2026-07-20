@@ -11,6 +11,8 @@ import { runGraph } from '../src/commands/graph.js';
 import { runSessions } from '../src/commands/sessions.js';
 import { runDisable, runEnable } from '../src/commands/toggle.js';
 import { runStatus } from '../src/commands/status.js';
+import { runDoctor } from '../src/commands/doctor.js';
+import { runRisks } from '../src/commands/risks.js';
 
 const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 （不修改 AIDE 的配置与 skill 文件，仅 sessions --clean / disable / enable 例外且均有确认与备份；
@@ -21,12 +23,14 @@ const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 命令：
   （无命令）      健康体检概览：总量 / 僵尸率 / 重复 / 会话体积 / 健康分 + 建议
   status          同上（显式写法）
+  doctor          只读环境诊断：Node、目录、catalog、advisor CLI、三端 CI
+  risks           只读风险报告：重复、闲置、高上下文开销、日志体积、MCP 可观测性
   scan            扫描 Claude Code 与 Codex，生成 ~/.skill-manager/catalog.json
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）
-  recommend <事>  根据自然语言任务描述推荐最合适的 skill（结合使用频率与两侧可用性）
+  recommend <事>  根据自然语言任务描述推荐最合适的 skill（可选调用本机 Codex/Claude 增强判断）
   ask <事>        以问答口吻给出首选 skill、理由和备选
-  graph           生成 skill / MCP 知识图谱（summary/json/html/mermaid）
+  graph           生成 skill / MCP 知识图谱（summary/json/html/mermaid，HTML 支持搜索聚焦与节点拖动）
   dupes           重复检测：同名安装 / 内容相同 / 同类多实现 / 文本相似
   audit           健康审计：使用频率、僵尸 skill、MCP 使用、上下文开销（--history 看归档）
   sessions        按工作区展示会话日志分布；--clean 按保留策略清理
@@ -52,6 +56,7 @@ recommend 选项：
   --tool <claude|codex>   只推荐某个工具可用的 skill
   --category <关键字>      限制推荐分类
   --why                   显示更详细的命中词与分数
+  --advisor <codex|claude> 显式调用本机 AIDE CLI 做增强推荐；失败时回退本地推荐
 
 graph 选项：
   --format <json|html|mermaid>  导出格式；不指定时显示图谱摘要
@@ -66,9 +71,12 @@ sessions 选项：
 
 示例：
   skm scan
+  skm doctor
+  skm risks
   skm list --category ppt
   skm search 转 markdown
   skm recommend "把网页转成 markdown"
+  skm recommend "生成知识图谱" --advisor codex
   skm ask "做小红书图片卡片"
   skm graph --format html --output skill-graph.html
   skm audit
@@ -97,6 +105,7 @@ try {
       format: { type: 'string' },
       output: { type: 'string' },
       tool: { type: 'string' },
+      advisor: { type: 'string' },
       category: { type: 'string' },
       scope: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
@@ -111,6 +120,10 @@ const { values, positionals } = parsed;
 
 if (values.tool && !['claude', 'claude-code', 'codex'].includes(values.tool)) {
   console.error(`--tool 取值应为 claude|codex，收到：${values.tool}`);
+  process.exit(1);
+}
+if (values.advisor && !['codex', 'claude'].includes(values.advisor)) {
+  console.error(`--advisor 取值应为 codex|claude，收到：${values.advisor}`);
   process.exit(1);
 }
 if (values.scope && !['user', 'project', 'plugin'].includes(values.scope)) {
@@ -138,10 +151,12 @@ const ctx = { cwd: process.cwd(), ...values };
 async function main() {
   if (values.help || cmd === 'help') console.log(HELP);
   else if (cmd === 'status') runStatus(ctx);
+  else if (cmd === 'doctor') runDoctor(ctx);
+  else if (cmd === 'risks') runRisks(ctx);
   else if (cmd === 'scan') runScan(ctx);
   else if (cmd === 'list') runList(ctx);
   else if (cmd === 'search') runSearch({ ...ctx, keywords: positionals.slice(1) });
-  else if (cmd === 'recommend') runRecommend({ ...ctx, keywords: positionals.slice(1) });
+  else if (cmd === 'recommend') await runRecommend({ ...ctx, keywords: positionals.slice(1) });
   else if (cmd === 'ask') runAsk({ ...ctx, keywords: positionals.slice(1) });
   else if (cmd === 'graph') runGraph(ctx);
   else if (cmd === 'dupes') runDupes(ctx);
