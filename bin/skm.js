@@ -23,8 +23,8 @@ const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 命令：
   （无命令）      健康体检概览：总量 / 僵尸率 / 重复 / 会话体积 / 健康分 + 建议
   status          同上（显式写法）
-  doctor          只读环境诊断：Node、目录、catalog、advisor CLI、三端 CI
-  risks           只读风险报告：重复、闲置、高上下文开销、日志体积、MCP 可观测性
+  doctor          只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI
+  risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、日志体积、MCP 可观测性
   scan            扫描 Claude Code 与 Codex，生成 ~/.skill-manager/catalog.json
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）

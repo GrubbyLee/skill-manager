@@ -93,7 +93,7 @@ skm graph --format html --output skill-graph.html  # 最后打开知识图谱
 |---|---|---|
 | `skm` / `skm status` | 一屏健康体检：总量、僵尸率、重复、会话体积、健康分与建议 | `--json` 输出结构化结果 |
 | `skm doctor` | 只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI | `--json` |
-| `skm risks` | 只读风险报告：重复、闲置、高上下文开销、日志体积、MCP 可观测性 | `--json` |
+| `skm risks` | 不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、日志体积、MCP 可观测性 | `--json` |
 | `skm scan` | 扫描 Claude Code / Codex 的 skill 与 MCP，重建 `~/.skill-manager/catalog.json` | `--verbose` 显示解析警告 |
 | `skm list` | 按分类列出 skill，默认合并两侧同名项 | `--category <关键字>`、`--tool claude\|codex`、`--scope user\|project\|plugin`、`--raw` |
 | `skm list --mcp` | 列出 MCP server | `--tool claude\|codex`、`--json` |
@@ -201,7 +201,7 @@ claude advisor          正常    Claude Code 版本信息
 macOS/Windows CI        正常    .github/workflows/ci.yml 已存在
 ```
 
-`risks` 是只读风险报告，会汇总“最值得先处理”的问题，但不会直接禁用或删除：
+`risks` 不修改 Claude/Codex 的 skill、MCP、配置或会话日志；它会复用 skm 自身缓存来汇总“最值得先处理”的问题，但不会直接禁用或删除：
 
 ```
 $ skm risks
@@ -648,6 +648,7 @@ cp -r integrations/skill-navigator ~/.codex/skills/     # Codex
 - 扫描产物：`~/.skill-manager/catalog.json`，不含任何密钥/环境变量值（MCP 的 `env` 一律不读取）
 - 上下文开销估算：skill 常驻部分只有 `name + description`（正文按需加载）；MCP 则是全量 tool schema 注入，治理收益更大
 - 归档约定：目录名加 `_` 前缀即被扫描忽略（如 `_archived-xxx`）
+- `status`、`audit`、`risks`、`sessions` 等读取类命令可能更新 `~/.skill-manager` 下的索引/缓存；这不属于 AIDE 写操作，不会改 Claude/Codex 配置、skill、MCP 或会话日志
 
 ## 跨端验证
 

@@ -11,7 +11,8 @@ const STALE_DAYS = 90;
 const LARGE_LOG_BYTES = 1e9;
 const RECLAIM_HINT_BYTES = 50e6;
 
-// skm risks：只读风险清单。强调治理优先级，不直接执行任何禁用或删除动作。
+// skm risks：AIDE 只读风险清单。不会修改 Claude/Codex 的 skill、MCP、配置或会话日志；
+// 但会复用使用统计与会话索引，可能更新 ~/.skill-manager 下的 skm 自身缓存。
 export function runRisks({ cwd, json = false }) {
   const catalog = ensureCatalog(cwd);
   const merged = mergeByDirName(catalog.skills);
@@ -54,7 +55,7 @@ export function runRisks({ cwd, json = false }) {
     if (item.more > 0) console.log(`  …另有 ${item.more} 项，使用 skm risks --json 查看完整数据`);
   }
 
-  console.log('\n说明：本命令只读，不会修改任何 skill、MCP 或会话日志。写操作仍需通过 skm disable / skm sessions --clean 并经过确认。');
+  console.log('\n说明：本命令不会修改 Claude/Codex 的 skill、MCP、配置或会话日志；可能更新 ~/.skill-manager 下的 skm 自身缓存。写操作仍需通过 skm disable / skm sessions --clean 并经过确认。');
 }
 
 export function collectRisks({ catalog, merged = mergeByDirName(catalog.skills), usage, sessions = [] }) {
