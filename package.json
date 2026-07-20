@@ -1,6 +1,6 @@
 {
   "name": "aide-skill-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AIDE（Claude Code / Codex）skill 与 MCP 清点、梳理与治理 CLI：分类清单、重复检测、使用频率审计、僵尸识别、会话日志清理",
   "type": "module",
   "bin": {
@@ -16,6 +16,7 @@
     "docs/graphic.png",
     "docs/comic-*.jpg",
     "CONTRIBUTING.md",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE"
   ],
