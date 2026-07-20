@@ -1,0 +1,21 @@
+name: 晒 scan 结果
+description: 分享你的 skill / MCP 数量、分类分布和治理经验
+title: "晒 scan："
+labels: ["showcase"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        欢迎分享你的 `skm scan` 结果。建议先删除隐私路径、用户名或不想公开的 skill 名称。
+  - type: textarea
+    id: scan
+    attributes:
+      label: skm scan 输出
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 你的发现
+      description: 例如重复最多的分类、最常用的 skill、准备清理的方向。

@@ -1,0 +1,47 @@
+name: 问题反馈
+description: 报告 skm 扫描、推荐、图谱、审计或清理相关问题
+title: "问题："
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量附上 `skm doctor` 和相关命令输出，便于复现。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述
+      description: 发生了什么？预期应该是什么？
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 运行 ...
+        2. 看到 ...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: 命令输出
+      description: 可粘贴 `skm doctor`、`skm risks` 或失败命令输出。请先删除隐私路径或敏感信息。
+      render: shell
+  - type: dropdown
+    id: os
+    attributes:
+      label: 系统
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js 版本
+      placeholder: "例如 v20.11.1"
