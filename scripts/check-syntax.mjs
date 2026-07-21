@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const ROOTS = ['bin', 'src', 'test'];
+const ROOTS = ['bin', 'src', 'scripts', 'test'];
 const EXTENSIONS = new Set(['.js', '.mjs']);
 
 const files = ROOTS.flatMap((root) => walk(root)).sort();

@@ -16,7 +16,7 @@
 ```bash
 git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
-npm link
+node scripts/install.mjs
 
 skm scan
 skm
@@ -167,6 +167,8 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 | [docs/recommend.md](docs/recommend.md) | skill 推荐逻辑、参数和增强模式 |
 | [docs/graph.md](docs/graph.md) | 知识图谱关系、交互和导出 |
 | [docs/safety.md](docs/safety.md) | 只读边界、写操作防护、数据说明 |
+| [docs/roadmap.md](docs/roadmap.md) | 项目路线图与近期优先级 |
+| [docs/community.md](docs/community.md) | 社区传播素材与发布清单 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献方式、本地开发、提交流程 |
 
 ## 跨端验证
@@ -183,10 +185,13 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 
 ## Roadmap
 
+- 真实用户样本收集，校准分类、推荐和图谱
 - HTML 总览报告
+- 更强的知识图谱聚类、布局和导出样式
 - 更多 AIDE 适配器，例如 Cursor、Gemini CLI
 - MCP 逐 server 的 tool schema token 实测
-- 更强的知识图谱聚类、布局和导出样式
+
+完整路线图见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 参与项目
 

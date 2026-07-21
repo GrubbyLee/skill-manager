@@ -7,7 +7,7 @@
 ```bash
 git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
-npm link
+node scripts/install.mjs
 ```
 
 不想全局 link 时，可以直接运行：
@@ -15,6 +15,12 @@ npm link
 ```bash
 node bin/skm.js scan
 node bin/skm.js ask "把网页转成 markdown"
+```
+
+安装脚本支持 dry-run：
+
+```bash
+node scripts/install.mjs --dry-run
 ```
 
 ## 推荐排查流程

@@ -8,6 +8,7 @@
 git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
 npm install --ignore-scripts
+node scripts/install.mjs --dry-run
 npm run check
 npm test
 ```
@@ -32,6 +33,8 @@ Linux 可在本机执行以上命令；GitHub Actions 会自动验证 macOS 与 
 - `graph` 的关系识别、布局和导出样式优化
 - `doctor` / `risks` 的诊断项补充
 - 文档、截图、真实使用案例
+
+路线图见 [docs/roadmap.md](docs/roadmap.md)。
 
 ## 代码约定
 

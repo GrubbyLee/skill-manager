@@ -21,6 +21,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "setup": "node scripts/install.mjs",
     "check": "node scripts/check-syntax.mjs",
     "test": "node --test"
   },
