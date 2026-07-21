@@ -1,17 +1,19 @@
-# skill-manager（skm）
+# skill-manager (skm)
 
-[![macOS / Windows 验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
+English | [简体中文](README.zh-CN.md)
+
+[![macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
 [![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-3c873a)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-2f6f4e)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> Claude Code / Codex skill 与 MCP 的扫描、推荐、去重、审计、知识图谱工具。
+> A zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize Claude Code / Codex skills and MCP servers.
 
-一台机器装久了，skill 会越来越像一间堆满工具的工作室：有的重复，有的很久没用，有的藏在软链后面，有的 MCP 每次启动都占上下文。`skm` 做的事很简单：清点它们、解释它们、帮你决定下一步。
+When you keep adding skills to Claude Code or Codex, the local setup can become hard to reason about: duplicated skills, shared symlinks, unused tools, unclear names, and MCP servers that keep consuming context. `skm` turns that local toolbox into something you can inspect, search, compare, and clean up safely.
 
-![skm 演示](docs/demo.png)
+![skm demo](docs/demo.png)
 
-## 30 秒体验
+## 30-Second Start
 
 ```bash
 git clone https://github.com/GrubbyLee/skill-manager.git
@@ -20,86 +22,80 @@ node scripts/install.mjs
 
 skm scan
 skm
-skm ask "我要把网页转成 Markdown"
+skm ask "convert a web page to Markdown"
 skm graph --format html --output skill-graph.html
 ```
 
-国内也可以从 Gitee 镜像克隆：
+No npm package install is advertised yet. The package name `aide-skill-manager` is reserved, but the current recommended installation path is git clone.
 
-```bash
-git clone https://gitee.com/synovation/skill-manager.git
-```
+## What It Solves
 
-> 当前 README 仅保留 git clone 安装方式。npm 包名已预留为 `aide-skill-manager`，正式发布前不建议在文档中引导 npm 安装。
-
-## 它解决什么
-
-| 你遇到的问题 | 运行 | skm 给你的答案 |
+| Question | Command | What you get |
 |---|---|---|
-| 我到底装了多少 skill / MCP？ | `skm scan` | Claude Code / Codex 两侧数量、分类、上下文估算 |
-| 这台机器状态健康吗？ | `skm` | 健康分、僵尸率、重复安装、闲置 MCP、日志体积 |
-| 做某件事该用哪个 skill？ | `skm ask "任务"` | 首选 skill、理由、备选 |
-| 哪些 skill 重复了？ | `skm dupes` | 同名、同内容、同类多实现、文本相似 |
-| 哪些从未真正用过？ | `skm audit` | 使用频率、僵尸 skill、MCP 调用记录 |
-| skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
-| 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
-| 会话日志太大怎么办？ | `skm sessions` | 按工作区统计日志体积，支持 dry-run 清理计划 |
+| How many skills and MCP servers are installed? | `skm scan` | Counts, categories, install sources, context estimate |
+| Is my local AIDE setup healthy? | `skm` | Health score, zombie skills, duplicate installs, idle MCP, session size |
+| Which skill should I use for this task? | `skm ask "task"` | Best match, reasons, alternatives |
+| Which skills are duplicated? | `skm dupes` | Same name, same content, same category, text similarity |
+| Which skills were never really used? | `skm audit` | Real usage frequency from Claude Code / Codex sessions |
+| How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
+| What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
+| Where did my session logs grow? | `skm sessions` | Workspace-level session log size and dry-run cleanup plan |
 
-## 命令速查
+## Command Cheatsheet
 
-| 命令 | 用途 |
+| Command | Purpose |
 |---|---|
-| `skm` / `skm status` | 一屏健康体检 |
-| `skm doctor` | 只读环境诊断 |
-| `skm risks` | 风险报告，不修改 AIDE 数据 |
-| `skm scan` | 扫描 skill / MCP，重建目录 |
-| `skm list` / `skm list --mcp` | 列出 skill 或 MCP |
-| `skm search <关键词>` | 按名称、分类、描述搜索 |
-| `skm recommend <任务>` | 表格形式推荐 skill |
-| `skm ask <任务>` | 问答形式推荐 skill |
-| `skm graph` | 导出知识图谱 |
-| `skm dupes` | 检测重复与相似 skill |
-| `skm audit` | 审计真实使用频率 |
-| `skm sessions` | 查看会话日志分布 |
-| `skm sessions --clean` | 按策略清理会话日志，需确认 |
-| `skm disable` / `skm enable` | 软禁用或恢复 skill / MCP |
+| `skm` / `skm status` | One-screen health overview |
+| `skm doctor` | Read-only environment diagnostics |
+| `skm risks` | Risk report without changing AIDE data |
+| `skm scan` | Scan skills and MCP servers, rebuild catalog |
+| `skm list` / `skm list --mcp` | List skills or MCP servers |
+| `skm search <keyword>` | Search by name, category, and description |
+| `skm recommend <task>` | Ranked skill recommendations |
+| `skm ask <task>` | Q&A-style skill recommendation |
+| `skm graph` | Export the skill knowledge graph |
+| `skm dupes` | Detect duplicates and similar skills |
+| `skm audit` | Audit real usage frequency |
+| `skm sessions` | Inspect session log distribution |
+| `skm sessions --clean` | Clean session logs with confirmation |
+| `skm disable` / `skm enable` | Soft-disable or restore skills / MCP servers |
 
-完整命令说明见 [docs/usage.md](docs/usage.md)。
+The detailed command manual is currently in Chinese: [docs/usage.md](docs/usage.md). English documentation is on the roadmap.
 
-## 推荐 skill
+## Skill Recommendation
 
-当你只知道“我要做什么”，但不确定该用哪个 skill：
+If you know what you want to do but do not remember which skill fits:
 
 ```bash
-skm ask "把网页转成 markdown"
-skm recommend "生成小红书图片卡片" --top 5
+skm ask "convert a web page to Markdown"
+skm recommend "create image cards for Xiaohongshu" --top 5
 skm recommend "markdown to html" --why
 ```
 
-推荐逻辑默认完全本地运行，不调用外部模型，不上传目录信息。它会综合名称、分类、description、中文任务意图、转换方向、历史使用、最近使用和两侧可用性。
+By default, recommendations run locally. No external model is called, and no directory information is uploaded. The ranking combines skill name, category, description, task intent, conversion direction, usage history, recency, and whether the skill is available in both Claude Code and Codex.
 
-如果你明确希望借助本机已有的 Codex / Claude Code 做增强判断，可以手动开启：
+You can explicitly ask a local AIDE CLI to help judge the short candidate list:
 
 ```bash
-skm recommend "生成知识图谱" --advisor codex --why
-skm recommend "整理会议纪要" --advisor claude
+skm recommend "create a knowledge graph" --advisor codex --why
+skm recommend "summarize meeting notes" --advisor claude
 ```
 
-增强模式只会发送精简候选清单，不发送 skill 路径、真实配置路径、MCP `env` 值、API Key、密码或密钥文件。详细说明见 [docs/recommend.md](docs/recommend.md)。
+Advisor mode sends only a compact candidate list. It does not send real skill paths, config paths, MCP `env` values, API keys, passwords, private keys, or session log bodies.
 
-## 知识图谱
+## Knowledge Graph
 
 ```bash
 skm graph --format html --output skill-graph.html
 ```
 
-生成结果是零依赖单 HTML 文件，可直接用浏览器打开。左侧可以筛选关系，右侧只显示勾选关系涉及的节点和连线；节点可拖动，适合 skill 很多时手工拉开密集区域。
+The HTML graph is a zero-dependency single file. Open it in a browser and filter relationships from the left panel; the graph only shows nodes involved in the selected relationships. Nodes are draggable, which helps when you have many installed skills.
 
-![skm skill 知识图谱示意图](docs/graphic.png)
+![skm skill knowledge graph](docs/graphic.png)
 
-支持的关系包括同源、同类、重复、替代、流程、反向转换、共享平台、使用 MCP。关系含义和交互说明见 [docs/graph.md](docs/graph.md)。
+Current relationship types include same family, same category, duplicate, alternative, workflow, reverse conversion, shared platform, and uses MCP. Details are in [docs/graph.md](docs/graph.md).
 
-## 一般排查流程
+## Safe Troubleshooting Workflow
 
 ```bash
 skm doctor
@@ -113,67 +109,69 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-排查时先刷新事实，再看整体健康、风险、重复与使用频率。真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+Start with read-only commands. Refresh facts first, then inspect health, risks, duplicates, usage, MCP servers, and session logs. Use dry-run before any cleanup.
 
-## 安全边界
+## Safety Boundaries
 
-默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude/Codex 的配置、skill、MCP 或会话日志。
+Most commands are read-only for Claude Code and Codex data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your Claude/Codex configs, skills, MCP servers, or session logs.
 
-只有三类动作会改文件：
+Only three actions can modify files:
 
-| 动作 | 改动内容 | 防护 |
+| Action | What changes | Safeguards |
 |---|---|---|
-| `sessions --clean` | 删除会话日志文件 | 必须给保留策略；先打印计划；交互确认或 `--yes`；24 小时内活跃会话永不删；删除前聚合统计 |
-| `disable/enable <skill>` | 重命名 skill 目录 | 完全可逆，不删除文件；插件 skill 拒绝处理 |
-| `disable/enable --mcp` | 修改 `~/.claude.json` / `config.toml` | 自动备份；需确认；恢复时不覆盖用户手动重建的同名配置 |
+| `sessions --clean` | Deletes session log files | Requires retention policy; prints plan first; interactive confirmation or `--yes`; never deletes sessions active within 24 hours; aggregates usage stats before deletion |
+| `disable/enable <skill>` | Renames skill directories | Reversible, no deletion; plugin skills are refused |
+| `disable/enable --mcp` | Edits `~/.claude.json` / `config.toml` | Automatic backups; confirmation required; restore never overwrites manually recreated config |
 
-更完整的写操作边界见 [docs/safety.md](docs/safety.md)。
+More details: [docs/safety.md](docs/safety.md).
 
-## 在 AIDE 内使用
+## Use Inside AIDE
 
-把薄入口 skill 装进 Claude Code 或 Codex，之后可以直接在对话里问“我要做 XX 该用哪个 skill”。
+Install the thin navigator skill into Claude Code or Codex, then ask your coding assistant which skill to use for a task:
 
 ```bash
 cp -r integrations/skill-navigator ~/.claude/skills/
 cp -r integrations/skill-navigator ~/.codex/skills/
 ```
 
-## 四格小漫画
+## Visual Story
 
-| 工具间太满了 | 扫描贴标签 |
+| Too many tools | Scan and label |
 |---|---|
-| ![工具间太满了](docs/comic-01-tool-chaos.jpg) | ![扫描贴标签](docs/comic-02-scan-labels.jpg) |
+| ![Too many tools](docs/comic-01-tool-chaos.jpg) | ![Scan and label](docs/comic-02-scan-labels.jpg) |
 
-| 知识图谱亮起来 | 安全收纳 |
+| Knowledge graph | Safe cleanup |
 |---|---|
-| ![知识图谱亮起来](docs/comic-03-knowledge-map.jpg) | ![安全收纳](docs/comic-04-safe-cleanup.jpg) |
+| ![Knowledge graph](docs/comic-03-knowledge-map.jpg) | ![Safe cleanup](docs/comic-04-safe-cleanup.jpg) |
 
-## 项目特性
+## Features
 
-- 双工具覆盖：Claude Code 与 Codex CLI 的 skill / MCP 统一扫描
-- 软链感知：区分共享实体、实体双份和内容不同
-- 四级重复检测：同名、同内容、同类多实现、文本高度相似
-- 真实使用审计：解析会话日志，只统计真正读取或调用过的 skill / MCP
-- 知识图谱：导出 JSON、Mermaid 或单文件 HTML
-- 零第三方依赖：全部功能基于 Node.js 内置模块实现
-- 中文优先：终端输出、说明文档、分类规则面向中文用户
-- 开源友好：macOS / Windows 由 GitHub Actions 验证，Linux 由维护者本机验证
+- Scans Claude Code and Codex CLI skills / MCP servers
+- Detects shared symlinks, duplicate physical copies, and same-content copies
+- Classifies skills with local rules
+- Recommends skills from natural-language task descriptions
+- Audits real usage from session logs
+- Finds zombie skills and idle Claude-side MCP servers
+- Exports JSON, Mermaid, and single-file HTML knowledge graphs
+- Uses zero third-party npm dependencies
+- Runs on Node.js >= 18
 
-## 文档
+## Documentation
 
-| 文档 | 内容 |
+| Document | Content |
 |---|---|
-| [docs/usage.md](docs/usage.md) | 完整命令手册与示例 |
-| [docs/recommend.md](docs/recommend.md) | skill 推荐逻辑、参数和增强模式 |
-| [docs/graph.md](docs/graph.md) | 知识图谱关系、交互和导出 |
-| [docs/safety.md](docs/safety.md) | 只读边界、写操作防护、数据说明 |
-| [docs/roadmap.md](docs/roadmap.md) | 项目路线图与近期优先级 |
-| [docs/community.md](docs/community.md) | 社区传播素材与发布清单 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献方式、本地开发、提交流程 |
+| [README.zh-CN.md](README.zh-CN.md) | Chinese README |
+| [docs/usage.md](docs/usage.md) | Full command manual, currently Chinese |
+| [docs/recommend.md](docs/recommend.md) | Recommendation logic and advisor mode, currently Chinese |
+| [docs/graph.md](docs/graph.md) | Knowledge graph relationships and HTML interactions, currently Chinese |
+| [docs/safety.md](docs/safety.md) | Safety boundaries and data notes, currently Chinese |
+| [docs/roadmap.md](docs/roadmap.md) | Roadmap, currently Chinese |
+| [docs/community.md](docs/community.md) | Community post templates, currently Chinese |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide, currently Chinese |
 
-## 跨端验证
+## Cross-Platform Validation
 
-GitHub Actions 自动验证 macOS 与 Windows；Linux 使用同一套命令在维护者本机验证，避免远端 CI 额外触碰 Linux 环境数据。
+GitHub Actions validates macOS and Windows. Linux is validated locally by the maintainer with the same read-only build/test commands.
 
 ```bash
 npm run check
@@ -181,24 +179,27 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-验证入口：[GitHub Actions / macOS / Windows 验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)。
+CI entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml).
 
 ## Roadmap
 
-- 真实用户样本收集，校准分类、推荐和图谱
-- HTML 总览报告
-- 更强的知识图谱聚类、布局和导出样式
-- 更多 AIDE 适配器，例如 Cursor、Gemini CLI
-- MCP 逐 server 的 tool schema token 实测
+- English CLI output and full English documentation
+- More real-world `skm scan` / `skm recommend` samples
+- HTML overview report
+- Better clustering and layout for large knowledge graphs
+- More AIDE adapters, such as Cursor and Gemini CLI
+- Per-server MCP tool schema token measurement
 
-完整路线图见 [docs/roadmap.md](docs/roadmap.md)。
+Full roadmap: [docs/roadmap.md](docs/roadmap.md).
 
-## 参与项目
+## Community
 
-如果这个工具帮你看清了自己的 skill 目录，欢迎在 [GitHub](https://github.com/GrubbyLee/skill-manager) 点 Star。也欢迎提交 Issue：晒一晒你的 `skm scan` 结果、反馈误分类、补充新的 AIDE 适配器、提出新的治理场景。
+If `skm` helped you understand your local skill setup, a GitHub Star helps more users find it. You can also:
 
-更轻量的交流可以到 [Discussions](https://github.com/GrubbyLee/skill-manager/discussions)：分享图谱截图、讨论 Roadmap，或看看其他人的 skill 目录。
+- Share your `skm scan` result: <https://github.com/GrubbyLee/skill-manager/discussions/9>
+- Discuss the roadmap: <https://github.com/GrubbyLee/skill-manager/discussions/8>
+- Report issues or suggest features: <https://github.com/GrubbyLee/skill-manager/issues>
 
-## 许可证
+## License
 
 [MIT](LICENSE)

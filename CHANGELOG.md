@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- README 改为英文默认入口，中文 README 移至 `README.zh-CN.md` 并在顶部支持中英文切换。
 - 新增 `scripts/install.mjs`，提供显式的 git clone 本地安装入口。
 - 新增 Roadmap 与社区传播素材文档。
 - README 与命令手册同步使用本地安装脚本。
