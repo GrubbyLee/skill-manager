@@ -2,6 +2,7 @@ import { mergeByDirName, isDupEntity } from '../catalog.js';
 import { tokenize, jaccard } from '../similarity.js';
 import { ensureCatalog } from './scan.js';
 import { groupBy, paint } from '../utils.js';
+import { tr } from '../i18n.js';
 
 const SIMILAR_THRESHOLD = 0.4;
 const SIMILAR_TOP = 15;
@@ -11,8 +12,8 @@ const SIMILAR_TOP = 15;
 //   2. 名字不同但 SKILL.md 内容哈希相同 —— 纯复制
 //   3. 同类多实现 —— 同一分类下存在多个不同家族的 skill，做同一件事需二选一
 //   4. 名称+描述文本高度相似 —— 疑似换名复制
-export function runDupes({ cwd, json = false }) {
-  const catalog = ensureCatalog(cwd);
+export function runDupes({ cwd, json = false, lang = 'zh-CN' }) {
+  const catalog = ensureCatalog(cwd, lang);
   const skills = catalog.skills;
   const merged = mergeByDirName(skills);
 
@@ -76,40 +77,40 @@ export function runDupes({ cwd, json = false }) {
     return;
   }
 
-  console.log(`一、同名多处安装（${sameName.length} 组）`);
-  if (!sameName.length) console.log('  无');
+  console.log(tr(lang, 'dupes.sameNameTitle', { count: sameName.length }));
+  if (!sameName.length) console.log(tr(lang, 'dupes.none'));
   for (const g of sameName) {
     const where = g.installs.map((i) => `${i.tool === 'claude-code' ? 'claude' : i.tool}/${i.scope}`).join(' + ');
     const verdict = g.shared
-      ? paint.green('软链共享同一实体，无需处理')
+      ? paint.green(tr(lang, 'dupes.shared'))
       : g.identical
-        ? paint.yellow('内容完全相同，可考虑软链化或保留一份')
-        : paint.red('⚠ 内容不同，需先对比再清理');
+        ? paint.yellow(tr(lang, 'dupes.identical'))
+        : paint.red(tr(lang, 'dupes.different'));
     console.log(`  ${g.dirName}  [${where}]  ${verdict}`);
   }
 
-  console.log(`\n二、名字不同但内容完全相同（${sameContent.length} 组）`);
-  if (!sameContent.length) console.log('  无');
+  console.log(`\n${tr(lang, 'dupes.sameContentTitle', { count: sameContent.length })}`);
+  if (!sameContent.length) console.log(tr(lang, 'dupes.none'));
   for (const list of sameContent) {
     console.log(`  ${list.map((s) => s.dirName).join(' = ')}`);
     for (const s of list) console.log(`    - ${s.path}`);
   }
 
-  console.log(`\n三、同类多实现（${overlapCategories.length} 个分类存在多套实现，做同一类事时需选择）`);
-  if (!overlapCategories.length) console.log('  无');
+  console.log(`\n${tr(lang, 'dupes.categoryTitle', { count: overlapCategories.length })}`);
+  if (!overlapCategories.length) console.log(tr(lang, 'dupes.none'));
   for (const oc of overlapCategories) {
     const familyDesc = oc.families
-      .map((f) => (f.members.length > 1 ? `${f.family}-*（${f.members.length} 个）` : f.members[0]))
+      .map((f) => (f.members.length > 1 ? tr(lang, 'dupes.familyCount', { family: f.family, count: f.members.length }) : f.members[0]))
       .join(' | ');
-    console.log(`  【${oc.category}】共 ${oc.count} 个：${familyDesc}`);
+    console.log(tr(lang, 'dupes.categoryLine', { category: oc.category, count: oc.count, families: familyDesc }));
   }
 
-  console.log(`\n四、名称+描述文本高度相似，疑似换名复制（阈值 ${SIMILAR_THRESHOLD}，显示前 ${SIMILAR_TOP}）`);
-  if (!similarTop.length) console.log('  无');
+  console.log(`\n${tr(lang, 'dupes.similarTitle', { threshold: SIMILAR_THRESHOLD, top: SIMILAR_TOP })}`);
+  if (!similarTop.length) console.log(tr(lang, 'dupes.none'));
   for (const p of similarTop) {
     console.log(`  ${(p.score * 100).toFixed(0)}%  ${p.a}  ↔  ${p.b}`);
   }
-  if (similar.length > SIMILAR_TOP) console.log(`  …另有 ${similar.length - SIMILAR_TOP} 对，见 skm dupes --json`);
+  if (similar.length > SIMILAR_TOP) console.log(tr(lang, 'dupes.moreSimilar', { count: similar.length - SIMILAR_TOP }));
 
-  console.log('\n本工具默认只读；确认后可用 skm disable 软禁用，或手动归档（目录名加 _ 前缀即可让扫描忽略）。');
+  console.log(`\n${tr(lang, 'dupes.note')}`);
 }

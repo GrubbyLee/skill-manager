@@ -10,8 +10,9 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 - 分类、搜索、推荐、知识图谱
 - 重复检测、使用审计、风险报告
 - 会话日志统计与安全清理计划
+- HTML 总览报告
 - 零第三方依赖与 macOS / Windows CI 验证
-- README、docs、Issue 模板、Discussions、Release
+- README/docs 中英文入口、Issue 模板、Discussions、Release
 
 ## 近期优先级
 
@@ -19,10 +20,10 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 |---|---|---|---|
 | P0 | 真实用户样本收集 | 用真实 `skm scan` / `recommend` 结果校准分类、推荐和图谱 | 进行中 |
 | P0 | 推荐准确率提升 | 让“我要做某件事该用哪个 skill”成为默认入口 | 进行中 |
-| P1 | HTML 总览报告 | 一次导出本机 skill 健康报告，适合分享和留档 | 未开始 |
+| P1 | HTML 总览报告 | 一次导出本机 skill 健康报告，适合分享和留档 | 已完成 |
 | P1 | 图谱布局优化 | 大量 skill 时更清楚地查看套件、平台、流程关系 | 进行中 |
 | P1 | 安装体验 | 在 npm 发布前，让 git clone 安装更稳、更易懂 | 进行中 |
-| P1 | 英文文档与 CLI 国际化 | GitHub 默认入口服务全球用户，同时保留中文文档；推荐、排查与图谱主链路已支持 `--lang` | 进行中 |
+| P1 | 英文文档与 CLI 国际化 | GitHub 默认入口服务全球用户，同时保留中文文档；CLI 主链路与详细 docs 已支持英文 | 已完成 |
 | P2 | 更多 AIDE 适配器 | 支持 Cursor、Gemini CLI 等更多工具 | 规划中 |
 | P2 | MCP token 实测 | 逐 server 估算 tool schema 常驻开销 | 规划中 |
 
@@ -36,17 +37,16 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 
 ## 国际化路线
 
-- 已完成：README 中英文入口、`--lang` / `SKM_LANG`、`help`、参数校验、`doctor`、`scan`、`status`、`risks`、`list`、`search`、`recommend`、`ask`、`graph`、`audit`、`sessions`、安装脚本
-- 下一步：`disable/enable`
-- 后续：英文版详细 docs
+- 已完成：README 中英文入口、英文详细 docs、`--lang` / `SKM_LANG`、`help`、参数校验、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable/enable`、安装脚本
+- 下一步：根据真实用户反馈继续打磨英文措辞与分类名国际化
 - 约束：不引入第三方依赖；JSON 字段名保持稳定；中文文档继续保留
 
 ## 知识图谱路线
 
-- 改进大规模节点布局，减少初始重叠
+- 已完成：大规模节点轻量碰撞避让、缩放、适配视图
 - 增加更多关系：上下游、共享输入输出格式、同平台不同动作、强替代/弱替代
 - 增加图谱摘要：最密集套件、重复核心、平台生态、潜在工作流
-- 增加 HTML 报告模式，把图谱、风险和推荐入口放在同一页
+- 已完成：HTML 总览报告，把图谱、风险和推荐入口放在同一页
 
 ## 社区协作
 

@@ -487,10 +487,10 @@ function renderHtml(graph, lang = 'zh-CN') {
   input[type="search"] { width:100%; box-sizing:border-box; margin:8px 0 16px; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#020617; color:var(--text); }
   .toggles { display:grid; gap:8px; margin:12px 0 16px; }
   .toggle { display:flex; align-items:center; gap:8px; }
-  .toolbar { display:flex; gap:8px; margin:8px 0 14px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 14px; }
   button { cursor:pointer; border:1px solid #334155; border-radius:8px; background:#1e293b; color:#e5e7eb; padding:7px 10px; font-size:12px; }
   button:hover { background:#334155; }
-  svg { display:block; min-width:${layout.width}px; min-height:${layout.height}px; background:radial-gradient(circle at 50% 45%, #111827 0, #020617 70%); user-select:none; }
+  svg { display:block; width:100%; min-width:960px; min-height:calc(100vh - 90px); background:radial-gradient(circle at 50% 45%, #111827 0, #020617 70%); user-select:none; }
   .edge { opacity:.38; transition:opacity .15s; }
   .node { cursor:grab; touch-action:none; }
   .node text { fill:#dbeafe; font-size:11px; pointer-events:none; }
@@ -518,7 +518,12 @@ function renderHtml(graph, lang = 'zh-CN') {
       <div class="stat"><b>${graph.stats.edges}</b><span>${escapeHtml(tr(lang, 'graph.html.relations'))}</span></div>
     </div>
     <div id="visible-count" class="meta"></div>
-    <div class="toolbar"><button id="reset-layout" type="button">${escapeHtml(tr(lang, 'graph.html.reset'))}</button></div>
+    <div class="toolbar">
+      <button id="zoom-in" type="button">${escapeHtml(tr(lang, 'graph.html.zoomIn'))}</button>
+      <button id="zoom-out" type="button">${escapeHtml(tr(lang, 'graph.html.zoomOut'))}</button>
+      <button id="fit-view" type="button">${escapeHtml(tr(lang, 'graph.html.fit'))}</button>
+      <button id="reset-layout" type="button">${escapeHtml(tr(lang, 'graph.html.reset'))}</button>
+    </div>
     <div class="toggles">
       <label class="toggle"><input id="only-important" type="checkbox"> ${escapeHtml(tr(lang, 'graph.html.onlyImportant'))}</label>
       <label class="toggle"><input id="hide-idle" type="checkbox"> ${escapeHtml(tr(lang, 'graph.html.hideIdle'))}</label>
@@ -545,9 +550,51 @@ const onlyImportant = document.querySelector('#only-important');
 const hideIdle = document.querySelector('#hide-idle');
 const showLabels = document.querySelector('#show-labels');
 const resetLayout = document.querySelector('#reset-layout');
+const zoomIn = document.querySelector('#zoom-in');
+const zoomOut = document.querySelector('#zoom-out');
+const fitView = document.querySelector('#fit-view');
 const nodeById = new Map(nodes.map(n => [n.dataset.id, n]));
 const svg = document.querySelector('svg');
 let dragging = null;
+let viewBox = { x: 0, y: 0, w: ${layout.width}, h: ${layout.height} };
+
+function applyViewBox() {
+  svg.setAttribute('viewBox', viewBox.x + ' ' + viewBox.y + ' ' + viewBox.w + ' ' + viewBox.h);
+}
+
+function zoom(factor) {
+  const cx = viewBox.x + viewBox.w / 2;
+  const cy = viewBox.y + viewBox.h / 2;
+  viewBox.w = Math.max(420, Math.min(${layout.width}, viewBox.w * factor));
+  viewBox.h = Math.max(320, Math.min(${layout.height}, viewBox.h * factor));
+  viewBox.x = Math.max(0, Math.min(${layout.width} - viewBox.w, cx - viewBox.w / 2));
+  viewBox.y = Math.max(0, Math.min(${layout.height} - viewBox.h, cy - viewBox.h / 2));
+  applyViewBox();
+}
+
+function fitVisible() {
+  const visible = nodes.filter(n => !n.classList.contains('hidden'));
+  if (!visible.length) {
+    viewBox = { x: 0, y: 0, w: ${layout.width}, h: ${layout.height} };
+    applyViewBox();
+    return;
+  }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const node of visible) {
+    const x = Number(node.dataset.x);
+    const y = Number(node.dataset.y);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+  }
+  const pad = 160;
+  viewBox.x = Math.max(0, minX - pad);
+  viewBox.y = Math.max(0, minY - pad);
+  viewBox.w = Math.min(${layout.width} - viewBox.x, Math.max(520, maxX - minX + pad * 2));
+  viewBox.h = Math.min(${layout.height} - viewBox.y, Math.max(420, maxY - minY + pad * 2));
+  applyViewBox();
+}
 
 function applyFilters() {
   const enabledTypes = new Set(edgeChecks.filter(cb => cb.checked).map(cb => cb.dataset.edge));
@@ -635,7 +682,11 @@ resetLayout.addEventListener('click', () => {
   for (const node of nodes) {
     setNodePosition(node, Number(node.dataset.initialX), Number(node.dataset.initialY));
   }
+  fitVisible();
 });
+zoomIn.addEventListener('click', () => zoom(0.82));
+zoomOut.addEventListener('click', () => zoom(1.22));
+fitView.addEventListener('click', fitVisible);
 
 nodes.forEach(node => {
   node.addEventListener('pointerdown', event => {
@@ -669,6 +720,7 @@ svg.addEventListener('pointercancel', () => {
   dragging.node.classList.remove('dragging');
   dragging = null;
 });
+fitVisible();
 </script>
 </body>
 </html>`;
@@ -713,7 +765,57 @@ function layoutGraph(graph) {
   placeRing('family', base * 0.17, Math.PI / 12);
   placeRing('platform', base * 0.105, Math.PI / 6);
   placeRing('mcp', base * 0.055, 0);
+  relaxLayout(map, graph, width, height);
   return { positions: map, width, height };
+}
+
+function relaxLayout(map, graph, width, height) {
+  const nodes = graph.nodes.filter((n) => map.has(n.id));
+  const center = {
+    x: [...map.values()].reduce((sum, p) => sum + p.x, 0) / Math.max(1, nodes.length),
+    y: [...map.values()].reduce((sum, p) => sum + p.y, 0) / Math.max(1, nodes.length),
+  };
+  for (let pass = 0; pass < 24; pass++) {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i];
+        const b = nodes[j];
+        const pa = map.get(a.id);
+        const pb = map.get(b.id);
+        const dx = pb.x - pa.x;
+        const dy = pb.y - pa.y;
+        const dist = Math.max(0.1, Math.hypot(dx, dy));
+        const minDist = nodeRadius(a) + nodeRadius(b) + labelPadding(a, b);
+        if (dist >= minDist) continue;
+        const push = (minDist - dist) / 2;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        if (a.type === 'skill') {
+          pa.x -= nx * push;
+          pa.y -= ny * push;
+        }
+        if (b.type === 'skill') {
+          pb.x += nx * push;
+          pb.y += ny * push;
+        }
+      }
+    }
+    for (const n of nodes) {
+      const p = map.get(n.id);
+      p.x = Math.round(Math.max(80, Math.min(width - 80, p.x)));
+      p.y = Math.round(Math.max(80, Math.min(height - 80, p.y)));
+      if (n.type !== 'skill') {
+        p.x += Math.round((center.x - p.x) * 0.012);
+        p.y += Math.round((center.y - p.y) * 0.012);
+      }
+    }
+  }
+}
+
+function labelPadding(a, b) {
+  const labelCost = Math.min(80, Math.max(String(a.label).length, String(b.label).length) * 2.4);
+  if (a.type !== 'skill' || b.type !== 'skill') return 28 + labelCost * 0.25;
+  return 42 + labelCost;
 }
 
 function resolveFormat({ format, output, json }) {

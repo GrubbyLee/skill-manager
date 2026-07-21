@@ -88,3 +88,30 @@ test('CLI 子命令：search / recommend / ask 支持英文缺参提示', () => 
     assert.doesNotMatch(r.stderr, /用法：/);
   }
 });
+
+test('CLI 子命令：disable / enable --mcp 支持英文缺参提示', () => {
+  const disable = spawnSync(process.execPath, ['bin/skm.js', 'disable', '--lang', 'en'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  assert.equal(disable.status, 1);
+  assert.match(disable.stderr, /^Usage: skm disable/);
+
+  const enableMcp = spawnSync(process.execPath, ['bin/skm.js', 'enable', '--mcp', '--lang', 'en'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  assert.equal(enableMcp.status, 1);
+  assert.match(enableMcp.stderr, /^Usage: skm enable --mcp/);
+});
+
+test('CLI 参数：report / graph 接受显式 summary 格式', () => {
+  for (const command of ['report', 'graph']) {
+    const r = spawnSync(process.execPath, ['bin/skm.js', command, '--format', 'summary', '--lang', 'en'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    });
+    assert.equal(r.status, 0, r.stderr);
+    assert.doesNotMatch(r.stderr, /--format must be/);
+  }
+});

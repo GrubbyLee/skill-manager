@@ -13,6 +13,7 @@ import { runDisable, runEnable } from '../src/commands/toggle.js';
 import { runStatus } from '../src/commands/status.js';
 import { runDoctor } from '../src/commands/doctor.js';
 import { runRisks } from '../src/commands/risks.js';
+import { runReport } from '../src/commands/report.js';
 import { detectLang, langFromArgv, tr } from '../src/i18n.js';
 
 const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
@@ -26,6 +27,7 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   status          同上（显式写法）
   doctor          只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI
   risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、日志体积、MCP 可观测性
+  report          生成一页式总览报告（summary/json/html），汇总健康、风险、审计、会话与图谱概览
   scan            扫描 Claude Code 与 Codex，生成 ~/.skill-manager/catalog.json
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）
@@ -60,8 +62,12 @@ recommend 选项：
   --why                   显示更详细的命中词与分数
   --advisor <codex|claude> 显式调用本机 AIDE CLI 做增强推荐；失败时回退本地推荐
 
+report 选项：
+  --format <summary|html|json>  导出格式；不指定时显示摘要
+  --output <文件>          写入文件；可按扩展名自动推断格式
+
 graph 选项：
-  --format <json|html|mermaid>  导出格式；不指定时显示图谱摘要
+  --format <summary|json|html|mermaid>  导出格式；不指定时显示图谱摘要
   --output <文件>               写入文件；可按扩展名自动推断格式
 
 sessions 选项：
@@ -75,6 +81,7 @@ sessions 选项：
   skm scan
   skm doctor
   skm risks
+  skm report --format html --output skm-report.html
   skm list --category ppt
   skm search 转 markdown
   skm recommend "把网页转成 markdown"
@@ -98,6 +105,7 @@ Commands:
   status            Same as above
   doctor            Read-only diagnostics: Node, directories, catalog, advisor CLI, macOS/Windows CI
   risks             Risk report: duplicates, idle MCP, context cost, log size, MCP observability
+  report            One-page overview report (summary/json/html): health, risks, usage, sessions, graph summary
   scan              Scan Claude Code and Codex, write ~/.skill-manager/catalog.json
   list              List all skills by category
   search <text>     Search skills by name, category, and description
@@ -132,8 +140,12 @@ recommend options:
   --why                   Show matched terms and score details
   --advisor <codex|claude> Explicitly call local AIDE CLI for enhanced recommendation; falls back locally on failure
 
+report options:
+  --format <summary|html|json>  Export format; omitted means summary
+  --output <file>         Write to file; format can be inferred from extension
+
 graph options:
-  --format <json|html|mermaid>  Export format; omitted means summary
+  --format <summary|json|html|mermaid>  Export format; omitted means summary
   --output <file>               Write to file; format can be inferred from extension
 
 sessions options:
@@ -147,6 +159,7 @@ Examples:
   skm scan
   skm doctor
   skm risks
+  skm report --format html --output skm-report.html
   skm list --category ppt
   skm search markdown
   skm recommend "convert a web page to markdown"
@@ -223,7 +236,7 @@ if (values.top != null && !/^\d+$/.test(values.top)) {
   console.error(tr(lang, 'cli.topInvalid', { value: values.top }));
   process.exit(1);
 }
-if (values.format && !['json', 'html', 'mermaid'].includes(values.format)) {
+if (values.format && !['summary', 'json', 'html', 'mermaid'].includes(values.format)) {
   console.error(tr(lang, 'cli.formatInvalid', { value: values.format }));
   process.exit(1);
 }
@@ -236,6 +249,7 @@ async function main() {
   else if (cmd === 'status') runStatus(ctx);
   else if (cmd === 'doctor') runDoctor(ctx);
   else if (cmd === 'risks') runRisks(ctx);
+  else if (cmd === 'report') runReport(ctx);
   else if (cmd === 'scan') runScan(ctx);
   else if (cmd === 'list') runList(ctx);
   else if (cmd === 'search') runSearch({ ...ctx, keywords: positionals.slice(1) });

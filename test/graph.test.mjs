@@ -122,9 +122,14 @@ test('知识图谱 HTML：支持重点节点、闲置隐藏、标签开关与搜
   assert.match(html, /id="hide-idle"/);
   assert.match(html, /id="show-labels"/);
   assert.match(html, /id="reset-layout"/);
+  assert.match(html, /id="zoom-in"/);
+  assert.match(html, /id="zoom-out"/);
+  assert.match(html, /id="fit-view"/);
   assert.match(html, /data-important="/);
   assert.match(html, /data-search="/);
   assert.match(html, /focusedNodeIds/);
+  assert.match(html, /function fitVisible/);
+  assert.match(html, /function zoom/);
   assert.match(html, /搜索会显示匹配节点及其一跳关系/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
 });

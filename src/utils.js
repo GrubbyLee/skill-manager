@@ -157,10 +157,10 @@ export function saveJsonFile(file, data, { pretty = false } = {}) {
 }
 
 // ---------- 交互确认（sessions --clean 与 disable/enable --mcp 共用） ----------
-export async function confirm(question, { yes = false } = {}) {
+export async function confirm(question, { yes = false, nonInteractiveMessage = '非交互环境需加 --yes 确认。', cancelMessage = '已取消。' } = {}) {
   if (yes) return true;
   if (!process.stdin.isTTY) {
-    console.error('非交互环境需加 --yes 确认。');
+    console.error(nonInteractiveMessage);
     process.exitCode = 1;
     return false;
   }
@@ -168,7 +168,7 @@ export async function confirm(question, { yes = false } = {}) {
   const answer = await rl.question(question);
   rl.close();
   if (answer.trim().toLowerCase() !== 'yes') {
-    console.log('已取消。');
+    console.log(cancelMessage);
     return false;
   }
   return true;

@@ -23,6 +23,7 @@ node scripts/install.mjs
 skm scan
 skm
 skm ask "我要把网页转成 Markdown"
+skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
 
@@ -52,6 +53,7 @@ git clone https://gitee.com/synovation/skill-manager.git
 | 哪些从未真正用过？ | `skm audit` | 使用频率、僵尸 skill、MCP 调用记录 |
 | skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
 | 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
+| 能否导出一页总览？ | `skm report --format html` | 健康、风险、使用、会话、图谱摘要汇总 |
 | 会话日志太大怎么办？ | `skm sessions` | 按工作区统计日志体积，支持 dry-run 清理计划 |
 
 ## 命令速查
@@ -61,6 +63,7 @@ git clone https://gitee.com/synovation/skill-manager.git
 | `skm` / `skm status` | 一屏健康体检 |
 | `skm doctor` | 只读环境诊断 |
 | `skm risks` | 风险报告，不修改 AIDE 数据 |
+| `skm report` | 一页式总览报告 |
 | `skm scan` | 扫描 skill / MCP，重建目录 |
 | `skm list` / `skm list --mcp` | 列出 skill 或 MCP |
 | `skm search <关键词>` | 按名称、分类、描述搜索 |
@@ -108,6 +111,14 @@ skm graph --format html --output skill-graph.html
 
 支持的关系包括同源、同类、重复、替代、流程、反向转换、共享平台、使用 MCP。关系含义和交互说明见 [docs/graph.md](docs/graph.md)。
 
+## 总览报告
+
+```bash
+skm report --format html --output skm-report.html
+```
+
+报告会把健康分、风险项、使用频率、上下文开销、会话日志、图谱摘要和下一步命令放到一页本地 HTML。详细说明见 [docs/report.md](docs/report.md)。
+
 ## 一般排查流程
 
 ```bash
@@ -115,6 +126,7 @@ skm doctor
 skm scan
 skm
 skm risks
+skm report --format html --output skm-report.html
 skm dupes
 skm audit
 skm list --mcp
@@ -164,15 +176,16 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 - 四级重复检测：同名、同内容、同类多实现、文本高度相似
 - 真实使用审计：解析会话日志，只统计真正读取或调用过的 skill / MCP
 - 知识图谱：导出 JSON、Mermaid 或单文件 HTML
+- 总览报告：导出单文件 HTML，汇总健康、风险、使用、会话与图谱摘要
 - 零第三方依赖：全部功能基于 Node.js 内置模块实现
 - 双语入口：README 默认英文，中文文档保留；核心 CLI 输出支持中英文切换
 - 开源友好：macOS / Windows 由 GitHub Actions 验证，Linux 由维护者本机验证
 
 ## 语言支持
 
-`skm help`、参数校验、`doctor`、`scan`、`status`、`risks`、`list`、`search`、`recommend`、`ask`、`graph`、`audit`、`sessions` 和本地安装脚本已支持英文 / 简体中文输出。
+`skm help`、参数校验、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
 
-可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。其余写操作命令会逐步迁移；JSON 字段名保持稳定。
+可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。JSON 字段名保持稳定。
 
 ## 文档
 
@@ -181,10 +194,11 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 | [docs/usage.md](docs/usage.md) | 完整命令手册与示例 |
 | [docs/recommend.md](docs/recommend.md) | skill 推荐逻辑、参数和增强模式 |
 | [docs/graph.md](docs/graph.md) | 知识图谱关系、交互和导出 |
+| [docs/report.md](docs/report.md) | HTML 总览报告 |
 | [docs/safety.md](docs/safety.md) | 只读边界、写操作防护、数据说明 |
 | [docs/roadmap.md](docs/roadmap.md) | 项目路线图与近期优先级 |
 | [docs/community.md](docs/community.md) | 社区传播素材与发布清单 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献方式、本地开发、提交流程 |
+| [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献方式、本地开发、提交流程 |
 
 ## 跨端验证
 
@@ -201,7 +215,6 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 ## Roadmap
 
 - 真实用户样本收集，校准分类、推荐和图谱
-- HTML 总览报告
 - 更强的知识图谱聚类、布局和导出样式
 - 更多 AIDE 适配器，例如 Cursor、Gemini CLI
 - MCP 逐 server 的 tool schema token 实测

@@ -35,7 +35,7 @@ skm recommend "convert a web page to markdown" --lang en
 skm graph --format html --output skill-graph.html --lang en
 ```
 
-当前已覆盖 `help`、参数错误、`doctor`、`scan`、`status`、`risks`、`list`、`search`、`recommend`、`ask`、`graph`、`audit`、`sessions` 与安装脚本。其余写操作命令会逐步迁移；`--json` 的字段名保持稳定。
+当前已覆盖 `help`、参数错误、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
 
 ## 推荐排查流程
 
@@ -44,6 +44,7 @@ skm doctor
 skm scan
 skm
 skm risks
+skm report --format html --output skm-report.html
 skm dupes
 skm audit
 skm list --mcp
@@ -60,6 +61,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm` / `skm status` | 一屏健康体检 | `--json` |
 | `skm doctor` | 环境诊断 | `--json` |
 | `skm risks` | 风险报告 | `--json` |
+| `skm report` | 一页式总览报告 | `--format html`、`--output`、`--json` |
 | `skm scan` | 扫描 skill / MCP | `--verbose`、`--json` |
 | `skm list` | 列出 skill | `--category`、`--tool`、`--scope`、`--raw`、`--json` |
 | `skm list --mcp` | 列出 MCP | `--tool`、`--json` |
@@ -123,6 +125,16 @@ skm risks --json
 `doctor` 检查运行环境，例如 Node.js 版本、目录、catalog、advisor CLI、CI 配置。
 
 `risks` 汇总分级风险，例如实体双份、双份且从未使用、闲置 MCP、高上下文开销、会话日志体积、不可观测项。它不直接禁用或删除任何 AIDE 数据。
+
+## report
+
+```bash
+skm report
+skm report --format html --output skm-report.html
+skm report --json
+```
+
+`report` 会生成一页式总览，包含健康分、风险、使用频率、上下文开销、会话日志、知识图谱摘要和下一步命令。HTML 报告是零依赖单文件，可直接用浏览器打开。详细说明见 [report.md](report.md)。
 
 ## list 与 search
 

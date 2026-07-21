@@ -23,6 +23,7 @@ node scripts/install.mjs
 skm scan
 skm
 skm ask "convert a web page to Markdown"
+skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
 
@@ -46,6 +47,7 @@ SKM_LANG=zh-CN skm doctor
 | Which skills were never really used? | `skm audit` | Real usage frequency from Claude Code / Codex sessions |
 | How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
 | What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
+| Can I share one local overview? | `skm report --format html` | Single-file overview with health, risks, usage, sessions, graph summary |
 | Where did my session logs grow? | `skm sessions` | Workspace-level session log size and dry-run cleanup plan |
 
 ## Command Cheatsheet
@@ -55,6 +57,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm` / `skm status` | One-screen health overview |
 | `skm doctor` | Read-only environment diagnostics |
 | `skm risks` | Risk report without changing AIDE data |
+| `skm report` | One-page overview report |
 | `skm scan` | Scan skills and MCP servers, rebuild catalog |
 | `skm list` / `skm list --mcp` | List skills or MCP servers |
 | `skm search <keyword>` | Search by name, category, and description |
@@ -67,7 +70,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm sessions --clean` | Clean session logs with confirmation |
 | `skm disable` / `skm enable` | Soft-disable or restore skills / MCP servers |
 
-The detailed command manual is currently in Chinese: [docs/usage.md](docs/usage.md). English documentation is on the roadmap.
+Detailed command manual: [docs/usage.en.md](docs/usage.en.md).
 
 ## Skill Recommendation
 
@@ -102,6 +105,14 @@ The HTML graph is a zero-dependency single file. Open it in a browser and filter
 
 Current relationship types include same family, same category, duplicate, alternative, workflow, reverse conversion, shared platform, and uses MCP. Details are in [docs/graph.md](docs/graph.md).
 
+## Overview Report
+
+```bash
+skm report --format html --output skm-report.html
+```
+
+The report puts health score, risks, usage, context cost, session logs, graph summary, and next commands on one local HTML page. Details are in [docs/report.en.md](docs/report.en.md).
+
 ## Safe Troubleshooting Workflow
 
 ```bash
@@ -109,6 +120,7 @@ skm doctor
 skm scan
 skm
 skm risks
+skm report --format html --output skm-report.html
 skm dupes
 skm audit
 skm list --mcp
@@ -160,6 +172,7 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 - Audits real usage from session logs
 - Finds zombie skills and idle Claude-side MCP servers
 - Exports JSON, Mermaid, and single-file HTML knowledge graphs
+- Exports single-file HTML overview reports
 - Uses zero third-party npm dependencies
 - Runs on Node.js >= 18
 
@@ -168,13 +181,14 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 | Document | Content |
 |---|---|
 | [README.zh-CN.md](README.zh-CN.md) | Chinese README |
-| [docs/usage.md](docs/usage.md) | Full command manual, currently Chinese |
-| [docs/recommend.md](docs/recommend.md) | Recommendation logic and advisor mode, currently Chinese |
-| [docs/graph.md](docs/graph.md) | Knowledge graph relationships and HTML interactions, currently Chinese |
-| [docs/safety.md](docs/safety.md) | Safety boundaries and data notes, currently Chinese |
-| [docs/roadmap.md](docs/roadmap.md) | Roadmap, currently Chinese |
-| [docs/community.md](docs/community.md) | Community post templates, currently Chinese |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide, currently Chinese |
+| [docs/usage.en.md](docs/usage.en.md) / [docs/usage.md](docs/usage.md) | Full command manual |
+| [docs/recommend.en.md](docs/recommend.en.md) / [docs/recommend.md](docs/recommend.md) | Recommendation logic and advisor mode |
+| [docs/graph.en.md](docs/graph.en.md) / [docs/graph.md](docs/graph.md) | Knowledge graph relationships and HTML interactions |
+| [docs/report.en.md](docs/report.en.md) / [docs/report.md](docs/report.md) | HTML overview report |
+| [docs/safety.en.md](docs/safety.en.md) / [docs/safety.md](docs/safety.md) | Safety boundaries and data notes |
+| [docs/roadmap.en.md](docs/roadmap.en.md) / [docs/roadmap.md](docs/roadmap.md) | Roadmap |
+| [docs/community.en.md](docs/community.en.md) / [docs/community.md](docs/community.md) | Community post templates |
+| [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide |
 
 ## Cross-Platform Validation
 
@@ -190,20 +204,18 @@ CI entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/ski
 
 ## Language Support
 
-`skm help`, argument validation, `doctor`, `scan`, `status`, `risks`, `list`, `search`, `recommend`, `ask`, `graph`, `audit`, `sessions`, and the local install script support English and Simplified Chinese output.
+`skm help`, argument validation, `doctor`, `scan`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
 
-Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. Remaining write-operation commands are being migrated gradually; JSON field names stay stable.
+Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. JSON field names stay stable.
 
 ## Roadmap
 
-- Full English CLI coverage and English documentation
 - More real-world `skm scan` / `skm recommend` samples
-- HTML overview report
 - Better clustering and layout for large knowledge graphs
 - More AIDE adapters, such as Cursor and Gemini CLI
 - Per-server MCP tool schema token measurement
 
-Full roadmap: [docs/roadmap.md](docs/roadmap.md).
+Full roadmap: [docs/roadmap.en.md](docs/roadmap.en.md).
 
 ## Community
 

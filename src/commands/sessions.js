@@ -115,7 +115,7 @@ async function clean(sessions, opts) {
     }
   }
 
-  if (!(await confirm(`\n${tr(lang, 'sessions.confirmDelete')}`, { yes: opts.yes }))) return;
+  if (!(await confirm(`\n${tr(lang, 'sessions.confirmDelete')}`, confirmOptions(opts.yes, lang)))) return;
 
   // 兑现墓碑承诺：删除前先把全部日志（含待删的）的使用统计聚合进缓存
   console.error(tr(lang, 'sessions.aggregate'));
@@ -123,7 +123,7 @@ async function clean(sessions, opts) {
     scanUsage({ log: (msg) => console.error(msg), lang });
   } catch (e) {
     console.error(tr(lang, 'sessions.aggregateFailed', { message: e.message }));
-    if (!(await confirm(tr(lang, 'sessions.continueConfirm'), { yes: false }))) return;
+    if (!(await confirm(tr(lang, 'sessions.continueConfirm'), confirmOptions(false, lang)))) return;
   }
 
   let deleted = 0;
@@ -153,6 +153,14 @@ function parsePositiveInt(v, flag, lang = 'zh-CN') {
 
 function unknownLabel(lang) {
   return tr(lang, 'sessions.unknownWorkspace');
+}
+
+function confirmOptions(yes, lang) {
+  return {
+    yes,
+    nonInteractiveMessage: tr(lang, 'common.confirmNonInteractive'),
+    cancelMessage: tr(lang, 'common.cancelled'),
+  };
 }
 
 const sum = (list, key) => list.reduce((s, x) => s + x[key], 0);
