@@ -165,14 +165,14 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 - 真实使用审计：解析会话日志，只统计真正读取或调用过的 skill / MCP
 - 知识图谱：导出 JSON、Mermaid 或单文件 HTML
 - 零第三方依赖：全部功能基于 Node.js 内置模块实现
-- 中文优先：终端输出、说明文档、分类规则面向中文用户
+- 双语入口：README 默认英文，中文文档保留；核心 CLI 输出支持中英文切换
 - 开源友好：macOS / Windows 由 GitHub Actions 验证，Linux 由维护者本机验证
 
 ## 语言支持
 
-`skm help`、参数校验、`doctor`、`scan`、`status` 和本地安装脚本已支持英文 / 简体中文输出。
+`skm help`、参数校验、`doctor`、`scan`、`status`、`risks`、`list`、`search`、`recommend`、`ask` 和本地安装脚本已支持英文 / 简体中文输出。
 
-可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。其余命令会逐步迁移；JSON 字段名保持稳定。
+可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。其余治理命令会逐步迁移；JSON 字段名保持稳定。
 
 ## 文档
 

@@ -2,9 +2,9 @@ import { spawn } from 'node:child_process';
 import { mergeByDirName, toolLabel } from '../catalog.js';
 import { tokenize } from '../similarity.js';
 import { scanUsage, buildUsageLookup } from '../usage.js';
-import { fmtAgo } from '../utils.js';
 import { renderTable, termWidth } from '../table.js';
 import { ensureCatalog } from './scan.js';
+import { fmtAgoLang, tr } from '../i18n.js';
 
 const DEFAULT_TOP = 3;
 const MAX_TOP = 20;
@@ -128,24 +128,24 @@ const TASK_INTENTS = [
 
 // skm recommend：根据自然语言任务描述推荐最合适的 skill。
 // 默认不调用外部模型；仅显式传 --advisor codex|claude 时，才调用本机 AIDE CLI 做增强推荐。
-export async function runRecommend({ cwd, keywords, json = false, top, tool, category, why = false, advisor }) {
+export async function runRecommend({ cwd, keywords, json = false, top, tool, category, why = false, advisor, lang = 'zh-CN' }) {
   const query = keywords.join(' ').trim();
   if (!query) {
-    console.error('用法：skm recommend "我要做的事" [--top 3] [--tool claude|codex] [--category 关键字] [--why] [--advisor codex|claude]');
+    console.error(tr(lang, 'recommend.usage'));
     process.exitCode = 1;
     return;
   }
-  const limit = parseTop(top);
+  const limit = parseTop(top, lang);
   if (limit == null) return;
 
-  const catalog = ensureCatalog(cwd);
+  const catalog = ensureCatalog(cwd, lang);
   const merged = filterSkills(mergeByDirName(catalog.skills), { tool, category });
   if (!merged.length) {
-    console.log('没有符合过滤条件的 skill，无法推荐。');
+    console.log(tr(lang, 'recommend.emptyFiltered'));
     return;
   }
 
-  console.error('正在结合目录与使用统计生成推荐…');
+  console.error(tr(lang, 'recommend.loading'));
   const usage = scanUsage({ log: (msg) => console.error(msg) });
   const usageOf = buildUsageLookup(merged, usage);
   const ranked = rankRecommendations(merged, query, usageOf).slice(0, limit);
@@ -155,14 +155,14 @@ export async function runRecommend({ cwd, keywords, json = false, top, tool, cat
   if (advisor) {
     const candidates = buildAdvisorCandidates(merged, ranked, usageOf);
     if (!candidates.length) {
-      advisorError = '没有可发送给增强推荐的候选 skill';
+      advisorError = tr(lang, 'recommend.noAdvisorCandidates');
     } else {
-      console.error(`正在调用本机 ${advisor} 增强推荐…`);
+      console.error(tr(lang, 'recommend.advisorLoading', { advisor }));
       try {
         advisorResult = await askAdvisor({ advisor, query, candidates, top: limit, cwd });
       } catch (e) {
         advisorError = e.message || String(e);
-        console.error(`增强推荐不可用：${advisorError}，已回退本地推荐。`);
+        console.error(tr(lang, 'recommend.advisorFallbackStderr', { error: advisorError }));
       }
     }
   }
@@ -181,54 +181,54 @@ export async function runRecommend({ cwd, keywords, json = false, top, tool, cat
   }
 
   if (!ranked.length) {
-    console.log(`暂未找到适合"${query}"的本地规则推荐。可尝试换关键词，或运行 skm list 浏览分类。`);
-    if (advisorResult) printAdvisorResult(advisorResult);
+    console.log(tr(lang, 'recommend.noLocal', { query }));
+    if (advisorResult) printAdvisorResult(advisorResult, lang);
     return;
   }
 
-  console.log(`推荐任务：${query}\n`);
+  console.log(`${tr(lang, 'recommend.task', { query })}\n`);
   const columns = why
     ? [
-        { title: '推荐', width: 4 },
-        { title: '分数', width: 5 },
-        { title: '名称', width: 28 },
-        { title: '工具', width: 6 },
-        { title: '最近使用', width: 10 },
-        { title: '命中 / 理由', width: 0 },
+        { title: tr(lang, 'recommend.col.rank'), width: 4 },
+        { title: tr(lang, 'recommend.col.score'), width: 5 },
+        { title: tr(lang, 'recommend.col.name'), width: 28 },
+        { title: tr(lang, 'recommend.col.tool'), width: 6 },
+        { title: tr(lang, 'recommend.col.lastUsed'), width: 10 },
+        { title: tr(lang, 'recommend.col.matchReason'), width: 0 },
       ]
     : [
-        { title: '推荐', width: 4 },
-        { title: '名称', width: 28 },
-        { title: '工具', width: 6 },
-        { title: '分类', width: 18 },
-        { title: '最近使用', width: 10 },
-        { title: '理由', width: 0 },
+        { title: tr(lang, 'recommend.col.rank'), width: 4 },
+        { title: tr(lang, 'recommend.col.name'), width: 28 },
+        { title: tr(lang, 'recommend.col.tool'), width: 6 },
+        { title: tr(lang, 'recommend.col.category'), width: 18 },
+        { title: tr(lang, 'recommend.col.lastUsed'), width: 10 },
+        { title: tr(lang, 'recommend.col.reason'), width: 0 },
       ];
   const rows = ranked.map((r, i) => why
-    ? [i + 1, r.score, r.skill.dirName, toolLabel(r.skill.tools), fmtAgo(r.usage.lastUsed), explain(r)]
-    : [i + 1, r.skill.dirName, toolLabel(r.skill.tools), r.skill.category, fmtAgo(r.usage.lastUsed), r.reasons.join('；')]);
+    ? [i + 1, r.score, r.skill.dirName, localizedToolLabel(r.skill.tools, lang), fmtAgoLang(lang, r.usage.lastUsed), explain(r, lang)]
+    : [i + 1, r.skill.dirName, localizedToolLabel(r.skill.tools, lang), r.skill.category, fmtAgoLang(lang, r.usage.lastUsed), joinReasons(r.reasons, lang)]);
   console.log(renderTable(columns, rows, termWidth()));
-  if (advisorResult) printAdvisorResult(advisorResult);
-  if (advisorError && !advisorResult) console.log(`\n增强推荐：${advisor} 不可用，已使用本地推荐。原因：${advisorError}`);
-  console.log('\n提示：recommend 默认是本地启发式推荐；显式加 --advisor codex|claude 时会调用本机 AIDE CLI 做增强判断。');
+  if (advisorResult) printAdvisorResult(advisorResult, lang);
+  if (advisorError && !advisorResult) console.log(`\n${tr(lang, 'recommend.advisorFallback', { advisor, error: advisorError })}`);
+  console.log(`\n${tr(lang, 'recommend.hint')}`);
 }
 
-export function runAsk({ cwd, keywords, json = false, tool, category }) {
+export function runAsk({ cwd, keywords, json = false, tool, category, lang = 'zh-CN' }) {
   const query = keywords.join(' ').trim();
   if (!query) {
-    console.error('用法：skm ask "我要做的事" [--tool claude|codex] [--category 关键字]');
+    console.error(tr(lang, 'recommend.askUsage'));
     process.exitCode = 1;
     return;
   }
 
-  const catalog = ensureCatalog(cwd);
+  const catalog = ensureCatalog(cwd, lang);
   const merged = filterSkills(mergeByDirName(catalog.skills), { tool, category });
   if (!merged.length) {
-    console.log('没有符合过滤条件的 skill，无法推荐。');
+    console.log(tr(lang, 'recommend.emptyFiltered'));
     return;
   }
 
-  console.error('正在结合目录与使用统计生成回答…');
+  console.error(tr(lang, 'recommend.askLoading'));
   const usage = scanUsage({ log: (msg) => console.error(msg) });
   const usageOf = buildUsageLookup(merged, usage);
   const ranked = rankRecommendations(merged, query, usageOf).slice(0, DEFAULT_TOP);
@@ -238,22 +238,22 @@ export function runAsk({ cwd, keywords, json = false, tool, category }) {
     return;
   }
   if (!ranked.length) {
-    console.log(`暂未找到适合"${query}"的 skill。建议先运行 skm search <关键词> 或 skm list 浏览分类。`);
+    console.log(tr(lang, 'recommend.askNoLocal', { query }));
     return;
   }
 
   const [best, ...rest] = ranked;
-  console.log(`任务：${query}\n`);
-  console.log(`首选：${best.skill.dirName}（${toolLabel(best.skill.tools)}，${best.skill.category}）`);
-  console.log(`理由：${best.reasons.join('；')}。`);
-  if (best.skill.description) console.log(`说明：${best.skill.description}`);
+  console.log(`${tr(lang, 'ask.task', { query })}\n`);
+  console.log(tr(lang, 'ask.best', { name: best.skill.dirName, tool: localizedToolLabel(best.skill.tools, lang), category: best.skill.category }));
+  console.log(tr(lang, 'ask.reason', { reasons: joinReasons(best.reasons, lang) }));
+  if (best.skill.description) console.log(tr(lang, 'ask.description', { description: best.skill.description }));
   if (rest.length) {
-    console.log('\n备选：');
+    console.log(`\n${tr(lang, 'ask.alternatives')}`);
     for (const r of rest) {
-      console.log(`  - ${r.skill.dirName}：${r.reasons.slice(0, 3).join('；')}`);
+      console.log(`  - ${r.skill.dirName}: ${joinReasons(r.reasons.slice(0, 3), lang)}`);
     }
   }
-  console.log(`\n进一步确认：skm recommend "${query.replace(/"/g, '\\"')}" --why`);
+  console.log(`\n${tr(lang, 'ask.confirm', { query: query.replace(/"/g, '\\"') })}`);
 }
 
 export function rankRecommendations(skills, query, usageOf = () => ({ count: 0, lastUsed: null })) {
@@ -615,15 +615,15 @@ function runAdvisorProcess(invocation, { cwd, spawnImpl, timeoutMs }) {
   });
 }
 
-function printAdvisorResult(result) {
-  console.log(`\n增强推荐（${result.name}）：${result.summary || '已返回建议'}`);
+function printAdvisorResult(result, lang = 'zh-CN') {
+  console.log(`\n${tr(lang, 'advisor.title', { name: result.name, summary: result.summary || tr(lang, 'advisor.defaultSummary') })}`);
   for (const [i, r] of result.recommendations.entries()) {
     const confidence = Math.round(r.confidence * 100);
-    console.log(`  ${i + 1}. ${r.dirName}（置信度 ${confidence}%）：${r.reason}`);
-    if (r.whenToUse) console.log(`     适用：${r.whenToUse}`);
+    console.log(`  ${i + 1}. ${r.dirName} (${tr(lang, 'advisor.confidence', { confidence })}): ${r.reason}`);
+    if (r.whenToUse) console.log(`     ${tr(lang, 'advisor.whenToUse', { text: r.whenToUse })}`);
   }
   for (const warning of result.warnings || []) {
-    console.log(`  提醒：${warning}`);
+    console.log(`  ${tr(lang, 'advisor.warning', { text: warning })}`);
   }
 }
 
@@ -661,11 +661,11 @@ function normalizeConfidence(value) {
   return Math.max(0, Math.min(1, n));
 }
 
-function parseTop(value) {
+function parseTop(value, lang = 'zh-CN') {
   if (value == null) return DEFAULT_TOP;
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
-    console.error(`--top 需要 1-${MAX_TOP} 的正整数，收到：${value}`);
+    console.error(tr(lang, 'recommend.topRangeInvalid', { value, max: MAX_TOP }));
     process.exitCode = 1;
     return null;
   }
@@ -681,9 +681,11 @@ function truncateText(text, max) {
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
-function explain(r) {
-  const hits = r.matchedTerms.length ? `命中 ${r.matchedTerms.join(', ')}` : '无命中词';
-  return `${hits}；${r.reasons.join('；')}`;
+function explain(r, lang = 'zh-CN') {
+  const hits = r.matchedTerms.length
+    ? tr(lang, 'recommend.explain.hits', { terms: r.matchedTerms.join(', ') })
+    : tr(lang, 'recommend.explain.noHits');
+  return [hits, joinReasons(r.reasons, lang)].filter(Boolean).join(lang === 'en' ? '; ' : '；');
 }
 
 function toJsonRow(r) {
@@ -701,4 +703,35 @@ function toJsonRow(r) {
     direction: r.direction,
     intents: r.intents || [],
   };
+}
+
+function localizedToolLabel(tools, lang) {
+  const label = toolLabel(tools);
+  return label === '两侧' ? tr(lang, 'tool.both') : label;
+}
+
+function joinReasons(reasons, lang) {
+  return reasons.map((r) => localizeReason(r, lang)).join(lang === 'en' ? '; ' : '；');
+}
+
+function localizeReason(reason, lang) {
+  if (lang !== 'en') return reason;
+  if (reason === '名称高度匹配') return 'strong name match';
+  if (reason === '分类匹配') return 'category match';
+  if (reason === '描述匹配') return 'description match';
+  if (reason === '任务词相似') return 'similar task terms';
+  if (reason === 'Claude/Codex 两侧可用') return 'available in both Claude and Codex';
+  if (reason === '最近 30 天用过') return 'used in the last 30 days';
+  if (reason === '最近 90 天用过') return 'used in the last 90 days';
+  let m = reason.match(/^历史用过 (\d+) 次$/);
+  if (m) return `used ${m[1]} time(s) before`;
+  m = reason.match(/^意图匹配：(.+)$/);
+  if (m) return `intent match: ${m[1]}`;
+  m = reason.match(/^方向匹配：(.+)$/);
+  if (m) return `direction match: ${m[1]}`;
+  m = reason.match(/^目标匹配：(.+)$/);
+  if (m) return `target match: ${m[1]}`;
+  m = reason.match(/^方向相反：(.+)$/);
+  if (m) return `opposite direction: ${m[1]}`;
+  return reason;
 }

@@ -190,9 +190,9 @@ CI entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/ski
 
 ## Language Support
 
-`skm help`, argument validation, `doctor`, `scan`, `status`, and the local install script support English and Simplified Chinese output.
+`skm help`, argument validation, `doctor`, `scan`, `status`, `risks`, `list`, `search`, `recommend`, `ask`, and the local install script support English and Simplified Chinese output.
 
-Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. Remaining commands are being migrated gradually; JSON field names stay stable.
+Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. Remaining governance commands are being migrated gradually; JSON field names stay stable.
 
 ## Roadmap
 

@@ -31,9 +31,10 @@ CLI 支持显式指定输出语言：
 skm help --lang en
 skm scan --lang zh-CN
 SKM_LANG=en skm doctor
+skm recommend "convert a web page to markdown" --lang en
 ```
 
-当前已覆盖 `help`、参数错误、`doctor`、`scan`、`status` 与安装脚本。其余命令会逐步迁移；`--json` 的字段名保持稳定。
+当前已覆盖 `help`、参数错误、`doctor`、`scan`、`status`、`risks`、`list`、`search`、`recommend`、`ask` 与安装脚本。其余治理命令会逐步迁移；`--json` 的字段名保持稳定。
 
 ## 推荐排查流程
 

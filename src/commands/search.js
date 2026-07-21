@@ -1,17 +1,18 @@
 import { mergeByDirName, toolLabel } from '../catalog.js';
 import { renderTable, termWidth } from '../table.js';
 import { ensureCatalog } from './scan.js';
+import { tr } from '../i18n.js';
 
 const TOP = 15;
 
 // 关键词搜索：在 名称/分类/描述 中匹配，按相关度排序（名称命中权重最高）
-export function runSearch({ cwd, keywords, json = false }) {
+export function runSearch({ cwd, keywords, json = false, lang = 'zh-CN' }) {
   if (!keywords.length) {
-    console.error('用法：skm search <关键词> [更多关键词]');
+    console.error(tr(lang, 'search.usage'));
     process.exitCode = 1;
     return;
   }
-  const catalog = ensureCatalog(cwd);
+  const catalog = ensureCatalog(cwd, lang);
   const merged = mergeByDirName(catalog.skills);
   const terms = keywords.map((k) => k.toLowerCase());
 
@@ -40,13 +41,18 @@ export function runSearch({ cwd, keywords, json = false }) {
   }
 
   if (!scored.length) {
-    console.log(`没有匹配"${keywords.join(' ')}"的 skill，可尝试换关键词或 skm list 浏览分类。`);
+    console.log(tr(lang, 'search.noMatch', { query: keywords.join(' ') }));
     return;
   }
   console.log(renderTable(
-    [{ title: '名称', width: 30 }, { title: '工具', width: 6 }, { title: '分类', width: 18 }, { title: '描述', width: 0 }],
-    scored.map(({ m }) => [m.dirName, toolLabel(m.tools), m.category, m.description || '（无描述）']),
+    [{ title: tr(lang, 'search.col.name'), width: 30 }, { title: tr(lang, 'search.col.tool'), width: 6 }, { title: tr(lang, 'search.col.category'), width: 18 }, { title: tr(lang, 'search.col.description'), width: 0 }],
+    scored.map(({ m }) => [m.dirName, localizedToolLabel(m.tools, lang), m.category, m.description || tr(lang, 'list.noDescription')]),
     termWidth(),
   ));
-  console.log(`\n共 ${scored.length} 个结果（按相关度排序）`);
+  console.log(`\n${tr(lang, 'search.summary', { count: scored.length })}`);
+}
+
+function localizedToolLabel(tools, lang) {
+  const label = toolLabel(tools);
+  return label === '两侧' ? tr(lang, 'tool.both') : label;
 }

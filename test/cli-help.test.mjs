@@ -75,3 +75,16 @@ test('安装脚本：缺少 --lang 值时 fail fast', () => {
   assert.match(r.stderr, /\(missing\)/);
   assert.doesNotMatch(r.stdout, /Usage:/);
 });
+
+test('CLI 子命令：search / recommend / ask 支持英文缺参提示', () => {
+  for (const cmd of ['search', 'recommend', 'ask']) {
+    const r = spawnSync(process.execPath, ['bin/skm.js', cmd, '--lang', 'en'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    });
+
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /^Usage: skm /);
+    assert.doesNotMatch(r.stderr, /用法：/);
+  }
+});

@@ -2,11 +2,12 @@ import { mergeByDirName, toolLabel } from '../catalog.js';
 import { renderTable, termWidth } from '../table.js';
 import { ensureCatalog } from './scan.js';
 import { groupBy, fmtDateTime } from '../utils.js';
+import { tr } from '../i18n.js';
 
-export function runList({ cwd, tool, category, scope, mcp = false, json = false, raw = false }) {
-  const catalog = ensureCatalog(cwd);
+export function runList({ cwd, tool, category, scope, mcp = false, json = false, raw = false, lang = 'zh-CN' }) {
+  const catalog = ensureCatalog(cwd, lang);
 
-  if (mcp) return listMcp(catalog, { tool, json });
+  if (mcp) return listMcp(catalog, { tool, json, lang });
 
   let skills = catalog.skills;
   if (tool) skills = skills.filter((s) => shortTool(s.tool) === shortTool(tool));
@@ -26,21 +27,21 @@ export function runList({ cwd, tool, category, scope, mcp = false, json = false,
   const byCat = groupBy(items, (it) => it.category);
   const width = termWidth();
   for (const [cat, list] of [...byCat.entries()].sort((a, b) => b[1].length - a[1].length)) {
-    console.log(`\n【${cat}】（${list.length}）`);
+    console.log(`\n${tr(lang, 'list.categoryTitle', { category: cat, count: list.length })}`);
     const rows = list
       .sort((a, b) => a.dirName.localeCompare(b.dirName))
       .map((it) => raw
-        ? [it.dirName, toolLabel(it.tools), it.scope, it.description || '（无描述）']
-        : [it.dirName, toolLabel(it.tools), it.description || '（无描述）']);
+        ? [it.dirName, localizedToolLabel(it.tools, lang), it.scope, it.description || tr(lang, 'list.noDescription')]
+        : [it.dirName, localizedToolLabel(it.tools, lang), it.description || tr(lang, 'list.noDescription')]);
     const cols = raw
-      ? [{ title: '名称', width: 30 }, { title: '工具', width: 6 }, { title: '范围', width: 7 }, { title: '描述', width: 0 }]
-      : [{ title: '名称', width: 30 }, { title: '工具', width: 6 }, { title: '描述', width: 0 }];
+      ? [{ title: tr(lang, 'list.col.name'), width: 30 }, { title: tr(lang, 'list.col.tool'), width: 6 }, { title: tr(lang, 'list.col.scope'), width: 7 }, { title: tr(lang, 'list.col.description'), width: 0 }]
+      : [{ title: tr(lang, 'list.col.name'), width: 30 }, { title: tr(lang, 'list.col.tool'), width: 6 }, { title: tr(lang, 'list.col.description'), width: 0 }];
     console.log(renderTable(cols, rows, width));
   }
-  console.log(`\n共 ${items.length} 个 skill（扫描时间：${fmtDateTime(catalog.scannedAt)}，过期可重新 skm scan）`);
+  console.log(`\n${tr(lang, 'list.summary', { count: items.length, scannedAt: fmtDateTime(catalog.scannedAt) })}`);
 }
 
-function listMcp(catalog, { tool, json }) {
+function listMcp(catalog, { tool, json, lang }) {
   let servers = catalog.mcpServers;
   if (tool) servers = servers.filter((s) => shortTool(s.tool) === shortTool(tool));
   if (json) {
@@ -50,18 +51,23 @@ function listMcp(catalog, { tool, json }) {
   const rows = servers.map((s) => [s.name, shortTool(s.tool), s.scope, s.transport, s.command]);
   console.log(renderTable(
     [
-      { title: '名称', width: 20 },
-      { title: '工具', width: 7 },
-      { title: '范围', width: 8 },
-      { title: '传输', width: 6 },
-      { title: '启动命令 / URL', width: 0 },
+      { title: tr(lang, 'list.col.name'), width: 20 },
+      { title: tr(lang, 'list.col.tool'), width: 7 },
+      { title: tr(lang, 'list.col.scope'), width: 8 },
+      { title: tr(lang, 'list.col.transport'), width: 9 },
+      { title: tr(lang, 'list.col.command'), width: 0 },
     ],
     rows,
     termWidth(),
   ));
-  console.log(`\n共 ${servers.length} 个 MCP server。提示：MCP 的 tool schema 会全量注入上下文，是启动开销的大头。`);
+  console.log(`\n${tr(lang, 'list.mcpSummary', { count: servers.length })}`);
 }
 
 function shortTool(t) {
   return t.replace('claude-code', 'claude');
+}
+
+function localizedToolLabel(tools, lang) {
+  const label = toolLabel(tools);
+  return label === '两侧' ? tr(lang, 'tool.both') : label;
 }
