@@ -22,7 +22,7 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 | P1 | HTML 总览报告 | 一次导出本机 skill 健康报告，适合分享和留档 | 未开始 |
 | P1 | 图谱布局优化 | 大量 skill 时更清楚地查看套件、平台、流程关系 | 进行中 |
 | P1 | 安装体验 | 在 npm 发布前，让 git clone 安装更稳、更易懂 | 进行中 |
-| P1 | 英文文档与 CLI 国际化 | GitHub 默认入口服务全球用户，同时保留中文文档 | 进行中 |
+| P1 | 英文文档与 CLI 国际化 | GitHub 默认入口服务全球用户，同时保留中文文档；核心入口命令已支持 `--lang` | 进行中 |
 | P2 | 更多 AIDE 适配器 | 支持 Cursor、Gemini CLI 等更多工具 | 规划中 |
 | P2 | MCP token 实测 | 逐 server 估算 tool schema 常驻开销 | 规划中 |
 
@@ -33,6 +33,13 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 - 支持从 `skm audit` 中学习个人偏好，但不让高频无关 skill 混入
 - 优化 `--advisor codex|claude` 的候选压缩和失败回退提示
 - 增加推荐结果回归测试样本
+
+## 国际化路线
+
+- 已完成：README 中英文入口、`--lang` / `SKM_LANG`、`help`、参数校验、`doctor`、`scan`、`status`、安装脚本
+- 下一步：`risks`、`list`、`search`、`recommend`、`ask`
+- 后续：`graph`、`audit`、`sessions`、`disable/enable`
+- 约束：不引入第三方依赖；JSON 字段名保持稳定；中文文档继续保留
 
 ## 知识图谱路线
 

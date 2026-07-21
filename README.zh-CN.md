@@ -26,6 +26,13 @@ skm ask "我要把网页转成 Markdown"
 skm graph --format html --output skill-graph.html
 ```
 
+CLI 输出支持语言切换：
+
+```bash
+skm scan --lang en
+SKM_LANG=zh-CN skm doctor
+```
+
 国内也可以从 Gitee 镜像克隆：
 
 ```bash
@@ -160,6 +167,12 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 - 零第三方依赖：全部功能基于 Node.js 内置模块实现
 - 中文优先：终端输出、说明文档、分类规则面向中文用户
 - 开源友好：macOS / Windows 由 GitHub Actions 验证，Linux 由维护者本机验证
+
+## 语言支持
+
+`skm help`、参数校验、`doctor`、`scan`、`status` 和本地安装脚本已支持英文 / 简体中文输出。
+
+可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。其余命令会逐步迁移；JSON 字段名保持稳定。
 
 ## 文档
 

@@ -23,6 +23,18 @@ node bin/skm.js ask "把网页转成 markdown"
 node scripts/install.mjs --dry-run
 ```
 
+## 语言
+
+CLI 支持显式指定输出语言：
+
+```bash
+skm help --lang en
+skm scan --lang zh-CN
+SKM_LANG=en skm doctor
+```
+
+当前已覆盖 `help`、参数错误、`doctor`、`scan`、`status` 与安装脚本。其余命令会逐步迁移；`--json` 的字段名保持稳定。
+
 ## 推荐排查流程
 
 ```bash

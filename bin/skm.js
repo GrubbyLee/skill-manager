@@ -13,8 +13,9 @@ import { runDisable, runEnable } from '../src/commands/toggle.js';
 import { runStatus } from '../src/commands/status.js';
 import { runDoctor } from '../src/commands/doctor.js';
 import { runRisks } from '../src/commands/risks.js';
+import { detectLang, langFromArgv, tr } from '../src/i18n.js';
 
-const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
+const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 （不修改 AIDE 的配置与 skill 文件，仅 sessions --clean / disable / enable 例外且均有确认与备份；
  工具自身的目录与缓存写在 ~/.skill-manager，首次运行会解析会话日志建立缓存，需数秒到几十秒）
 
@@ -40,6 +41,7 @@ const HELP = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 
 通用选项：
   --json          以 JSON 输出（供脚本或 AI 消费）
+  --lang <zh-CN|en>  指定输出语言；也可用 SKM_LANG=en / SKM_LANG=zh-CN
 
 list 选项：
   --tool <claude|codex>   只看某个工具
@@ -85,6 +87,80 @@ sessions 选项：
   skm disable --mcp drawio
   skm dupes --json`;
 
+const HELP_EN = `skm — AIDE skill / MCP inventory and governance CLI
+(Most commands do not modify AIDE configs or skill files. Only sessions --clean / disable / enable can write files,
+ and those actions have confirmation and backup safeguards. skm's own cache lives under ~/.skill-manager.)
+
+Usage: skm <command> [options]
+
+Commands:
+  (no command)      Health overview: totals / zombie rate / duplicates / session size / score + suggestions
+  status            Same as above
+  doctor            Read-only diagnostics: Node, directories, catalog, advisor CLI, macOS/Windows CI
+  risks             Risk report: duplicates, idle MCP, context cost, log size, MCP observability
+  scan              Scan Claude Code and Codex, write ~/.skill-manager/catalog.json
+  list              List all skills by category
+  search <text>     Search skills by name, category, and description
+  recommend <task>  Recommend the best skills for a natural-language task
+  ask <task>        Q&A-style recommendation with best match, reasons, and alternatives
+  graph             Generate a skill / MCP knowledge graph (summary/json/html/mermaid)
+  dupes             Duplicate detection: same name / same content / same category / text similarity
+  audit             Usage audit: skill/MCP frequency, zombie skills, context cost (--history for snapshots)
+  sessions          Show session logs by workspace; --clean applies a retention policy
+  disable <name>    Disable skills by renaming directories; --mcp disables MCP servers with backups
+  enable [name]     Restore disabled skills / MCP servers; without names, list disabled items
+  help              Show this help
+
+Global options:
+  --json            Output JSON for scripts or other tools
+  --lang <zh-CN|en> Select output language; SKM_LANG=en / SKM_LANG=zh-CN also works
+
+list options:
+  --tool <claude|codex>   Show only one tool
+  --category <keyword>    Filter by category
+  --scope <user|project|plugin>
+  --mcp                   List MCP servers instead of skills
+  --raw                   Do not merge same-name installs
+
+scan options:
+  --verbose               Show all parse warnings
+
+recommend options:
+  --top <N>               Number of recommendations (default 3)
+  --tool <claude|codex>   Recommend skills available to one tool
+  --category <keyword>    Restrict recommendation category
+  --why                   Show matched terms and score details
+  --advisor <codex|claude> Explicitly call local AIDE CLI for enhanced recommendation; falls back locally on failure
+
+graph options:
+  --format <json|html|mermaid>  Export format; omitted means summary
+  --output <file>               Write to file; format can be inferred from extension
+
+sessions options:
+  --clean                 Cleanup mode (requires --keep and/or --days)
+  --keep <N>              Keep latest N sessions per workspace
+  --days <N>              Keep sessions newer than N days
+  --dry-run               Print cleanup plan without deleting
+  --yes                   Skip interactive confirmation
+
+Examples:
+  skm scan
+  skm doctor
+  skm risks
+  skm list --category ppt
+  skm search markdown
+  skm recommend "convert a web page to markdown"
+  skm recommend "create a knowledge graph" --advisor codex
+  skm ask "create image cards"
+  skm graph --format html --output skill-graph.html
+  skm audit
+  skm sessions --clean --days 30 --keep 3 --dry-run
+  skm disable gsap-plugins
+  skm disable --mcp drawio
+  skm dupes --json`;
+
+const initialLang = langFromArgv(process.argv.slice(2));
+
 // 入口即校验（Fail Fast）：未知选项给中文提示而非裸堆栈；枚举参数拼错立即报错而非静默空结果
 let parsed;
 try {
@@ -106,6 +182,7 @@ try {
       output: { type: 'string' },
       tool: { type: 'string' },
       advisor: { type: 'string' },
+      lang: { type: 'string' },
       category: { type: 'string' },
       scope: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
@@ -113,43 +190,49 @@ try {
     allowPositionals: true,
   });
 } catch (e) {
-  console.error(`参数错误：${e.message}\n运行 skm help 查看用法。`);
+  console.error(tr(initialLang, 'cli.argError', { message: e.message }));
   process.exit(1);
 }
 const { values, positionals } = parsed;
+const lang = detectLang(values.lang);
+
+if (!lang) {
+  console.error(tr('en', 'cli.langInvalid', { value: values.lang }));
+  process.exit(1);
+}
 
 if (values.tool && !['claude', 'claude-code', 'codex'].includes(values.tool)) {
-  console.error(`--tool 取值应为 claude|codex，收到：${values.tool}`);
+  console.error(tr(lang, 'cli.toolInvalid', { value: values.tool }));
   process.exit(1);
 }
 if (values.advisor && !['codex', 'claude'].includes(values.advisor)) {
-  console.error(`--advisor 取值应为 codex|claude，收到：${values.advisor}`);
+  console.error(tr(lang, 'cli.advisorInvalid', { value: values.advisor }));
   process.exit(1);
 }
 if (values.scope && !['user', 'project', 'plugin'].includes(values.scope)) {
-  console.error(`--scope 取值应为 user|project|plugin，收到：${values.scope}`);
+  console.error(tr(lang, 'cli.scopeInvalid', { value: values.scope }));
   process.exit(1);
 }
 for (const flag of ['keep', 'days']) {
   if (values[flag] != null && !/^\d+$/.test(values[flag])) {
-    console.error(`--${flag} 需要非负整数，收到：${values[flag]}`);
+    console.error(tr(lang, 'cli.intInvalid', { flag, value: values[flag] }));
     process.exit(1);
   }
 }
 if (values.top != null && !/^\d+$/.test(values.top)) {
-  console.error(`--top 需要正整数，收到：${values.top}`);
+  console.error(tr(lang, 'cli.topInvalid', { value: values.top }));
   process.exit(1);
 }
 if (values.format && !['json', 'html', 'mermaid'].includes(values.format)) {
-  console.error(`--format 取值应为 json|html|mermaid，收到：${values.format}`);
+  console.error(tr(lang, 'cli.formatInvalid', { value: values.format }));
   process.exit(1);
 }
 
 const cmd = positionals[0] || 'status';
-const ctx = { cwd: process.cwd(), ...values };
+const ctx = { cwd: process.cwd(), ...values, lang };
 
 async function main() {
-  if (values.help || cmd === 'help') console.log(HELP);
+  if (values.help || cmd === 'help') console.log(lang === 'en' ? HELP_EN : HELP_ZH);
   else if (cmd === 'status') runStatus(ctx);
   else if (cmd === 'doctor') runDoctor(ctx);
   else if (cmd === 'risks') runRisks(ctx);
@@ -165,13 +248,13 @@ async function main() {
   else if (cmd === 'disable') await runDisable({ ...ctx, names: positionals.slice(1) });
   else if (cmd === 'enable') await runEnable({ ...ctx, names: positionals.slice(1) });
   else {
-    console.error(`未知命令：${cmd}\n`);
-    console.log(HELP);
+    console.error(tr(lang, 'cli.unknownCommand', { cmd }));
+    console.log(lang === 'en' ? HELP_EN : HELP_ZH);
     process.exitCode = 1;
   }
 }
 
 main().catch((e) => {
-  console.error(`执行出错：${e.message}`);
+  console.error(tr(lang, 'cli.runtimeError', { message: e.message }));
   process.exitCode = 1;
 });

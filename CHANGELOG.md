@@ -3,6 +3,8 @@
 ## 未发布
 
 - README 改为英文默认入口，中文 README 移至 `README.zh-CN.md` 并在顶部支持中英文切换。
+- 新增轻量 i18n 基础设施，支持 `--lang en|zh-CN` 与 `SKM_LANG`。
+- `help`、参数错误、`doctor`、`scan`、`status`、安装脚本支持英文 / 简体中文输出。
 - 新增 `scripts/install.mjs`，提供显式的 git clone 本地安装入口。
 - 新增 Roadmap 与社区传播素材文档。
 - README 与命令手册同步使用本地安装脚本。

@@ -28,6 +28,13 @@ skm graph --format html --output skill-graph.html
 
 No npm package install is advertised yet. The package name `aide-skill-manager` is reserved, but the current recommended installation path is git clone.
 
+CLI output supports language selection:
+
+```bash
+skm scan --lang en
+SKM_LANG=zh-CN skm doctor
+```
+
 ## What It Solves
 
 | Question | Command | What you get |
@@ -181,9 +188,15 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 
 CI entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml).
 
+## Language Support
+
+`skm help`, argument validation, `doctor`, `scan`, `status`, and the local install script support English and Simplified Chinese output.
+
+Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. Remaining commands are being migrated gradually; JSON field names stay stable.
+
 ## Roadmap
 
-- English CLI output and full English documentation
+- Full English CLI coverage and English documentation
 - More real-world `skm scan` / `skm recommend` samples
 - HTML overview report
 - Better clustering and layout for large knowledge graphs

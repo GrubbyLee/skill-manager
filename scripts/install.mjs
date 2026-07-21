@@ -4,45 +4,68 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { langFromArgv, tr } from '../src/i18n.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkgPath = path.join(root, 'package.json');
 const binPath = path.join(root, 'bin', 'skm.js');
 const args = new Set(process.argv.slice(2));
+const lang = langFromArgv(process.argv.slice(2));
+const explicitLangArg = process.argv.slice(2).find((arg) => arg === '--lang' || arg.startsWith('--lang='));
 
 if (args.has('--help') || args.has('-h')) {
-  console.log(`skm 本地安装脚本
+  console.log(lang === 'en' ? `skm local install script
 
-用法：
+Usage:
   node scripts/install.mjs
   node scripts/install.mjs --dry-run
+  node scripts/install.mjs --lang zh-CN
 
-说明：
-  该脚本会在当前仓库执行 npm link，让 skm 命令在本机可用。
-  它不会扫描、清理、禁用或修改 Claude/Codex 数据。`);
+Notes:
+  This script runs npm link in the current repository so the skm command is available locally.
+  It does not scan, clean, disable, or modify Claude/Codex data.` : `${tr(lang, 'install.title')}
+
+${tr(lang, 'install.usage')}
+  node scripts/install.mjs
+  node scripts/install.mjs --dry-run
+  node scripts/install.mjs --lang en
+
+${tr(lang, 'install.desc')}
+  ${tr(lang, 'install.descText')}`);
   process.exit(0);
 }
 
 const dryRun = args.has('--dry-run');
-const unsupported = [...args].filter((arg) => !['--dry-run'].includes(arg));
-if (unsupported.length > 0) fail(`未知参数：${unsupported.join(' ')}。运行 node scripts/install.mjs --help 查看用法。`);
+const unsupported = [];
+for (let i = 2; i < process.argv.length; i++) {
+  const arg = process.argv[i];
+  if (arg === '--dry-run') continue;
+  if (arg === '--lang') {
+    i++;
+    continue;
+  }
+  if (arg.startsWith('--lang=')) continue;
+  unsupported.push(arg);
+}
+if (explicitLangArg && !lang) fail(tr(null, 'cli.langInvalid', { value: explicitLangArg }));
+if (unsupported.length > 0) fail(tr(lang, 'install.unknownArg', { args: unsupported.join(' ') }));
 
-if (Number(process.versions.node.split('.')[0]) < 18) fail(`Node.js 版本过低：当前 ${process.version}，要求 >= 18。`);
-if (!fs.existsSync(pkgPath)) fail(`未找到 package.json：${pkgPath}`);
-if (!fs.existsSync(binPath)) fail(`未找到 CLI 入口：${binPath}`);
+if (Number(process.versions.node.split('.')[0]) < 18) fail(tr(lang, 'install.nodeTooOld', { version: process.version }));
+if (!fs.existsSync(pkgPath)) fail(tr(lang, 'install.missingPackage', { file: pkgPath }));
+if (!fs.existsSync(binPath)) fail(tr(lang, 'install.missingBin', { file: binPath }));
 
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-if (pkg.name !== 'aide-skill-manager') fail(`package.json name 异常：${pkg.name}`);
-if (!pkg.bin || pkg.bin.skm !== './bin/skm.js') fail('package.json 缺少 bin.skm 配置。');
-if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) fail('package.json 不应包含 dependencies。');
+if (pkg.name !== 'aide-skill-manager') fail(tr(lang, 'install.badName', { name: pkg.name }));
+if (!pkg.bin || pkg.bin.skm !== './bin/skm.js') fail(tr(lang, 'install.missingBinConfig'));
+if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) fail(tr(lang, 'install.dependencies'));
 
-console.log('skm 本地安装检查通过');
-console.log(`项目目录：${root}`);
-console.log(`Node.js：${process.version}`);
-console.log('即将执行：npm link');
+console.log(tr(lang, 'install.checkOk'));
+console.log(tr(lang, 'install.projectDir', { root }));
+console.log(lang === 'en' ? `Node.js: ${process.version}` : `Node.js：${process.version}`);
+console.log(tr(lang, 'install.willRun'));
 
 if (dryRun) {
-  console.log('[dry-run] 未执行安装。');
+  console.log(tr(lang, 'install.dryRun'));
   process.exit(0);
 }
 
@@ -54,7 +77,7 @@ const linked = spawnSync(npm, ['link'], {
 });
 
 if (linked.status !== 0) {
-  fail(`npm link 执行失败，退出码：${linked.status ?? '未知'}`);
+  fail(lang === 'en' ? `npm link failed, exit code: ${linked.status ?? 'unknown'}` : `npm link 执行失败，退出码：${linked.status ?? '未知'}`);
 }
 
 const checked = spawnSync(process.platform === 'win32' ? 'skm.cmd' : 'skm', ['help'], {
@@ -64,16 +87,16 @@ const checked = spawnSync(process.platform === 'win32' ? 'skm.cmd' : 'skm', ['he
 });
 
 if (checked.status !== 0) {
-  console.log('npm link 已完成，但 skm help 验证未通过。可以尝试重新打开终端后运行 skm help。');
+  console.log(tr(lang, 'install.verifyFailed'));
   process.exit(0);
 }
 
-console.log('安装完成。可以运行：');
+console.log(tr(lang, 'install.done'));
 console.log('  skm scan');
-console.log('  skm ask "我要把网页转成 Markdown"');
+console.log(lang === 'en' ? '  skm ask "convert a web page to Markdown"' : '  skm ask "我要把网页转成 Markdown"');
 console.log('  skm graph --format html --output skill-graph.html');
 
 function fail(message) {
-  console.error(`安装失败：${message}`);
+  console.error(tr(lang, 'install.fail', { message }));
   process.exit(1);
 }

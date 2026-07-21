@@ -4,18 +4,19 @@ import { buildSessionIndex, planClean } from '../sessionsIndex.js';
 import { buildCleanupTips, findIdleMcp } from '../advice.js';
 import { ensureCatalog } from './scan.js';
 import { pad } from '../table.js';
-import { paint, fmtAgo, fmtBytes } from '../utils.js';
+import { paint, fmtBytes } from '../utils.js';
+import { fmtAgoLang, tr } from '../i18n.js';
 
 // skm 裸命令 = 一屏健康体检：总量 / 僵尸率 / 重复 / 会话体积 / 健康分 + 可直接执行的建议
-export function runStatus({ cwd, json = false }) {
-  const catalog = ensureCatalog(cwd);
+export function runStatus({ cwd, json = false, lang = 'zh-CN' }) {
+  const catalog = ensureCatalog(cwd, lang);
   const merged = mergeByDirName(catalog.skills);
   if (!merged.length) {
-    console.log('两侧都没有扫描到 skill。先安装一些 skill，或检查 ~/.claude/skills 与 ~/.codex/skills。');
+    console.log(tr(lang, 'status.empty'));
     return;
   }
 
-  console.error('正在汇总使用统计与会话数据…');
+  console.error(tr(lang, 'status.loading'));
   const usage = scanUsage({ log: (msg) => console.error(msg) });
   const usageOf = buildUsageLookup(merged, usage);
 
@@ -53,26 +54,29 @@ export function runStatus({ cwd, json = false }) {
 
   // 分值/文案先构造再统一选色，避免同一模板字符串在多个分支重复书写
   const scorePaint = score >= 80 ? paint.green : score >= 60 ? paint.yellow : paint.red;
-  const zombieLine = `${zombies.length} 个从未使用（${Math.round(zombieRate * 100)}%）`;
+  const zombieLine = tr(lang, 'status.zombieLine', { count: zombies.length, pct: Math.round(zombieRate * 100) });
   const label = (s) => pad(s, 10);
+  const no = tr(lang, 'common.none');
+  const joiner = lang === 'en' ? ', ' : '、';
 
-  console.log(paint.bold('📊 skill 健康体检') + paint.gray(`（目录扫描于${fmtAgo(catalog.scannedAt)}，过期可 skm scan）`));
-  console.log(`  ${label('能力总量')}  ${paint.bold(String(merged.length))} 个 skill / ${mcpNames.length} 个 MCP`);
-  console.log(`  ${label('僵尸 skill')}  ${zombieRate >= 0.4 ? paint.red(zombieLine) : zombieLine}`);
-  console.log(`  ${label('重复安装')}  ${dupEntities.length ? paint.yellow(`${dupEntities.length} 组实体双份`) : paint.green('无')}`);
-  console.log(`  ${label('闲置 MCP')}  ${idleMcp.length ? paint.yellow(idleMcp.join('、')) : paint.green('无')}${codexOnlyMcp.length ? paint.gray(`（另有 ${codexOnlyMcp.length} 个仅 Codex 侧配置，无法观测）`) : ''}`);
-  console.log(`  ${label('会话日志')}  ${fmtBytes(logBytes)}${reclaimBytes ? paint.gray(`（按 30 天 ∪ 留 3 个策略可释放 ${fmtBytes(reclaimBytes)}）`) : ''}`);
-  console.log(`  ${label('健康分')}  ${scorePaint(`${score} / 100`)}`);
+  console.log(paint.bold(tr(lang, 'status.title', { ago: fmtAgoLang(lang, catalog.scannedAt) })));
+  console.log(`  ${label(tr(lang, 'status.total'))}  ${paint.bold(tr(lang, 'status.totalLine', { skills: merged.length, mcp: mcpNames.length }))}`);
+  console.log(`  ${label(tr(lang, 'status.zombie'))}  ${zombieRate >= 0.4 ? paint.red(zombieLine) : zombieLine}`);
+  console.log(`  ${label(tr(lang, 'status.duplicates'))}  ${dupEntities.length ? paint.yellow(tr(lang, 'status.dupLine', { count: dupEntities.length })) : paint.green(no)}`);
+  console.log(`  ${label(tr(lang, 'status.idleMcp'))}  ${idleMcp.length ? paint.yellow(idleMcp.join(joiner)) : paint.green(no)}${codexOnlyMcp.length ? paint.gray(tr(lang, 'status.codexOnlyMcp', { count: codexOnlyMcp.length })) : ''}`);
+  console.log(`  ${label(tr(lang, 'status.sessions'))}  ${fmtBytes(logBytes)}${reclaimBytes ? paint.gray(tr(lang, 'status.reclaim', { bytes: fmtBytes(reclaimBytes) })) : ''}`);
+  console.log(`  ${label(tr(lang, 'status.score'))}  ${scorePaint(`${score} / 100`)}`);
 
-  console.log('\n' + paint.bold('建议'));
+  console.log('\n' + paint.bold(tr(lang, 'status.advice')));
   let n = 0;
   for (const tip of tips) {
-    console.log(`  ${++n}. ${tip.text}：${paint.cyan(tip.command)}${tip.note ? paint.gray(tip.note) : ''}`);
+    const localized = localizeTip(tip, lang);
+    console.log(`  ${++n}. ${localized.text}${tr(lang, 'status.tipSeparator')}${paint.cyan(tip.command)}${localized.note ? paint.gray(localized.note) : ''}`);
   }
   if (reclaimBytes > 50e6) {
-    console.log(`  ${++n}. 会话瘦身（先看计划）：${paint.cyan('skm sessions --clean --days 30 --keep 3 --dry-run')}`);
+    console.log(`  ${++n}. ${tr(lang, 'status.reclaimTip')}${tr(lang, 'status.tipSeparator')}${paint.cyan('skm sessions --clean --days 30 --keep 3 --dry-run')}`);
   }
-  console.log(`  ${++n}. 完整报告：${paint.cyan('skm audit')}（使用频率与僵尸清单） | ${paint.cyan('skm dupes')}（重复明细）`);
+  console.log(`  ${++n}. ${tr(lang, 'status.fullReport')}${tr(lang, 'status.tipSeparator')}${paint.cyan('skm audit')}${tr(lang, 'status.auditNote')} | ${paint.cyan('skm dupes')}${tr(lang, 'status.dupesNote')}`);
 }
 
 // 健康分（0-100，启发式）：僵尸率最高扣 40，实体双份每组扣 1（上限 20），
@@ -84,4 +88,18 @@ export function computeHealthScore({ zombieRate, dupGroups, idleMcp, logBytes })
   score -= Math.min(15, idleMcp * 5);
   score -= Math.min(15, Math.round((logBytes / 1e9) * 10));
   return Math.max(0, score);
+}
+
+function localizeTip(tip, lang) {
+  if (lang !== 'en') return tip;
+  if (tip.text.startsWith('双份且从未使用')) {
+    const n = tip.text.match(/\d+/)?.[0] || '';
+    return {
+      ...tip,
+      text: `${n} duplicate and never-used skill(s); review these first`,
+      note: tip.note ? ' (first 5 only; full list: skm audit --json)' : '',
+    };
+  }
+  if (tip.text === '禁用闲置 MCP') return { ...tip, text: 'Disable idle MCP server(s)', note: '' };
+  return tip;
 }
