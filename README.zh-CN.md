@@ -170,9 +170,9 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 
 ## 语言支持
 
-`skm help`、参数校验、`doctor`、`scan`、`status`、`risks`、`list`、`search`、`recommend`、`ask` 和本地安装脚本已支持英文 / 简体中文输出。
+`skm help`、参数校验、`doctor`、`scan`、`status`、`risks`、`list`、`search`、`recommend`、`ask`、`graph`、`audit`、`sessions` 和本地安装脚本已支持英文 / 简体中文输出。
 
-可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。其余治理命令会逐步迁移；JSON 字段名保持稳定。
+可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。其余写操作命令会逐步迁移；JSON 字段名保持稳定。
 
 ## 文档
 

@@ -128,3 +128,25 @@ test('知识图谱 HTML：支持重点节点、闲置隐藏、标签开关与搜
   assert.match(html, /搜索会显示匹配节点及其一跳关系/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
 });
+
+test('知识图谱 HTML / Mermaid：支持英文展示文案', () => {
+  const catalog = {
+    scannedAt: '2026-07-20T00:00:00Z',
+    skills: [
+      skill('baoyu-url-to-markdown', 'Fetch any URL and convert to markdown.'),
+      skill('baoyu-markdown-to-html', 'Converts Markdown to styled HTML.'),
+    ],
+    mcpServers: [],
+  };
+  const graph = buildKnowledgeGraph(catalog);
+  const html = renderGraph(graph, 'html', 'en');
+  const mermaid = renderGraph(graph, 'mermaid', 'en');
+
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /skm Skill Knowledge Graph/);
+  assert.match(html, /Relationship Filters/);
+  assert.match(html, /Showing __NODES__ node\(s\) \/ __EDGES__ relationship\(s\)/);
+  assert.match(html, /Same family: directory name prefixes match/);
+  assert.match(mermaid, /workflow|same family/);
+  assert.doesNotMatch(html, /搜索 skill \/ 分类 \/ 平台/);
+});

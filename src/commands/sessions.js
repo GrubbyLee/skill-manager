@@ -3,22 +3,23 @@ import { buildSessionIndex, planClean, SAFE_WINDOW_MS } from '../sessionsIndex.j
 import { scanUsage } from '../usage.js';
 import { renderTable, termWidth } from '../table.js';
 import { groupBy, confirm, fmtDay, fmtBytes, paint } from '../utils.js';
+import { tr } from '../i18n.js';
 
-const UNKNOWN_LABEL = '（未知工作区）';
 const SAFE_HOURS = SAFE_WINDOW_MS / 3600e3;
 
 // skm sessions：按工作区展示会话分布；--clean 按保留策略清理（唯一的写操作是删除会话日志文件）
 export function runSessions(opts) {
+  const lang = opts.lang || 'zh-CN';
   const sessions = buildSessionIndex();
   if (!sessions.length) {
-    console.log('未发现任何会话日志。');
+    console.log(tr(lang, 'sessions.empty'));
     return;
   }
   if (!opts.clean && !opts['dry-run']) return report(sessions, opts);
   return clean(sessions, opts);
 }
 
-function report(sessions, { json = false }) {
+function report(sessions, { json = false, lang = 'zh-CN' }) {
   // 工作区解析失败的会话以 null 分组，展示层统一映射为占位文案，--json 保持 null 供脚本判断
   const byWorkspace = groupBy(sessions, (s) => s.workspace);
   const rows = [...byWorkspace.entries()]
@@ -37,19 +38,25 @@ function report(sessions, { json = false }) {
     return;
   }
   console.log(renderTable(
-    [{ title: '会话数', width: 6 }, { title: '体积', width: 8 }, { title: '最老', width: 10 }, { title: '最新', width: 10 }, { title: '工作区', width: 0 }],
-    rows.map((r) => [r.count, fmtBytes(r.bytes), fmtDay(r.oldest), fmtDay(r.newest), r.workspace ?? UNKNOWN_LABEL]),
+    [{ title: tr(lang, 'sessions.col.count'), width: 8 }, { title: tr(lang, 'sessions.col.bytes'), width: 8 }, { title: tr(lang, 'sessions.col.oldest'), width: 10 }, { title: tr(lang, 'sessions.col.newest'), width: 10 }, { title: tr(lang, 'sessions.col.workspace'), width: 0 }],
+    rows.map((r) => [r.count, fmtBytes(r.bytes), fmtDay(r.oldest), fmtDay(r.newest), r.workspace ?? unknownLabel(lang)]),
     termWidth(),
   ));
-  console.log(`\n合计 ${sessions.length} 个会话，${fmtBytes(sum(sessions, 'size'))}（Claude ${fmtBytes(sum(sessions.filter((s) => s.tool === 'claude-code'), 'size'))} + Codex ${fmtBytes(sum(sessions.filter((s) => s.tool === 'codex'), 'size'))}）`);
-  console.log(`清理：skm sessions --clean --days 30 [--keep 3] [--dry-run]（每工作区保留 最近N个 ∪ N天内 ∪ ${SAFE_HOURS}小时内活跃；未知工作区只按天数清理）`);
+  console.log(`\n${tr(lang, 'sessions.summary', {
+    count: sessions.length,
+    total: fmtBytes(sum(sessions, 'size')),
+    claude: fmtBytes(sum(sessions.filter((s) => s.tool === 'claude-code'), 'size')),
+    codex: fmtBytes(sum(sessions.filter((s) => s.tool === 'codex'), 'size')),
+  })}`);
+  console.log(tr(lang, 'sessions.cleanHint', { hours: SAFE_HOURS }));
 }
 
 async function clean(sessions, opts) {
-  const keep = opts.keep != null ? parsePositiveInt(opts.keep, '--keep') : null;
-  const days = opts.days != null ? parsePositiveInt(opts.days, '--days') : null;
+  const lang = opts.lang || 'zh-CN';
+  const keep = opts.keep != null ? parsePositiveInt(opts.keep, '--keep', lang) : null;
+  const days = opts.days != null ? parsePositiveInt(opts.days, '--days', lang) : null;
   if (keep == null && days == null) {
-    console.error('清理必须指定保留策略：--keep <个数> 和/或 --days <天数>，例如 skm sessions --clean --days 30 --keep 3');
+    console.error(tr(lang, 'sessions.policyRequired'));
     process.exitCode = 1;
     return;
   }
@@ -57,7 +64,10 @@ async function clean(sessions, opts) {
   const { groups: plan, skippedUnknown } = planClean(sessions, { keep, days });
   const allFiles = plan.flatMap((p) => p.toDelete);
   const totalBytes = sum(allFiles, 'size');
-  const policyDesc = `${[keep != null ? `每工作区最近 ${keep} 个` : '', days != null ? `${days} 天以内` : ''].filter(Boolean).join(' ∪ ')} ∪ ${SAFE_HOURS}小时内活跃`;
+  const policyDesc = `${[
+    keep != null ? tr(lang, 'sessions.policyKeep', { keep }) : '',
+    days != null ? tr(lang, 'sessions.policyDays', { days }) : '',
+  ].filter(Boolean).join(' ∪ ')} ∪ ${tr(lang, 'sessions.policySafe', { hours: SAFE_HOURS })}`;
   // --json 模式全程只输出一个 JSON 对象（dry-run 为计划；实际删除后附带 result 字段）
   const planData = {
     keep,
@@ -78,8 +88,8 @@ async function clean(sessions, opts) {
     if (opts.json) {
       console.log(JSON.stringify(planData, null, 2));
     } else {
-      console.log('按该策略没有可清理的会话。');
-      if (skippedUnknown) console.log(`（另有 ${skippedUnknown} 个未知工作区会话仅接受 --days 策略，已整组跳过）`);
+      console.log(tr(lang, 'sessions.noClean'));
+      if (skippedUnknown) console.log(tr(lang, 'sessions.skippedUnknown', { count: skippedUnknown }));
     }
     return;
   }
@@ -90,30 +100,30 @@ async function clean(sessions, opts) {
       return;
     }
   } else {
-    console.log(`清理计划（保留策略：${policyDesc}）：\n`);
+    console.log(`${tr(lang, 'sessions.cleanPlan', { policy: policyDesc })}\n`);
     for (const p of plan.sort((a, b) => sum(b.toDelete, 'size') - sum(a.toDelete, 'size'))) {
-      console.log(`  ${p.workspace ?? UNKNOWN_LABEL}`);
-      console.log(`    删除 ${p.toDelete.length} 个会话，释放 ${fmtBytes(sum(p.toDelete, 'size'))}（最新的一个止于 ${fmtDay(max(p.toDelete, 'mtimeMs'))}）`);
+      console.log(`  ${p.workspace ?? unknownLabel(lang)}`);
+      console.log(tr(lang, 'sessions.deleteLine', { count: p.toDelete.length, bytes: fmtBytes(sum(p.toDelete, 'size')), newest: fmtDay(max(p.toDelete, 'mtimeMs')) }));
     }
-    if (skippedUnknown) console.log(`\n  ${UNKNOWN_LABEL}的 ${skippedUnknown} 个会话仅接受 --days 策略，本次整组跳过`);
-    console.log(`\n共删除 ${allFiles.length} 个会话文件，释放 ${fmtBytes(totalBytes)}。`);
-    console.log('删除前会先把这些日志的使用统计聚合进缓存（墓碑机制），因此不影响 skm audit 的累计数字。');
+    if (skippedUnknown) console.log(`\n  ${tr(lang, 'sessions.skippedUnknownPlan', { label: unknownLabel(lang), count: skippedUnknown })}`);
+    console.log(`\n${tr(lang, 'sessions.totalDelete', { count: allFiles.length, bytes: fmtBytes(totalBytes) })}`);
+    console.log(tr(lang, 'sessions.tombstoneNote'));
 
     if (opts['dry-run']) {
-      console.log('\n[dry-run] 未执行删除。确认无误后去掉 --dry-run 重新运行。');
+      console.log(`\n${tr(lang, 'sessions.dryRunDone')}`);
       return;
     }
   }
 
-  if (!(await confirm('\n确认删除以上会话？输入 yes 执行，其他任意键取消：', { yes: opts.yes }))) return;
+  if (!(await confirm(`\n${tr(lang, 'sessions.confirmDelete')}`, { yes: opts.yes }))) return;
 
   // 兑现墓碑承诺：删除前先把全部日志（含待删的）的使用统计聚合进缓存
-  console.error('正在聚合使用统计（墓碑预写入）…');
+  console.error(tr(lang, 'sessions.aggregate'));
   try {
-    scanUsage({ log: (msg) => console.error(msg) });
+    scanUsage({ log: (msg) => console.error(msg), lang });
   } catch (e) {
-    console.error(`使用统计聚合失败：${e.message}`);
-    if (!(await confirm('继续删除将丢失这些日志尚未聚合的统计，仍要继续？输入 yes 继续：', { yes: false }))) return;
+    console.error(tr(lang, 'sessions.aggregateFailed', { message: e.message }));
+    if (!(await confirm(tr(lang, 'sessions.continueConfirm'), { yes: false }))) return;
   }
 
   let deleted = 0;
@@ -124,21 +134,25 @@ async function clean(sessions, opts) {
       deleted++;
     } catch (e) {
       failed++;
-      console.error(`  删除失败：${f.path}（${e.message}）`);
+      console.error(tr(lang, 'sessions.deleteFailed', { path: f.path, message: e.message }));
     }
   }
-  const result = `已删除 ${deleted} 个会话文件，释放约 ${fmtBytes(totalBytes)}${failed ? `；失败 ${failed} 个` : ''}`;
+  const result = tr(lang, 'sessions.result', { deleted, bytes: fmtBytes(totalBytes), failed });
   if (opts.json) console.log(JSON.stringify({ ...planData, result: { deleted, failed } }, null, 2));
-  else console.log(`\n完成：${result}。`);
+  else console.log(`\n${tr(lang, 'sessions.done', { result })}`);
 }
 
 // 严格非负整数：拒绝空串、十六进制、科学计数法等 Number() 会静默放行的形态
-function parsePositiveInt(v, flag) {
+function parsePositiveInt(v, flag, lang = 'zh-CN') {
   if (!/^\d+$/.test(String(v))) {
-    console.error(`${flag} 需要非负整数，收到：${v}`);
+    console.error(tr(lang, 'sessions.intInvalid', { flag, value: v }));
     process.exit(1);
   }
   return Number(v);
+}
+
+function unknownLabel(lang) {
+  return tr(lang, 'sessions.unknownWorkspace');
 }
 
 const sum = (list, key) => list.reduce((s, x) => s + x[key], 0);

@@ -6,24 +6,25 @@ import { buildCleanupTips, findIdleMcp } from '../advice.js';
 import { renderTable, termWidth } from '../table.js';
 import { ensureCatalog } from './scan.js';
 import { DATA_DIR } from '../paths.js';
-import { fmtDay, fmtDateTime, fmtAgo, fileStamp, DAY_MS, paint } from '../utils.js';
+import { fmtDay, fmtDateTime, fileStamp, DAY_MS, paint } from '../utils.js';
+import { fmtAgoLang, tr } from '../i18n.js';
 
 const ZOMBIE_DAYS = 90;
 const HISTORY_DIR = path.join(DATA_DIR, 'audit-history');
 
 // 健康审计：使用频率、僵尸 skill、MCP 使用情况、上下文/磁盘开销
-export function runAudit({ cwd, json = false, history = false }) {
-  if (history) return showHistory({ json });
+export function runAudit({ cwd, json = false, history = false, lang = 'zh-CN' }) {
+  if (history) return showHistory({ json, lang });
 
-  const catalog = ensureCatalog(cwd);
+  const catalog = ensureCatalog(cwd, lang);
   const merged = mergeByDirName(catalog.skills);
   if (!merged.length) {
-    console.log('目录为空：两侧都没有扫描到 skill，无可审计内容。');
+    console.log(tr(lang, 'audit.empty'));
     return;
   }
 
-  console.error('正在解析会话日志（首次较慢，之后增量缓存秒级）…');
-  const usage = scanUsage({ log: (msg) => console.error(msg) });
+  console.error(tr(lang, 'audit.loading'));
+  const usage = scanUsage({ log: (msg) => console.error(msg), lang });
   const usageOf = buildUsageLookup(merged, usage);
 
   const now = Date.now();
@@ -45,7 +46,7 @@ export function runAudit({ cwd, json = false, history = false }) {
     usage: used.map((r) => ({ dirName: r.m.dirName, count: r.u.count, lastUsed: r.u.lastUsed })),
     neverUsed: neverUsed.map((r) => r.m.dirName),
     mcpUsage: usage.mcp,
-  });
+  }, lang);
 
   if (json) {
     console.log(JSON.stringify({
@@ -60,72 +61,73 @@ export function runAudit({ cwd, json = false, history = false }) {
 
   const width = termWidth();
 
-  console.log(`观察窗口：${fmtDay(usage.earliest)} 起（以现存会话日志与已聚合的墓碑统计为准）\n`);
+  console.log(`${tr(lang, 'audit.window', { since: fmtDay(usage.earliest) })}\n`);
 
-  console.log(paint.bold(`一、使用频率 Top 20`) + `（共 ${used.length} 个 skill 被用过）`);
+  console.log(paint.bold(tr(lang, 'audit.topTitle', { count: used.length })));
   console.log(renderTable(
-    [{ title: '名称', width: 30 }, { title: '次数', width: 5 }, { title: '最近使用', width: 10 }, { title: '分类', width: 0 }],
-    used.slice(0, 20).map((r) => [r.m.dirName, r.u.count, fmtAgo(r.u.lastUsed), r.m.category]),
+    [{ title: tr(lang, 'audit.col.name'), width: 30 }, { title: tr(lang, 'audit.col.count'), width: 5 }, { title: tr(lang, 'audit.col.lastUsed'), width: 10 }, { title: tr(lang, 'audit.col.category'), width: 0 }],
+    used.slice(0, 20).map((r) => [r.m.dirName, r.u.count, fmtAgoLang(lang, r.u.lastUsed), r.m.category]),
     width,
   ));
 
-  console.log('\n' + paint.bold('二、僵尸 skill：') + paint.red(`从未使用 ${neverUsed.length} 个（占 ${Math.round((neverUsed.length / merged.length) * 100)}%）`));
+  console.log('\n' + paint.bold(paint.red(tr(lang, 'audit.zombieTitle', { count: neverUsed.length, pct: Math.round((neverUsed.length / merged.length) * 100) }))));
   const byCat = new Map();
   for (const r of neverUsed) {
     if (!byCat.has(r.m.category)) byCat.set(r.m.category, []);
     byCat.get(r.m.category).push(r.m.dirName);
   }
   for (const [cat, names] of [...byCat.entries()].sort((a, b) => b[1].length - a[1].length)) {
-    console.log(`  【${cat}】${names.length} 个：${names.join('、')}`);
+    console.log(tr(lang, 'audit.categoryLine', { category: cat, count: names.length, names: joinNames(names, lang) }));
   }
   if (stale.length) {
-    console.log(`  另有 ${stale.length} 个超过 ${ZOMBIE_DAYS} 天未用：${stale.map((r) => r.m.dirName).join('、')}`);
+    console.log(tr(lang, 'audit.staleLine', { count: stale.length, days: ZOMBIE_DAYS, names: joinNames(stale.map((r) => r.m.dirName), lang) }));
   }
 
-  console.log('\n' + paint.bold('三、MCP 使用情况（使用信号来自 Claude 侧调用；仅 Codex 侧配置的无法观测）'));
+  console.log('\n' + paint.bold(tr(lang, 'audit.mcpTitle')));
   const { idle: idleMcp, unobservable: codexOnlyMcp } = findIdleMcp(catalog.mcpServers, usage);
   const codexOnlySet = new Set(codexOnlyMcp);
   const mcpNames = new Set(catalog.mcpServers.map((s) => s.name));
   const mcpRows = [...mcpNames].map((name) => {
-    if (codexOnlySet.has(name)) return [name, '不可观测', '—'];
+    if (codexOnlySet.has(name)) return [name, tr(lang, 'audit.unobservable'), '—'];
     const u = usage.mcp[name];
-    return [name, u?.count || 0, fmtAgo(u?.lastUsed ?? null)];
+    return [name, u?.count || 0, fmtAgoLang(lang, u?.lastUsed ?? null)];
   }).sort((a, b) => (typeof b[1] === 'number' ? b[1] : -1) - (typeof a[1] === 'number' ? a[1] : -1));
   console.log(renderTable(
-    [{ title: '名称', width: 20 }, { title: '次数', width: 8 }, { title: '最近使用', width: 0 }],
+    [{ title: tr(lang, 'audit.col.name'), width: 20 }, { title: tr(lang, 'audit.col.count'), width: 8 }, { title: tr(lang, 'audit.col.lastUsed'), width: 0 }],
     mcpRows,
     Math.min(width, 60),
   ));
-  if (idleMcp.length) console.log(paint.yellow(`  ⚠ Claude 侧从未使用的 MCP：${idleMcp.join('、')} —— MCP schema 全量注入上下文，建议优先禁用`));
+  if (idleMcp.length) console.log(paint.yellow(tr(lang, 'audit.idleMcp', { names: joinNames(idleMcp, lang) })));
 
-  console.log('\n' + paint.bold('四、常驻上下文开销 Top 10（name+description 估算）'));
+  console.log('\n' + paint.bold(tr(lang, 'audit.contextTitle')));
   const costTop = [...merged].sort((a, b) => b.descTokens - a.descTokens).slice(0, 10);
   for (const m of costTop) {
     const u = usageOf(m);
-    console.log(`  ${String(m.descTokens).padStart(4)} token  ${m.dirName}（${toolLabel(m.tools)}，用过 ${u.count} 次）`);
+    console.log(tr(lang, 'audit.contextLine', { tokens: String(m.descTokens).padStart(4), name: m.dirName, tool: localizedToolLabel(m.tools, lang), count: u.count }));
   }
 
   // 建议与 status 仪表盘共用同一生成逻辑，保证命令与口径一致
   const { tips } = buildCleanupTips({ merged, usageOf, idleMcp });
-  console.log('\n' + paint.bold('建议'));
+  console.log('\n' + paint.bold(tr(lang, 'audit.advice')));
   let n = 0;
   for (const tip of tips) {
-    console.log(`  ${++n}. ${tip.text}：${paint.cyan(tip.command)}${tip.note ? paint.gray(tip.note) : ''}`);
+    const localized = localizeTip(tip, lang);
+    console.log(`  ${++n}. ${localized.text}${lang === 'en' ? ': ' : '：'}${paint.cyan(localized.command)}${localized.note ? paint.gray(localized.note) : ''}`);
   }
-  console.log(`  ${++n}. 清理前交叉核对重复明细：${paint.cyan('skm dupes')}`);
+  console.log(`  ${++n}. ${tr(lang, 'audit.dupesTip')}${lang === 'en' ? ': ' : '：'}${paint.cyan('skm dupes')}`);
 }
 
-function archiveSnapshot(snapshot) {
+function archiveSnapshot(snapshot, lang = 'zh-CN') {
   try {
     fs.mkdirSync(HISTORY_DIR, { recursive: true });
     // 文件名用 Asia/Shanghai 本地时间戳；同一秒内重复运行覆盖同名文件，属预期（避免归档爆炸）
     fs.writeFileSync(path.join(HISTORY_DIR, `audit-${fileStamp()}.json`), JSON.stringify(snapshot, null, 2));
   } catch (e) {
-    console.error(`归档失败（不影响本次审计）：${e.message}`);
+    console.error(tr(lang, 'audit.archiveFailed', { message: e.message }));
   }
 }
 
-function showHistory({ json = false }) {
+function showHistory({ json = false, lang = 'zh-CN' }) {
   let files;
   try {
     files = fs.readdirSync(HISTORY_DIR).filter((f) => f.endsWith('.json')).sort();
@@ -146,13 +148,36 @@ function showHistory({ json = false }) {
     return;
   }
   if (!snapshots.length) {
-    console.log('还没有审计归档，先运行一次 skm audit。');
+    console.log(tr(lang, 'audit.historyEmpty'));
     return;
   }
   console.log(renderTable(
-    [{ title: '归档时间', width: 17 }, { title: '总数', width: 5 }, { title: '在用', width: 5 }, { title: '僵尸', width: 5 }, { title: '文件', width: 0 }],
+    [{ title: tr(lang, 'audit.col.archiveTime'), width: 17 }, { title: tr(lang, 'audit.col.total'), width: 5 }, { title: tr(lang, 'audit.col.used'), width: 5 }, { title: tr(lang, 'audit.col.zombie'), width: 6 }, { title: tr(lang, 'audit.col.file'), width: 0 }],
     snapshots.map((s) => [fmtDateTime(s.archivedAt), s.totalSkills, s.usedCount, s.neverUsedCount, s.file]),
     termWidth(),
   ));
-  console.log(`\n归档目录：${HISTORY_DIR}（详细数据直接查看对应 JSON 文件）`);
+  console.log(`\n${tr(lang, 'audit.historyDir', { dir: HISTORY_DIR })}`);
+}
+
+function joinNames(names, lang) {
+  return names.join(lang === 'en' ? ', ' : '、');
+}
+
+function localizedToolLabel(tools, lang) {
+  const label = toolLabel(tools);
+  return label === '两侧' ? tr(lang, 'tool.both') : label;
+}
+
+function localizeTip(tip, lang) {
+  if (lang !== 'en') return tip;
+  if (tip.text.startsWith('双份且从未使用')) {
+    const count = tip.text.match(/\d+/)?.[0] || '';
+    return {
+      ...tip,
+      text: `Duplicate and never-used skills: ${count}; clean these first`,
+      note: tip.note ? ' (first 5 only; full list: skm audit --json)' : '',
+    };
+  }
+  if (tip.text === '禁用闲置 MCP') return { ...tip, text: 'Disable idle MCP servers' };
+  return tip;
 }

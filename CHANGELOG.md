@@ -3,6 +3,7 @@
 ## 未发布
 
 - `risks`、`list`、`search`、`recommend`、`ask` 接入英文 / 简体中文输出。
+- `graph`、`audit`、`sessions` 接入英文 / 简体中文输出，HTML 图谱界面支持 `--lang en`。
 - 推荐输出增加常见评分理由的英文展示，同时保持 JSON 结构与默认中文字段兼容。
 - 补充 CLI 国际化回归测试。
 

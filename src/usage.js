@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { DATA_DIR, CLAUDE_SESSIONS_ROOT, CODEX_SESSIONS_ROOT } from './paths.js';
 import { walkFiles, forEachLine, loadJsonFile, saveJsonFile } from './utils.js';
+import { tr } from './i18n.js';
 
 const CACHE_PATH = path.join(DATA_DIR, 'usage-cache.json');
 // v3：内置斜杠命令不计入统计、codex 路径正则锚定；解析规则变更需作废旧缓存全量重扫
@@ -26,7 +27,7 @@ const BUILTIN_COMMANDS = new Set([
 //   Codex（~/.codex/sessions/**/*.jsonl）：
 //     - function_call 记录中实际读取 skills/<name>/SKILL.md 才算使用（上下文注入的清单不算），
 //       同一会话同一 skill 只计 1 次
-export function scanUsage({ log = () => {} } = {}) {
+export function scanUsage({ log = () => {}, lang = 'zh-CN' } = {}) {
   const cache = loadCache();
   const files = [
     ...walkFiles(CLAUDE_SESSIONS_ROOT).map((f) => ({ ...f, kind: 'claude' })),
@@ -45,7 +46,7 @@ export function scanUsage({ log = () => {} } = {}) {
     };
     dirty = true;
     scanned++;
-    if (scanned % 50 === 0) log(`  已扫描 ${scanned} 个新增/变更日志文件…`);
+    if (scanned % 50 === 0) log(tr(lang, 'usage.scanned', { count: scanned }));
   }
 
   // 墓碑合并：已删除日志的统计并入 retired 聚合桶——数字永久保留，路径键释放，缓存不随清理膨胀

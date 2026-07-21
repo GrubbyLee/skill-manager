@@ -146,7 +146,7 @@ export async function runRecommend({ cwd, keywords, json = false, top, tool, cat
   }
 
   console.error(tr(lang, 'recommend.loading'));
-  const usage = scanUsage({ log: (msg) => console.error(msg) });
+  const usage = scanUsage({ log: (msg) => console.error(msg), lang });
   const usageOf = buildUsageLookup(merged, usage);
   const ranked = rankRecommendations(merged, query, usageOf).slice(0, limit);
   let advisorResult = null;
@@ -229,7 +229,7 @@ export function runAsk({ cwd, keywords, json = false, tool, category, lang = 'zh
   }
 
   console.error(tr(lang, 'recommend.askLoading'));
-  const usage = scanUsage({ log: (msg) => console.error(msg) });
+  const usage = scanUsage({ log: (msg) => console.error(msg), lang });
   const usageOf = buildUsageLookup(merged, usage);
   const ranked = rankRecommendations(merged, query, usageOf).slice(0, DEFAULT_TOP);
 

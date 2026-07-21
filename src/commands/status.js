@@ -17,7 +17,7 @@ export function runStatus({ cwd, json = false, lang = 'zh-CN' }) {
   }
 
   console.error(tr(lang, 'status.loading'));
-  const usage = scanUsage({ log: (msg) => console.error(msg) });
+  const usage = scanUsage({ log: (msg) => console.error(msg), lang });
   const usageOf = buildUsageLookup(merged, usage);
 
   const zombies = merged.filter((m) => usageOf(m).count === 0);

@@ -33,7 +33,7 @@ export function runRisks({ cwd, json = false, lang = 'zh-CN' }) {
   }
 
   console.error(tr(lang, 'risks.loading'));
-  const usage = scanUsage({ log: (msg) => console.error(msg) });
+  const usage = scanUsage({ log: (msg) => console.error(msg), lang });
   const sessions = buildSessionIndex();
   const report = collectRisks({ catalog, merged, usage, sessions, lang: json ? 'zh-CN' : lang });
 

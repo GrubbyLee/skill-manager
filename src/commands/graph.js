@@ -3,9 +3,10 @@ import path from 'node:path';
 import { mergeByDirName, toolLabel, isDupEntity } from '../catalog.js';
 import { tokenize, jaccard } from '../similarity.js';
 import { scanUsage, buildUsageLookup } from '../usage.js';
-import { fmtAgo, fmtDateTime, groupBy } from '../utils.js';
+import { fmtDateTime, groupBy } from '../utils.js';
 import { renderTable, termWidth } from '../table.js';
 import { ensureCatalog } from './scan.js';
+import { fmtAgoLang, tr } from '../i18n.js';
 
 const EDGE_LIMITS = {
   alternative: 40,
@@ -22,6 +23,17 @@ const EDGE_LABELS = {
   uses_mcp: '使用 MCP',
 };
 
+const EDGE_LABELS_EN = {
+  same_family: 'same family',
+  same_category: 'same category',
+  duplicate: 'duplicate',
+  alternative: 'alternative',
+  pipeline: 'workflow',
+  reverse_transform: 'reverse conversion',
+  shared_platform: 'shared platform',
+  uses_mcp: 'uses MCP',
+};
+
 const EDGE_DESCRIPTIONS = {
   same_family: '同源：目录名前缀相同，通常表示同一作者、同一套工具包或同一组能力，例如 baoyu-*、lark-*。适合观察成组安装与套件边界。',
   same_category: '同类：根据分类规则归入同一业务类别，表示用途相近但不一定互相依赖。该关系数量通常较多，适合做全局盘点。',
@@ -31,6 +43,17 @@ const EDGE_DESCRIPTIONS = {
   reverse_transform: '反向转换：两个 skill 的转换方向相反，例如 Markdown 转 HTML 与 HTML 转 Markdown。适合识别互补工具。',
   shared_platform: '共享平台：名称或描述命中同一外部平台关键词，例如 GitHub、飞书、Notion。该关系数量通常较多，适合按平台查看生态。',
   uses_mcp: '使用 MCP：skill 描述中同时命中 MCP 与具体 MCP server 名称，表示它可能依赖或调用该 MCP 能力。当前属于推断关系。',
+};
+
+const EDGE_DESCRIPTIONS_EN = {
+  same_family: 'Same family: directory name prefixes match, usually meaning the same author, toolkit, or capability suite, such as baoyu-* or lark-*.',
+  same_category: 'Same category: classification rules put these skills into the same business category. They are related by use case, not necessarily dependent.',
+  duplicate: 'Duplicate: SKILL.md content hashes are identical across install records. Useful for cleaning duplicate installs and reducing context cost.',
+  alternative: 'Alternative: names or descriptions are highly similar within the same category but not in the same prefix family. Useful when deciding which tool to keep.',
+  pipeline: 'Workflow: one skill output can be another skill input, such as URL to Markdown followed by Markdown to HTML.',
+  reverse_transform: 'Reverse conversion: two skills convert in opposite directions, such as Markdown to HTML and HTML to Markdown.',
+  shared_platform: 'Shared platform: names or descriptions match the same external platform keyword, such as GitHub, Lark, or Notion.',
+  uses_mcp: 'Uses MCP: a skill description mentions both MCP and a specific MCP server name. This is inferred, not guaranteed.',
 };
 
 const DEFAULT_VISIBLE_EDGE_TYPES = new Set([
@@ -80,20 +103,20 @@ const TRANSFORM_ALIASES = new Map([
   ['x', 'twitter'],
 ]);
 
-export function runGraph({ cwd, format, output, json = false }) {
-  const catalog = ensureCatalog(cwd);
+export function runGraph({ cwd, format, output, json = false, lang = 'zh-CN' }) {
+  const catalog = ensureCatalog(cwd, lang);
   const resolvedFormat = resolveFormat({ format, output, json });
 
-  console.error('正在构建 skill 知识图谱…');
-  const usage = scanUsage({ log: (msg) => console.error(msg) });
+  console.error(tr(lang, 'graph.loading'));
+  const usage = scanUsage({ log: (msg) => console.error(msg), lang });
   const graph = buildKnowledgeGraph(catalog, usage);
 
-  if (resolvedFormat === 'summary') return printSummary(graph, catalog);
+  if (resolvedFormat === 'summary') return printSummary(graph, catalog, lang);
 
-  const text = renderGraph(graph, resolvedFormat);
+  const text = renderGraph(graph, resolvedFormat, lang);
   if (output) {
     writeTextFile(output, text);
-    console.log(`图谱已导出：${output}`);
+    console.log(tr(lang, 'graph.exported', { output }));
     return;
   }
   console.log(text);
@@ -357,53 +380,53 @@ function addMcpEdges(skillNodes, mcpServers, addEdge) {
   }
 }
 
-function printSummary(graph, catalog) {
-  console.log('skill 知识图谱\n');
+function printSummary(graph, catalog, lang = 'zh-CN') {
+  console.log(`${tr(lang, 'graph.title')}\n`);
   console.log(renderTable(
-    [{ title: '节点/关系', width: 20 }, { title: '数量', width: 0 }],
+    [{ title: tr(lang, 'graph.summary.col.item'), width: 20 }, { title: tr(lang, 'graph.summary.col.count'), width: 0 }],
     [
-      ['skill 节点', `${graph.stats.skills} 个`],
-      ['MCP 节点', `${graph.stats.mcp} 个`],
-      ['分类节点', `${graph.stats.categories} 个`],
-      ['同源组节点', `${graph.stats.families} 个`],
-      ['平台节点', `${graph.stats.platforms} 个`],
-      ['关系边', `${graph.stats.edges} 条`],
-      ['目录扫描时间', fmtDateTime(catalog.scannedAt)],
+      [tr(lang, 'graph.summary.skillNodes'), tr(lang, 'graph.unit.items', { n: graph.stats.skills })],
+      [tr(lang, 'graph.summary.mcpNodes'), tr(lang, 'graph.unit.items', { n: graph.stats.mcp })],
+      [tr(lang, 'graph.summary.categoryNodes'), tr(lang, 'graph.unit.items', { n: graph.stats.categories })],
+      [tr(lang, 'graph.summary.familyNodes'), tr(lang, 'graph.unit.items', { n: graph.stats.families })],
+      [tr(lang, 'graph.summary.platformNodes'), tr(lang, 'graph.unit.items', { n: graph.stats.platforms })],
+      [tr(lang, 'graph.summary.edges'), tr(lang, 'graph.unit.edges', { n: graph.stats.edges })],
+      [tr(lang, 'graph.summary.scannedAt'), fmtDateTime(catalog.scannedAt)],
     ],
     Math.min(termWidth(), 80),
   ));
-  console.log('\n关系分布');
+  console.log(`\n${tr(lang, 'graph.edgeDistribution')}`);
   console.log(renderTable(
-    [{ title: '关系', width: 18 }, { title: '数量', width: 0 }],
-    Object.entries(graph.stats.edgeTypes).sort((a, b) => b[1] - a[1]).map(([type, n]) => [EDGE_LABELS[type] || type, `${n} 条`]),
+    [{ title: tr(lang, 'graph.col.edge'), width: 18 }, { title: tr(lang, 'graph.summary.col.count'), width: 0 }],
+    Object.entries(graph.stats.edgeTypes).sort((a, b) => b[1] - a[1]).map(([type, n]) => [edgeLabel(type, lang), tr(lang, 'graph.unit.edges', { n })]),
     Math.min(termWidth(), 60),
   ));
-  console.log('\n导出：');
+  console.log(`\n${tr(lang, 'graph.export')}`);
   console.log('  skm graph --format html --output skill-graph.html');
   console.log('  skm graph --format json --output skill-graph.json');
   console.log('  skm graph --format mermaid --output skill-graph.md');
 }
 
-export function renderGraph(graph, format) {
+export function renderGraph(graph, format, lang = 'zh-CN') {
   if (format === 'json') return JSON.stringify(graph, null, 2);
-  if (format === 'mermaid') return renderMermaid(graph);
-  if (format === 'html') return renderHtml(graph);
-  throw new Error(`不支持的图谱格式：${format}`);
+  if (format === 'mermaid') return renderMermaid(graph, lang);
+  if (format === 'html') return renderHtml(graph, lang);
+  throw new Error(tr(lang, 'graph.unsupportedFormat', { format }));
 }
 
-function renderMermaid(graph) {
+function renderMermaid(graph, lang = 'zh-CN') {
   const lines = ['```mermaid', 'graph LR'];
   for (const n of graph.nodes) {
     lines.push(`  ${mermaidId(n.id)}["${escapeMermaid(n.label)}"]`);
   }
   for (const e of graph.edges) {
-    lines.push(`  ${mermaidId(e.source)} -->|"${escapeMermaid(e.label)}"| ${mermaidId(e.target)}`);
+    lines.push(`  ${mermaidId(e.source)} -->|"${escapeMermaid(edgeLabel(e.type, lang))}"| ${mermaidId(e.target)}`);
   }
   lines.push('```');
   return lines.join('\n');
 }
 
-function renderHtml(graph) {
+function renderHtml(graph, lang = 'zh-CN') {
   const layout = layoutGraph(graph);
   const positions = layout.positions;
   const degrees = graphDegrees(graph.edges);
@@ -412,7 +435,7 @@ function renderHtml(graph) {
     const b = positions.get(e.target);
     if (!a || !b) return '';
     const color = EDGE_COLORS[e.type] || '#94a3b8';
-    return `<line class="edge edge-${e.type}" data-type="${e.type}" data-source="${escapeHtml(e.source)}" data-target="${escapeHtml(e.target)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${color}" stroke-width="${edgeWidth(e)}"><title>${escapeHtml(e.label)}：${escapeHtml(e.reason || '')}</title></line>`;
+    return `<line class="edge edge-${e.type}" data-type="${e.type}" data-source="${escapeHtml(e.source)}" data-target="${escapeHtml(e.target)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${color}" stroke-width="${edgeWidth(e)}"><title>${escapeHtml(edgeLabel(e.type, lang))}${lang === 'en' ? ': ' : '：'}${escapeHtml(e.reason || '')}</title></line>`;
   }).join('\n');
   const nodes = graph.nodes.map((n) => {
     const p = positions.get(n.id);
@@ -424,21 +447,23 @@ function renderHtml(graph) {
     return `<g class="node node-${n.type}${muted}" data-type="${n.type}" data-id="${escapeHtml(n.id)}" data-x="${p.x}" data-y="${p.y}" data-initial-x="${p.x}" data-initial-y="${p.y}" data-degree="${degree}" data-usage="${n.usageCount || 0}" data-important="${important}" data-search="${escapeHtml(nodeSearchText(n))}" transform="translate(${p.x},${p.y})">
       <circle r="${radius}" fill="${color}" stroke="${nodeStroke(n)}" stroke-width="${n.duplicateEntity ? 3 : 1.5}"></circle>
       <text y="${radius + 13}" text-anchor="middle">${escapeHtml(shortLabel(n.label, n.type === 'skill' ? 22 : 18))}</text>
-      <title>${escapeHtml(nodeTitle(n))}</title>
+      <title>${escapeHtml(nodeTitle(n, lang))}</title>
     </g>`;
   }).join('\n');
-  const edgeControls = Object.entries(EDGE_LABELS).map(([type, label]) => {
+  const edgeControls = Object.keys(EDGE_LABELS).map((type) => {
+    const label = edgeLabel(type, lang);
     const count = graph.stats.edgeTypes[type] || 0;
     const checked = DEFAULT_VISIBLE_EDGE_TYPES.has(type) ? ' checked' : '';
-    const help = EDGE_DESCRIPTIONS[type] || `${label}：skill 图谱关系。`;
+    const help = edgeDescription(type, lang) || `${label}: skill graph relationship.`;
     return `<label class="edge-option"><input type="checkbox" data-edge="${type}"${checked}> <span class="swatch" style="border-color:${EDGE_COLORS[type]}"></span><span class="edge-help" tabindex="0" data-help="${escapeHtml(help)}">${label} (${count})</span></label>`;
   }).join('');
+  const visibleText = JSON.stringify(tr(lang, 'graph.html.visible', { nodes: '__NODES__', edges: '__EDGES__' }));
   return `<!doctype html>
-<html lang="zh-CN">
+<html lang="${lang === 'en' ? 'en' : 'zh-CN'}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>skm skill 知识图谱</title>
+<title>${escapeHtml(tr(lang, 'graph.html.title'))}</title>
 <style>
   :root { color-scheme: dark; --bg:#0b1020; --panel:#111827; --text:#e5e7eb; --muted:#94a3b8; --line:#334155; }
   body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
@@ -480,31 +505,31 @@ function renderHtml(graph) {
 </head>
 <body>
 <header>
-  <h1>skm skill 知识图谱</h1>
-  <div class="meta">生成时间：${escapeHtml(fmtDateTime(graph.generatedAt))} · skill ${graph.stats.skills} · MCP ${graph.stats.mcp} · 关系 ${graph.stats.edges}</div>
+  <h1>${escapeHtml(tr(lang, 'graph.html.title'))}</h1>
+  <div class="meta">${escapeHtml(tr(lang, 'graph.html.generated'))}：${escapeHtml(fmtDateTime(graph.generatedAt))} · skill ${graph.stats.skills} · MCP ${graph.stats.mcp} · ${escapeHtml(tr(lang, 'graph.html.relations'))} ${graph.stats.edges}</div>
 </header>
 <div class="wrap">
   <aside>
-    <input id="q" type="search" placeholder="搜索 skill / 分类 / 平台">
+    <input id="q" type="search" placeholder="${escapeHtml(tr(lang, 'graph.html.search'))}">
     <div class="stats">
       <div class="stat"><b>${graph.stats.skills}</b><span>skill</span></div>
       <div class="stat"><b>${graph.stats.mcp}</b><span>MCP</span></div>
-      <div class="stat"><b>${graph.stats.families}</b><span>同源组</span></div>
-      <div class="stat"><b>${graph.stats.edges}</b><span>关系</span></div>
+      <div class="stat"><b>${graph.stats.families}</b><span>${escapeHtml(tr(lang, 'graph.html.families'))}</span></div>
+      <div class="stat"><b>${graph.stats.edges}</b><span>${escapeHtml(tr(lang, 'graph.html.relations'))}</span></div>
     </div>
     <div id="visible-count" class="meta"></div>
-    <div class="toolbar"><button id="reset-layout" type="button">重置布局</button></div>
+    <div class="toolbar"><button id="reset-layout" type="button">${escapeHtml(tr(lang, 'graph.html.reset'))}</button></div>
     <div class="toggles">
-      <label class="toggle"><input id="only-important" type="checkbox"> 只看重点节点</label>
-      <label class="toggle"><input id="hide-idle" type="checkbox"> 隐藏从未使用的 skill</label>
-      <label class="toggle"><input id="show-labels" type="checkbox" checked> 显示节点标签</label>
+      <label class="toggle"><input id="only-important" type="checkbox"> ${escapeHtml(tr(lang, 'graph.html.onlyImportant'))}</label>
+      <label class="toggle"><input id="hide-idle" type="checkbox"> ${escapeHtml(tr(lang, 'graph.html.hideIdle'))}</label>
+      <label class="toggle"><input id="show-labels" type="checkbox" checked> ${escapeHtml(tr(lang, 'graph.html.showLabels'))}</label>
     </div>
-    <h3>关系过滤</h3>
+    <h3>${escapeHtml(tr(lang, 'graph.html.edgeFilter'))}</h3>
     ${edgeControls}
-    <footer>搜索会显示匹配节点及其一跳关系；节点大小与使用频率相关；灰色 skill 表示从未使用；双圈表示两侧实体双份安装。每条边都带有关系来源与置信度，悬停节点或边可查看详情。</footer>
+    <footer>${escapeHtml(tr(lang, 'graph.html.footer'))}</footer>
   </aside>
   <main>
-    <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="skill 知识图谱">
+    <svg viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="${escapeHtml(tr(lang, 'graph.html.aria'))}">
       <g class="edges">${edges}</g>
       <g class="nodes">${nodes}</g>
     </svg>
@@ -570,7 +595,7 @@ function applyFilters() {
   }
 
   const visibleNodes = nodes.filter(n => !n.classList.contains('hidden')).length;
-  visibleCount.textContent = '当前显示：' + visibleNodes + ' 个节点 / ' + visibleEdges + ' 条关系';
+  visibleCount.textContent = ${visibleText}.replace('__NODES__', visibleNodes).replace('__EDGES__', visibleEdges);
 }
 
 edgeChecks.forEach(cb => cb.addEventListener('change', applyFilters));
@@ -858,16 +883,29 @@ function nodeSearchText(n) {
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
-function nodeTitle(n) {
+function nodeTitle(n, lang = 'zh-CN') {
   const parts = [
     `${n.label} (${n.type})`,
-    n.category ? `分类：${n.category}` : '',
-    n.tools?.length ? `工具：${toolLabel(n.tools)}` : '',
-    n.usageCount != null ? `使用：${n.usageCount} 次，最近 ${fmtAgo(n.lastUsed)}` : '',
-    n.duplicateEntity ? '提示：两侧实体双份安装' : '',
-    n.description ? `描述：${n.description}` : '',
+    n.category ? `${tr(lang, 'graph.node.category')}：${n.category}` : '',
+    n.tools?.length ? `${tr(lang, 'graph.node.tool')}：${localizedToolLabel(n.tools, lang)}` : '',
+    n.usageCount != null ? tr(lang, 'graph.node.usage', { count: n.usageCount, ago: fmtAgoLang(lang, n.lastUsed) }) : '',
+    n.duplicateEntity ? tr(lang, 'graph.node.duplicate') : '',
+    n.description ? `${tr(lang, 'graph.node.description')}：${n.description}` : '',
   ].filter(Boolean);
   return parts.join('\n');
+}
+
+function edgeLabel(type, lang = 'zh-CN') {
+  return (lang === 'en' ? EDGE_LABELS_EN : EDGE_LABELS)[type] || type;
+}
+
+function edgeDescription(type, lang = 'zh-CN') {
+  return (lang === 'en' ? EDGE_DESCRIPTIONS_EN : EDGE_DESCRIPTIONS)[type];
+}
+
+function localizedToolLabel(tools, lang) {
+  const label = toolLabel(tools);
+  return label === '两侧' ? tr(lang, 'tool.both') : label;
 }
 
 function shortLabel(s, max) {
