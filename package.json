@@ -1,6 +1,6 @@
 {
   "name": "aide-skill-manager",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize Claude Code / Codex skills and MCP servers.",
   "type": "module",
   "bin": {
