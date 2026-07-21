@@ -19,7 +19,7 @@ const MIN_NODE_MAJOR = 18;
 
 // skm doctor：只读环境诊断。用于新用户安装后确认 Node、目录、catalog、advisor CLI 与项目约束。
 export function runDoctor({ cwd, json = false, lang = 'zh-CN' }) {
-  const report = collectDoctor({ cwd, lang });
+  const report = collectDoctor({ cwd, lang: json ? 'zh-CN' : lang });
   if (json) {
     console.log(JSON.stringify(report, null, 2));
     return;

@@ -9,9 +9,12 @@ import { langFromArgv, tr } from '../src/i18n.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkgPath = path.join(root, 'package.json');
 const binPath = path.join(root, 'bin', 'skm.js');
-const args = new Set(process.argv.slice(2));
-const lang = langFromArgv(process.argv.slice(2));
-const explicitLangArg = process.argv.slice(2).find((arg) => arg === '--lang' || arg.startsWith('--lang='));
+const rawArgs = process.argv.slice(2);
+const args = new Set(rawArgs);
+const lang = langFromArgv(rawArgs);
+const explicitLangValue = readExplicitLangValue(rawArgs);
+
+if (explicitLangValue !== undefined && !lang) fail(tr(null, 'cli.langInvalid', { value: explicitLangValue ?? '(missing)' }));
 
 if (args.has('--help') || args.has('-h')) {
   console.log(lang === 'en' ? `skm local install script
@@ -47,7 +50,6 @@ for (let i = 2; i < process.argv.length; i++) {
   if (arg.startsWith('--lang=')) continue;
   unsupported.push(arg);
 }
-if (explicitLangArg && !lang) fail(tr(null, 'cli.langInvalid', { value: explicitLangArg }));
 if (unsupported.length > 0) fail(tr(lang, 'install.unknownArg', { args: unsupported.join(' ') }));
 
 if (Number(process.versions.node.split('.')[0]) < 18) fail(tr(lang, 'install.nodeTooOld', { version: process.version }));
@@ -99,4 +101,13 @@ console.log('  skm graph --format html --output skill-graph.html');
 function fail(message) {
   console.error(tr(lang, 'install.fail', { message }));
   process.exit(1);
+}
+
+function readExplicitLangValue(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--lang') return argv[i + 1] ?? null;
+    if (arg.startsWith('--lang=')) return arg.slice('--lang='.length);
+  }
+  return undefined;
 }

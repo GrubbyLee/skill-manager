@@ -53,3 +53,25 @@ test('CLI 参数：非法语言 fail fast', () => {
   assert.equal(r.status, 1);
   assert.match(r.stderr, /--lang must be zh-CN\|en/);
 });
+
+test('安装脚本：非法语言在 help 前 fail fast 且报告真实值', () => {
+  const r = spawnSync(process.execPath, ['scripts/install.mjs', '--help', '--lang', 'fr'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /fr/);
+  assert.doesNotMatch(r.stdout, /Usage:/);
+});
+
+test('安装脚本：缺少 --lang 值时 fail fast', () => {
+  const r = spawnSync(process.execPath, ['scripts/install.mjs', '--help', '--lang'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /\(missing\)/);
+  assert.doesNotMatch(r.stdout, /Usage:/);
+});

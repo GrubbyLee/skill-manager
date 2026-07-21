@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { collectDoctor } from '../src/commands/doctor.js';
 
 test('doctor：检查 Node、零依赖与 advisor 可用性', () => {
@@ -25,4 +26,23 @@ test('doctor：Node 版本过低时失败', () => {
   });
   assert.equal(report.checks.find((c) => c.name === 'Node.js 版本').status, 'fail');
   assert.ok(report.summary.fail >= 1);
+});
+
+test('doctor --json：结构化输出不随 --lang 改变', () => {
+  const zh = spawnSync(process.execPath, ['bin/skm.js', 'doctor', '--json', '--lang', 'zh-CN'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  const en = spawnSync(process.execPath, ['bin/skm.js', 'doctor', '--json', '--lang', 'en'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+
+  assert.equal(zh.status, 0);
+  assert.equal(en.status, 0);
+  assert.deepEqual(
+    JSON.parse(en.stdout).checks.map((c) => c.name),
+    JSON.parse(zh.stdout).checks.map((c) => c.name),
+  );
+  assert.ok(JSON.parse(en.stdout).checks.some((c) => c.name === 'Node.js 版本'));
 });
