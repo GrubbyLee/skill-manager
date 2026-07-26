@@ -13,6 +13,7 @@
     "scripts",
     "docs/*.md",
     "docs/demo.png",
+    "docs/demo.en.png",
     "docs/graphic.png",
     "docs/comic-*.jpg",
     "CONTRIBUTING.md",
