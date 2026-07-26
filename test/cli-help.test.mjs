@@ -76,6 +76,20 @@ test('安装脚本：缺少 --lang 值时 fail fast', () => {
   assert.doesNotMatch(r.stdout, /Usage:/);
 });
 
+test('安装脚本：dry-run 会展示附属 skill 安装目标', () => {
+  const r = spawnSync(process.execPath, ['scripts/install.mjs', '--dry-run', '--lang', 'en'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /About to run: npm link/);
+  assert.match(r.stdout, /Bundled skill to install: skill-navigator/);
+  assert.match(r.stdout, /\.claude[\\/]skills[\\/]skill-navigator/);
+  assert.match(r.stdout, /\.codex[\\/]skills[\\/]skill-navigator/);
+  assert.match(r.stdout, /\[dry-run\] install not executed\./);
+});
+
 test('CLI 子命令：search / recommend / ask 支持英文缺参提示', () => {
   for (const cmd of ['search', 'recommend', 'ask']) {
     const r = spawnSync(process.execPath, ['bin/skm.js', cmd, '--lang', 'en'], {

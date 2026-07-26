@@ -23,7 +23,9 @@ skm sessions
 
 其中 `scan`、`audit`、`risks`、`sessions` 可能更新 `~/.skill-manager` 下的 skm 自身数据，例如 catalog、usage cache、audit history、sessions index。这些不是 AIDE 数据，不会改变 Claude Code 或 Codex 的行为。
 
-## 三类写操作
+显式运行 `node scripts/install.mjs` 是安装阶段的例外：它会执行本地 `npm link`，并把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 与 `~/.codex/skills/`。如果目标目录已有不同内容，安装脚本会先备份旧目录再替换。
+
+## CLI 三类写操作
 
 | 动作 | 改动内容 | 防护 |
 |---|---|---|

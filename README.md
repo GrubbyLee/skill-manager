@@ -6,10 +6,13 @@ English | [简体中文](README.zh-CN.md)
 [![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-3c873a)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-2f6f4e)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/GrubbyLee/skill-manager?style=social)](https://github.com/GrubbyLee/skill-manager/stargazers)
 
 > A zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize Claude Code / Codex skills and MCP servers.
 
 When you keep adding skills to Claude Code or Codex, the local setup can become hard to reason about: duplicated skills, shared symlinks, unused tools, unclear names, and MCP servers that keep consuming context. `skm` turns that local toolbox into something you can inspect, search, compare, and clean up safely.
+
+If `skm` helps you understand your local skill setup, a GitHub Star helps other AIDE users find the project.
 
 ![skm demo](docs/demo.png)
 
@@ -27,7 +30,9 @@ skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
 
-No npm package install is advertised yet. The package name `aide-skill-manager` is reserved, but the current recommended installation path is git clone.
+This is a source install. The install script runs `npm link` inside the cloned repository so the `skm` command becomes available on your machine. It also installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`, so Claude Code and Codex can call your local `skm` command when you ask which skill to use. It does not install `aide-skill-manager` from the npm registry.
+
+No npm package install is advertised yet. The package name `aide-skill-manager` is reserved, but the current recommended installation path is git clone plus `node scripts/install.mjs`.
 
 CLI output supports language selection:
 
@@ -132,9 +137,9 @@ Start with read-only commands. Refresh facts first, then inspect health, risks, 
 
 ## Safety Boundaries
 
-Most commands are read-only for Claude Code and Codex data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your Claude/Codex configs, skills, MCP servers, or session logs.
+Most commands are read-only for Claude Code and Codex data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your Claude/Codex configs, skills, MCP servers, or session logs. The explicit install script is the exception: it links `skm` locally and installs the bundled bridge skill into your user skill directories.
 
-Only three actions can modify files:
+Inside the CLI, only three actions can modify AIDE files:
 
 | Action | What changes | Safeguards |
 |---|---|---|
@@ -146,12 +151,14 @@ More details: [docs/safety.md](docs/safety.md).
 
 ## Use Inside AIDE
 
-Install the thin navigator skill into Claude Code or Codex, then ask your coding assistant which skill to use for a task:
+`node scripts/install.mjs` installs `skill-navigator` by default:
 
 ```bash
-cp -r integrations/skill-navigator ~/.claude/skills/
-cp -r integrations/skill-navigator ~/.codex/skills/
+~/.claude/skills/skill-navigator
+~/.codex/skills/skill-navigator
 ```
+
+This thin skill is the bridge between your AIDE coding assistant and `skill-manager`: when you ask "which skill should I use for this task?", the assistant should call the local `skm` command instead of manually scanning directories. Re-run `node scripts/install.mjs` after pulling updates to refresh the bridge skill.
 
 ## Visual Story
 
@@ -187,8 +194,9 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 | [docs/report.en.md](docs/report.en.md) / [docs/report.md](docs/report.md) | HTML overview report |
 | [docs/safety.en.md](docs/safety.en.md) / [docs/safety.md](docs/safety.md) | Safety boundaries and data notes |
 | [docs/roadmap.en.md](docs/roadmap.en.md) / [docs/roadmap.md](docs/roadmap.md) | Roadmap |
-| [docs/community.en.md](docs/community.en.md) / [docs/community.md](docs/community.md) | Community post templates |
 | [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide |
+| [SECURITY.md](SECURITY.md) | Security policy and sensitive data reporting notes |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community behavior expectations |
 
 ## Cross-Platform Validation
 

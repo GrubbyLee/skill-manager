@@ -35,6 +35,24 @@ jobs:
       - name: 安装校验
         run: npm install --ignore-scripts
 
+      - name: 本地安装脚本 dry-run
+        run: node scripts/install.mjs --dry-run --lang en
+
+      - name: 本地安装脚本验证
+        run: node scripts/install.mjs --lang en
+
+      - name: 本地 skm 命令验证
+        run: skm help --lang en
+
+      - name: Windows npm link 命令验证
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-Command skm
+          Get-Command skm.cmd
+          skm help --lang en
+          skm scan --json
+
       - name: 语法检查
         run: npm run check
 

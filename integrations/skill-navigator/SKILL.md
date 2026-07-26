@@ -5,9 +5,11 @@ description: 当用户询问"当前有哪些 skill / 该用哪个 skill / skill 
 
 # skill-navigator：skill 清单导航
 
+本 skill 是 `skill-manager` 的 AIDE 桥接入口。用户安装本项目后，`node scripts/install.mjs` 会默认把它安装到 Claude Code 与 Codex 的用户 skill 目录；它负责让编程助手通过本机 `skm` 命令读取真实目录、审计数据和推荐结果。
+
 回答用户关于本机 skill / MCP 的问题时，一律通过 `skm` CLI 获取数据（它已扫描 Claude Code 与 Codex 两侧并做了分类去重），不要手动遍历 `~/.claude/skills` 等目录。
 
-若 `skm` 命令不存在，用绝对路径：`node ~/codes/skill-manager/bin/skm.js`。
+若 `skm` 命令不存在，不要猜测安装路径；提示用户在 `skill-manager` 项目目录重新运行 `node scripts/install.mjs`，或检查 `npm link` / PATH 是否生效。
 
 ## 场景与命令
 

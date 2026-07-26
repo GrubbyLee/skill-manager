@@ -17,6 +17,8 @@
     "docs/comic-*.jpg",
     "CONTRIBUTING.md",
     "CONTRIBUTING.en.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
     "CHANGELOG.md",
     "README.md",
     "README.zh-CN.md",

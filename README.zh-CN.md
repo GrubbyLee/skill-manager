@@ -6,14 +6,19 @@
 [![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-3c873a)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-2f6f4e)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/GrubbyLee/skill-manager?style=social)](https://github.com/GrubbyLee/skill-manager/stargazers)
 
 > Claude Code / Codex skill 与 MCP 的扫描、推荐、去重、审计、知识图谱工具。
 
 一台机器装久了，skill 会越来越像一间堆满工具的工作室：有的重复，有的很久没用，有的藏在软链后面，有的 MCP 每次启动都占上下文。`skm` 做的事很简单：清点它们、解释它们、帮你决定下一步。
 
+如果 `skm` 帮你看清了本机 skill 目录，欢迎在 GitHub 点 Star，让更多 AIDE 用户找到它。
+
 ![skm 演示](docs/demo.png)
 
 ## 30 秒体验
+
+GitHub 主仓：
 
 ```bash
 git clone https://github.com/GrubbyLee/skill-manager.git
@@ -27,20 +32,24 @@ skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
 
+国内也可以从 Gitee 镜像克隆：
+
+```bash
+git clone https://gitee.com/synovation/skill-manager.git
+cd skill-manager
+node scripts/install.mjs
+```
+
+这是源码安装。安装脚本会在克隆后的仓库内执行 `npm link`，让本机可以直接使用 `skm` 命令；同时会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`，让 Claude Code / Codex 在你询问“该用哪个 skill”时默认访问本机 `skm`。它不会从 npm registry 安装 `aide-skill-manager` 包。
+
+> 当前 README 仅保留 git clone + 本地安装脚本方式。npm 包名已预留为 `aide-skill-manager`，正式发布前不建议在文档中引导 npm 安装。
+
 CLI 输出支持语言切换：
 
 ```bash
 skm scan --lang en
 SKM_LANG=zh-CN skm doctor
 ```
-
-国内也可以从 Gitee 镜像克隆：
-
-```bash
-git clone https://gitee.com/synovation/skill-manager.git
-```
-
-> 当前 README 仅保留 git clone 安装方式。npm 包名已预留为 `aide-skill-manager`，正式发布前不建议在文档中引导 npm 安装。
 
 ## 它解决什么
 
@@ -138,9 +147,9 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 ## 安全边界
 
-默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude/Codex 的配置、skill、MCP 或会话日志。
+默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude/Codex 的配置、skill、MCP 或会话日志。显式运行安装脚本是例外：它会本地 link `skm`，并把附属桥接 skill 安装到用户 skill 目录。
 
-只有三类动作会改文件：
+CLI 内只有三类动作会修改 AIDE 文件：
 
 | 动作 | 改动内容 | 防护 |
 |---|---|---|
@@ -152,12 +161,14 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 ## 在 AIDE 内使用
 
-把薄入口 skill 装进 Claude Code 或 Codex，之后可以直接在对话里问“我要做 XX 该用哪个 skill”。
+`node scripts/install.mjs` 会默认安装 `skill-navigator`：
 
 ```bash
-cp -r integrations/skill-navigator ~/.claude/skills/
-cp -r integrations/skill-navigator ~/.codex/skills/
+~/.claude/skills/skill-navigator
+~/.codex/skills/skill-navigator
 ```
+
+这个薄入口 skill 是 Claude Code / Codex 与本项目之间的桥梁：之后你可以直接在对话里问“我要做 XX 该用哪个 skill”，编程助手应通过本机 `skm` 命令读取清单、审计和推荐结果，而不是手动扫描目录。拉取项目更新后，重新运行 `node scripts/install.mjs` 即可刷新桥接 skill。
 
 ## 四格小漫画
 
@@ -197,8 +208,9 @@ cp -r integrations/skill-navigator ~/.codex/skills/
 | [docs/report.md](docs/report.md) | HTML 总览报告 |
 | [docs/safety.md](docs/safety.md) | 只读边界、写操作防护、数据说明 |
 | [docs/roadmap.md](docs/roadmap.md) | 项目路线图与近期优先级 |
-| [docs/community.md](docs/community.md) | 社区传播素材与发布清单 |
 | [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献方式、本地开发、提交流程 |
+| [SECURITY.md](SECURITY.md) | 安全报告方式与敏感数据提醒 |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区行为规范 |
 
 ## 跨端验证
 

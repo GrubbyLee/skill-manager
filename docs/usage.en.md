@@ -4,17 +4,29 @@ This is the detailed command manual for `skill-manager` (`skm`).
 
 ## Install
 
+GitHub:
+
 ```bash
 git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
 node scripts/install.mjs
 ```
 
+This is a source install. The install script runs `npm link` inside the cloned repository so the `skm` command becomes available on your machine. It also installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`. It does not install `aide-skill-manager` from the npm registry.
+
 Run without global link:
 
 ```bash
 node bin/skm.js scan
 node bin/skm.js ask "convert a web page to markdown"
+```
+
+This is useful for a temporary CLI trial. If you want Claude Code or Codex to use the bundled bridge skill and call your local `skm` by default, run `node scripts/install.mjs`.
+
+Preview the install without writing global commands or user skill directories:
+
+```bash
+node scripts/install.mjs --dry-run
 ```
 
 ## Language

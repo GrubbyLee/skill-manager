@@ -4,11 +4,23 @@
 
 ## 安装
 
+GitHub 主仓：
+
 ```bash
 git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
 node scripts/install.mjs
 ```
+
+Gitee 镜像：
+
+```bash
+git clone https://gitee.com/synovation/skill-manager.git
+cd skill-manager
+node scripts/install.mjs
+```
+
+这是源码安装。安装脚本会在当前仓库执行 `npm link`，让本机可以直接使用 `skm` 命令；同时会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`。它不会从 npm registry 安装 `aide-skill-manager` 包。
 
 不想全局 link 时，可以直接运行：
 
@@ -17,11 +29,15 @@ node bin/skm.js scan
 node bin/skm.js ask "把网页转成 markdown"
 ```
 
+这种方式适合临时体验 CLI；如果希望 Claude Code / Codex 通过附属 skill 默认访问本机 `skm`，仍建议运行 `node scripts/install.mjs`。
+
 安装脚本支持 dry-run：
 
 ```bash
 node scripts/install.mjs --dry-run
 ```
+
+dry-run 会展示即将执行的 `npm link` 与 `skill-navigator` 安装目标，但不会写入全局命令或用户 skill 目录。
 
 ## 语言
 
