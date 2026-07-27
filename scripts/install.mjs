@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { langFromArgv, tr } from '../src/i18n.js';
 import { fileStamp } from '../src/utils.js';
+import { installCommand, spawnFailureDetail } from './install-process.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkgPath = path.join(root, 'package.json');
@@ -82,27 +83,23 @@ if (dryRun) {
   process.exit(0);
 }
 
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const linked = spawnSync(npm, ['link'], {
+const npmLink = installCommand('npmLink');
+const linked = spawnSync(npmLink.command, npmLink.args, {
   cwd: root,
   stdio: 'inherit',
   shell: false,
 });
 
-if (linked.status !== 0) {
-  fail(lang === 'en' ? `npm link failed, exit code: ${linked.status ?? 'unknown'}` : `npm link 执行失败，退出码：${linked.status ?? '未知'}`);
-}
+if (linked.status !== 0 || linked.error) fail(commandFailed('npm link', linked));
 
-const checked = spawnSync(process.platform === 'win32' ? 'skm.cmd' : 'skm', ['help'], {
+const skmHelp = installCommand('skmHelp');
+const checked = spawnSync(skmHelp.command, skmHelp.args, {
   cwd: root,
   stdio: 'ignore',
   shell: false,
 });
 
-if (checked.status !== 0) {
-  console.log(tr(lang, 'install.verifyFailed'));
-  process.exit(0);
-}
+if (checked.status !== 0 || checked.error) fail(`${tr(lang, 'install.verifyFailed')} ${commandFailed('skm help', checked)}`);
 
 installBridgeSkill();
 
@@ -114,6 +111,11 @@ console.log('  skm graph --format html --output skill-graph.html');
 function fail(message) {
   console.error(tr(lang, 'install.fail', { message }));
   process.exit(1);
+}
+
+function commandFailed(command, result) {
+  const detail = spawnFailureDetail(result, lang);
+  return lang === 'en' ? `${command} failed: ${detail}` : `${command} 执行失败：${detail}`;
 }
 
 function readExplicitLangValue(argv) {

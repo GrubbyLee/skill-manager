@@ -25,7 +25,6 @@ If `skm` helps you understand your local skill setup, a GitHub Star helps other 
 git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
 node scripts/install.mjs
-npm link
 
 skm scan
 skm

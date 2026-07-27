@@ -25,7 +25,6 @@ GitHub 主仓：
 git clone https://github.com/GrubbyLee/skill-manager.git
 cd skill-manager
 node scripts/install.mjs
-npm link
 
 skm scan
 skm

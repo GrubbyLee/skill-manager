@@ -10,9 +10,9 @@ skill-manager aims to become the most useful open-source governance tool for AID
 - classify, search, recommend, and visualize
 - detect duplicates, audit usage, and report risks
 - inspect and safely plan session log cleanup
-- zero third-party dependencies
-- macOS / Windows CI, Linux local validation
-- English and Simplified Chinese README and CLI output
+- export a one-page HTML overview report
+- keep zero third-party dependencies with macOS / Windows CI validation
+- provide bilingual README/docs, issue templates, Discussions, and releases
 
 ## Priorities
 
@@ -23,14 +23,43 @@ skill-manager aims to become the most useful open-source governance tool for AID
 | P1 | HTML overview report | Shareable local health report | Implemented |
 | P1 | Graph layout | Clearer large graphs and clusters | In progress |
 | P1 | Install experience | Keep git clone install smooth before npm release | In progress |
-| P1 | English docs and CLI i18n | Serve global GitHub users while keeping Chinese docs | In progress |
+| P1 | English docs and CLI i18n | Serve global GitHub users while keeping Chinese docs; core CLI flows and detailed docs support English | Implemented |
 | P2 | More AIDE adapters | Cursor, Gemini CLI, and other tools | Planned |
 | P2 | MCP token measurement | Per-server MCP tool schema token estimate | Planned |
 
-## Next Work
+## Recommendation
 
-- collect more real-world recommendation samples
-- improve large-graph clustering and summaries
-- add more regression samples for recommendation
-- translate remaining contribution docs
-- prepare npm publishing once the release environment is available
+- collect more Chinese task samples, synonyms, and intent rules
+- improve conversion-direction detection so reverse tools do not outrank the right tool
+- learn personal preferences from `skm audit` without letting unrelated frequent skills dominate
+- improve candidate compression and fallback messages for `--advisor codex|claude`
+- add more recommendation regression samples
+
+## Internationalization
+
+- Implemented: bilingual README, detailed English docs, `--lang` / `SKM_LANG`, help, validation errors, all primary commands, and the install script
+- Next: refine English wording and category localization from real user feedback
+- Constraints: no third-party dependencies; stable JSON field names; Simplified Chinese docs remain available
+
+## Knowledge Graph
+
+- Implemented: lightweight collision avoidance, zooming, and fit-to-view for large graphs
+- Add more relationships: upstream/downstream, shared input/output formats, same-platform actions, strong/weak alternatives
+- Add summaries: densest suites, duplicate cores, platform ecosystems, and potential workflows
+- Implemented: a one-page HTML report combining graph, risk, and recommendation summaries
+
+## Community
+
+The most useful feedback:
+
+- share the category distribution from `skm scan`
+- report misclassified or missing skills with their names and descriptions
+- check whether `skm ask "<task>"` recommendations feel right
+- share graph screenshots and identify useful or noisy relationships
+- provide directory and MCP configuration samples from additional AIDE tools
+
+Links:
+
+- Discussions: <https://github.com/GrubbyLee/skill-manager/discussions>
+- Share scan results: <https://github.com/GrubbyLee/skill-manager/discussions/2>
+- Issues: <https://github.com/GrubbyLee/skill-manager/issues>
