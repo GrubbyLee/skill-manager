@@ -15,9 +15,9 @@ When you keep adding skills to Claude Code or Codex, the local setup can become 
 
 If `skm` helps you understand your local skill setup, a GitHub Star helps other AIDE users find the project.
 
-[![Watch the skm project tour](docs/demo.en.png)](docs/skill-manager-promo.en.mp4)
+[![Animated preview of the skm project tour](docs/demo.en.gif)](https://grubbylee.github.io/skill-manager/?lang=en)
 
-[Watch the English project tour (MP4)](docs/skill-manager-promo.en.mp4)
+*Live preview · Click to play the complete English tour with voiceover and controls.*
 
 ## 30-Second Start
 

@@ -13,9 +13,9 @@
 
 一台机器装久了，skill 会越来越像一间堆满工具的工作室：有的重复，有的很久没用，有的藏在软链后面，有的 MCP 每次启动都占上下文。`skm` 做的事很简单：清点它们、解释它们、帮你决定下一步。
 
-[![观看 skm 中文介绍视频](docs/demo.png)](docs/skill-manager-promo.zh-CN.mp4)
+[![skm 中文介绍视频动态预览](docs/demo.zh-CN.gif)](https://grubbylee.github.io/skill-manager/?lang=zh-CN)
 
-[观看中文介绍视频（MP4）](docs/skill-manager-promo.zh-CN.mp4)
+*动态预览 · 点击播放带配音和控制条的完整中文介绍。*
 
 ## 30 秒体验
 
