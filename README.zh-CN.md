@@ -3,6 +3,7 @@
 [English](README.md) | 简体中文
 
 [![macOS / Windows 验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
+[![Linux 本机验证](https://img.shields.io/badge/Linux-locally_validated-FCC624?logo=linux&logoColor=black)](#跨端验证)
 [![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-3c873a)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-2f6f4e)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -12,9 +13,9 @@
 
 一台机器装久了，skill 会越来越像一间堆满工具的工作室：有的重复，有的很久没用，有的藏在软链后面，有的 MCP 每次启动都占上下文。`skm` 做的事很简单：清点它们、解释它们、帮你决定下一步。
 
-如果 `skm` 帮你看清了本机 skill 目录，欢迎在 GitHub 点 Star，让更多 AIDE 用户找到它。
+[![观看 skm 中文介绍视频](docs/demo.png)](docs/skill-manager-promo.zh-CN.mp4)
 
-![skm 演示](docs/demo.png)
+[观看中文介绍视频（MP4）](docs/skill-manager-promo.zh-CN.mp4)
 
 ## 30 秒体验
 
@@ -65,6 +66,7 @@ SKM_LANG=zh-CN skm doctor
 | 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
 | 能否导出一页总览？ | `skm report --format html` | 健康、风险、使用、会话、图谱摘要汇总 |
 | 会话日志太大怎么办？ | `skm sessions` | 按工作区统计日志体积，支持 dry-run 清理计划 |
+| 能让编程助手直接调用 skm 吗？ | 安装后直接在 AIDE 内提问 | 自动安装的 `skill-navigator` 桥接 skill 会代你调用本机 `skm` |
 
 ## 命令速查
 
@@ -87,6 +89,20 @@ SKM_LANG=zh-CN skm doctor
 | `skm disable` / `skm enable` | 软禁用或恢复 skill / MCP |
 
 完整命令说明见 [docs/usage.md](docs/usage.md)。
+
+附属桥接 skill：`skill-navigator` 会自动安装，供 Claude Code / Codex 调用本机 `skm`；它不是 CLI 命令。
+
+## 项目特性
+
+- 双工具覆盖：Claude Code 与 Codex CLI 的 skill / MCP 统一扫描
+- 软链感知：区分共享实体、实体双份和内容不同
+- 四级重复检测：同名、同内容、同类多实现、文本高度相似
+- 真实使用审计：解析会话日志，只统计真正读取或调用过的 skill / MCP
+- 知识图谱：导出 JSON、Mermaid 或单文件 HTML
+- 总览报告：导出单文件 HTML，汇总健康、风险、使用、会话与图谱摘要
+- 零第三方依赖：全部功能基于 Node.js 内置模块实现
+- 双语入口：README 默认英文，中文文档保留；核心 CLI 输出支持中英文切换
+- 开源友好：macOS / Windows 由 GitHub Actions 验证，Linux 由维护者本机验证
 
 ## 推荐 skill
 
@@ -128,6 +144,16 @@ skm report --format html --output skm-report.html
 ```
 
 报告会把健康分、风险项、使用频率、上下文开销、会话日志、图谱摘要和下一步命令放到一页本地 HTML。详细说明见 [docs/report.md](docs/report.md)。
+
+## 四格小漫画
+
+| 工具间太满了 | 扫描贴标签 |
+|---|---|
+| ![工具间太满了](docs/comic-01-tool-chaos.jpg) | ![扫描贴标签](docs/comic-02-scan-labels.jpg) |
+
+| 知识图谱亮起来 | 安全收纳 |
+|---|---|
+| ![知识图谱亮起来](docs/comic-03-knowledge-map.jpg) | ![安全收纳](docs/comic-04-safe-cleanup.jpg) |
 
 ## 一般排查流程
 
@@ -171,34 +197,6 @@ CLI 内只有三类动作会修改 AIDE 文件：
 
 这个薄入口 skill 是 Claude Code / Codex 与本项目之间的桥梁：之后你可以直接在对话里问“我要做 XX 该用哪个 skill”，编程助手应通过本机 `skm` 命令读取清单、审计和推荐结果，而不是手动扫描目录。拉取项目更新后，重新运行 `node scripts/install.mjs` 即可刷新桥接 skill。
 
-## 四格小漫画
-
-| 工具间太满了 | 扫描贴标签 |
-|---|---|
-| ![工具间太满了](docs/comic-01-tool-chaos.jpg) | ![扫描贴标签](docs/comic-02-scan-labels.jpg) |
-
-| 知识图谱亮起来 | 安全收纳 |
-|---|---|
-| ![知识图谱亮起来](docs/comic-03-knowledge-map.jpg) | ![安全收纳](docs/comic-04-safe-cleanup.jpg) |
-
-## 项目特性
-
-- 双工具覆盖：Claude Code 与 Codex CLI 的 skill / MCP 统一扫描
-- 软链感知：区分共享实体、实体双份和内容不同
-- 四级重复检测：同名、同内容、同类多实现、文本高度相似
-- 真实使用审计：解析会话日志，只统计真正读取或调用过的 skill / MCP
-- 知识图谱：导出 JSON、Mermaid 或单文件 HTML
-- 总览报告：导出单文件 HTML，汇总健康、风险、使用、会话与图谱摘要
-- 零第三方依赖：全部功能基于 Node.js 内置模块实现
-- 双语入口：README 默认英文，中文文档保留；核心 CLI 输出支持中英文切换
-- 开源友好：macOS / Windows 由 GitHub Actions 验证，Linux 由维护者本机验证
-
-## 语言支持
-
-`skm help`、参数校验、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
-
-可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。JSON 字段名保持稳定。
-
 ## 文档
 
 | 文档 | 内容 |
@@ -213,15 +211,19 @@ CLI 内只有三类动作会修改 AIDE 文件：
 | [SECURITY.md](SECURITY.md) | 安全报告方式与敏感数据提醒 |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区行为规范 |
 
-## 跨端验证
+## 语言与跨端支持
 
-GitHub Actions 自动验证 macOS 与 Windows；Linux 使用同一套命令在维护者本机验证，避免远端 CI 额外触碰 Linux 环境数据。
+**macOS / Windows：** 由 GitHub Actions 自动验证。**Linux：** 由维护者在本机使用同一套只读构建与测试命令完成验证，避免触碰用户环境数据。
 
 ```bash
 npm run check
 npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
+
+`skm help`、参数校验、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
+
+可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。JSON 字段名保持稳定。
 
 验证入口：[GitHub Actions / macOS / Windows 验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)。
 

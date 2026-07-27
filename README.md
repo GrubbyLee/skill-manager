@@ -3,6 +3,7 @@
 English | [简体中文](README.zh-CN.md)
 
 [![macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
+[![Linux locally validated](https://img.shields.io/badge/Linux-locally_validated-FCC624?logo=linux&logoColor=black)](#cross-platform-validation)
 [![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-3c873a)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-2f6f4e)](package.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -14,7 +15,9 @@ When you keep adding skills to Claude Code or Codex, the local setup can become 
 
 If `skm` helps you understand your local skill setup, a GitHub Star helps other AIDE users find the project.
 
-![skm demo](docs/demo.en.png)
+[![Watch the skm project tour](docs/demo.en.png)](docs/skill-manager-promo.en.mp4)
+
+[Watch the English project tour (MP4)](docs/skill-manager-promo.en.mp4)
 
 ## 30-Second Start
 
@@ -55,6 +58,7 @@ SKM_LANG=zh-CN skm doctor
 | What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
 | Can I share one local overview? | `skm report --format html` | Single-file overview with health, risks, usage, sessions, graph summary |
 | Where did my session logs grow? | `skm sessions` | Workspace-level session log size and dry-run cleanup plan |
+| Can my AIDE call `skm` directly? | Ask in AIDE after installation | The auto-installed `skill-navigator` bridge skill calls local `skm` for you |
 
 ## Command Cheatsheet
 
@@ -77,6 +81,21 @@ SKM_LANG=zh-CN skm doctor
 | `skm disable` / `skm enable` | Soft-disable or restore skills / MCP servers |
 
 Detailed command manual: [docs/usage.en.md](docs/usage.en.md).
+
+Bundled bridge skill: `skill-navigator` is installed automatically for Claude Code and Codex to call local `skm`; it is not a CLI command.
+
+## Features
+
+- Scans Claude Code and Codex CLI skills / MCP servers
+- Detects shared symlinks, duplicate physical copies, and same-content copies
+- Classifies skills with local rules
+- Recommends skills from natural-language task descriptions
+- Audits real usage from session logs
+- Finds zombie skills and idle Claude-side MCP servers
+- Exports JSON, Mermaid, and single-file HTML knowledge graphs
+- Exports single-file HTML overview reports
+- Uses zero third-party npm dependencies
+- Runs on Node.js >= 18
 
 ## Skill Recommendation
 
@@ -118,6 +137,16 @@ skm report --format html --output skm-report.html
 ```
 
 The report puts health score, risks, usage, context cost, session logs, graph summary, and next commands on one local HTML page. Details are in [docs/report.en.md](docs/report.en.md).
+
+## Visual Story
+
+| Too many tools | Scan and label |
+|---|---|
+| ![Too many tools](docs/comic-01-tool-chaos.jpg) | ![Scan and label](docs/comic-02-scan-labels.jpg) |
+
+| Knowledge graph | Safe cleanup |
+|---|---|
+| ![Knowledge graph](docs/comic-03-knowledge-map.jpg) | ![Safe cleanup](docs/comic-04-safe-cleanup.jpg) |
 
 ## Safe Troubleshooting Workflow
 
@@ -161,29 +190,6 @@ More details: [docs/safety.md](docs/safety.md).
 
 This thin skill is the bridge between your AIDE coding assistant and `skill-manager`: when you ask "which skill should I use for this task?", the assistant should call the local `skm` command instead of manually scanning directories. Re-run `node scripts/install.mjs` after pulling updates to refresh the bridge skill.
 
-## Visual Story
-
-| Too many tools | Scan and label |
-|---|---|
-| ![Too many tools](docs/comic-01-tool-chaos.jpg) | ![Scan and label](docs/comic-02-scan-labels.jpg) |
-
-| Knowledge graph | Safe cleanup |
-|---|---|
-| ![Knowledge graph](docs/comic-03-knowledge-map.jpg) | ![Safe cleanup](docs/comic-04-safe-cleanup.jpg) |
-
-## Features
-
-- Scans Claude Code and Codex CLI skills / MCP servers
-- Detects shared symlinks, duplicate physical copies, and same-content copies
-- Classifies skills with local rules
-- Recommends skills from natural-language task descriptions
-- Audits real usage from session logs
-- Finds zombie skills and idle Claude-side MCP servers
-- Exports JSON, Mermaid, and single-file HTML knowledge graphs
-- Exports single-file HTML overview reports
-- Uses zero third-party npm dependencies
-- Runs on Node.js >= 18
-
 ## Documentation
 
 | Document | Content |
@@ -199,9 +205,9 @@ This thin skill is the bridge between your AIDE coding assistant and `skill-mana
 | [SECURITY.md](SECURITY.md) | Security policy and sensitive data reporting notes |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community behavior expectations |
 
-## Cross-Platform Validation
+## Language and Platform Support
 
-GitHub Actions validates macOS and Windows. Linux is validated locally by the maintainer with the same read-only build/test commands.
+**macOS / Windows:** validated by GitHub Actions. **Linux:** validated locally by the maintainer with the same read-only build/test commands.
 
 ```bash
 npm run check
@@ -209,13 +215,11 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-CI entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml).
-
-## Language Support
-
 `skm help`, argument validation, `doctor`, `scan`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
 
 Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. JSON field names stay stable.
+
+CI entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml).
 
 ## Roadmap
 
