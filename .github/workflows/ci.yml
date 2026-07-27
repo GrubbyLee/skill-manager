@@ -1,10 +1,7 @@
 name: macOS / Windows 验证
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  # 跨端验证成本较高，仅在需要发布或排查兼容性时手动触发。
   workflow_dispatch: {}
 
 permissions:

@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-[![macOS / Windows 验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
+[![macOS / Windows 按需验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
 [![Linux 本机验证](https://img.shields.io/badge/Linux-locally_validated-FCC624?logo=linux&logoColor=black)](#跨端验证)
 [![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-3c873a)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-2f6f4e)](package.json)
@@ -102,7 +102,7 @@ SKM_LANG=zh-CN skm doctor
 - 总览报告：导出单文件 HTML，汇总健康、风险、使用、会话与图谱摘要
 - 零第三方依赖：全部功能基于 Node.js 内置模块实现
 - 双语入口：README 默认英文，中文文档保留；核心 CLI 输出支持中英文切换
-- 开源友好：macOS / Windows 由 GitHub Actions 验证，Linux 由维护者本机验证
+- 开源友好：macOS / Windows 通过 GitHub Actions 按需验证，Linux 由维护者本机验证
 
 ## 推荐 skill
 
@@ -213,7 +213,7 @@ CLI 内只有三类动作会修改 AIDE 文件：
 
 ## 语言与跨端支持
 
-**macOS / Windows：** 由 GitHub Actions 自动验证。**Linux：** 由维护者在本机使用同一套只读构建与测试命令完成验证，避免触碰用户环境数据。
+**macOS / Windows：** 需要时在 GitHub Actions 页面手动触发验证。**Linux：** 由维护者在本机使用同一套只读构建与测试命令完成验证，避免触碰用户环境数据。
 
 ```bash
 npm run check
@@ -225,7 +225,7 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 
 可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。JSON 字段名保持稳定。
 
-验证入口：[GitHub Actions / macOS / Windows 验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)。
+手动验证入口：[GitHub Actions / macOS / Windows 验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)。
 
 ## Roadmap
 

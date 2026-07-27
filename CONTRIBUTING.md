@@ -23,7 +23,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-Linux 可在本机执行以上命令；GitHub Actions 会自动验证 macOS 与 Windows。
+请先在自己的系统执行以上命令。维护者会在发布或排查兼容性问题时，通过 GitHub Actions 手动验证 macOS 与 Windows；Linux 由维护者在本机验证。
 
 ## 适合贡献的方向
 

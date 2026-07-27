@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-[![macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
+[![macOS / Windows on-demand CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)
 [![Linux locally validated](https://img.shields.io/badge/Linux-locally_validated-FCC624?logo=linux&logoColor=black)](#cross-platform-validation)
 [![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-3c873a)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-2f6f4e)](package.json)
@@ -207,7 +207,7 @@ This thin skill is the bridge between your AIDE coding assistant and `skill-mana
 
 ## Language and Platform Support
 
-**macOS / Windows:** validated by GitHub Actions. **Linux:** validated locally by the maintainer with the same read-only build/test commands.
+**macOS / Windows:** validated on demand through the manually triggered GitHub Actions workflow. **Linux:** validated locally by the maintainer with the same read-only build/test commands.
 
 ```bash
 npm run check
@@ -219,7 +219,7 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 
 Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. JSON field names stay stable.
 
-CI entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml).
+Manual validation entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml).
 
 ## Roadmap
 

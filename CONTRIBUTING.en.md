@@ -23,7 +23,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-Linux can be validated locally with the same commands. GitHub Actions validates macOS and Windows.
+Run the commands above on your own system before submitting. Maintainers manually trigger GitHub Actions to validate macOS and Windows before releases or when investigating compatibility issues; Linux is validated locally by the maintainer.
 
 ## Good Contribution Areas
 
