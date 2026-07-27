@@ -115,6 +115,8 @@ skm recommend "markdown to html" --why
 
 推荐逻辑默认完全本地运行，不调用外部模型，不上传目录信息。它会综合名称、分类、description、中文任务意图、转换方向、历史使用、最近使用和两侧可用性。
 
+推荐规则改动会经过 40 条中英文公开回归样本检验。可运行 `npm run benchmark:recommend` 查看结果；指标定义和适用边界见 [推荐功能文档](docs/recommend.md#可度量的回归基准)。
+
 如果你明确希望借助本机已有的 Codex / Claude Code 做增强判断，可以手动开启：
 
 ```bash

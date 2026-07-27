@@ -29,11 +29,12 @@ skill-manager aims to become the most useful open-source governance tool for AID
 
 ## Recommendation
 
-- collect more Chinese task samples, synonyms, and intent rules
-- improve conversion-direction detection so reverse tools do not outrank the right tool
+- Implemented: a 40-case anonymous Chinese/English corpus with Top 1, Top 3, MRR, and known-error metrics
+- Implemented: automated recommendation thresholds that prevent silent ranking regressions
+- Implemented: stronger bilingual intents, non-adjacent action matching, and conversion direction handling
 - learn personal preferences from `skm audit` without letting unrelated frequent skills dominate
 - improve candidate compression and fallback messages for `--advisor codex|claude`
-- add more recommendation regression samples
+- In progress: collect anonymized real-user samples to broaden wording, skill types, and known-error cases
 
 ## Internationalization
 

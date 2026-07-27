@@ -10,7 +10,12 @@ const DEFAULT_TOP = 3;
 const MAX_TOP = 20;
 const RECENT_30D = 30 * 86400e3;
 const RECENT_90D = 90 * 86400e3;
-const CORE_TERM_STOP_WORDS = new Set(['web', 'url', 'readme', 'docs', 'doc']);
+const ENGLISH_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'for', 'from', 'in', 'into', 'my', 'of', 'on', 'or', 'the', 'these', 'this', 'to', 'with',
+]);
+const CORE_TERM_STOP_WORDS = new Set([
+  ...ENGLISH_STOP_WORDS, 'web', 'url', 'readme', 'docs', 'doc', 'convert', 'create', 'make',
+]);
 const ADVISORS = new Set(['codex', 'claude']);
 const ADVISOR_CANDIDATE_LIMIT = 60;
 const ADVISOR_TIMEOUT_MS = 90_000;
@@ -41,6 +46,14 @@ const SYNONYMS = [
   ['网页抓取', ['url', 'web', 'extract', 'markdown']],
   ['网站', ['url', 'web', 'html']],
   ['链接', ['url']],
+  ['配图', ['illustrator', 'illustration', 'article', 'section']],
+  ['字幕', ['transcript', 'subtitle']],
+  ['下载', ['download', 'downloader']],
+  ['整理文件', ['file', 'organizer', 'folder']],
+  ['检索', ['search', 'retrieve', 'retriever']],
+  ['发布', ['publish', 'post']],
+  ['待办事项', ['action', 'items', 'tasks']],
+  ['小程序', ['mini', 'program', 'miniprogram']],
   ['文章', ['article', 'markdown', 'writer']],
   ['知识库', ['knowledge', 'kb']],
   ['图片', ['image', 'photo']],
@@ -62,11 +75,37 @@ const SYNONYMS = [
 
 const TASK_INTENTS = [
   {
+    key: 'xhs',
+    label: '小红书图片卡片',
+    triggers: ['小红书', 'xiaohongshu', 'xhs'],
+    positives: ['xhs', 'xiaohongshu', '小红书', '图片卡片'],
+    categories: ['图像与视觉'],
+    specific: true,
+  },
+  {
     key: 'comic',
     label: '漫画/分镜',
     triggers: ['漫画', '分镜', '四格', 'comic', 'manga'],
-    positives: ['comic', '漫画', 'storyboard', 'image', 'illustration'],
+    positives: ['comic', '漫画', 'storyboard', '分镜', 'manga', 'panel'],
     categories: ['图像与视觉'],
+    specific: true,
+  },
+  {
+    key: 'article_illustration',
+    label: '文章配图',
+    triggers: ['配图', 'illustrate', 'illustration', 'illustrations'],
+    allOf: [['正文', '插画'], ['文章', '插画'], ['博客', '插画']],
+    positives: ['illustrator', 'illustrate', 'illustration', '配图', '插画'],
+    categories: ['图像与视觉'],
+    specific: true,
+  },
+  {
+    key: 'image_compress',
+    label: '图片压缩',
+    triggers: ['图片压缩', '图像压缩', 'compress image', 'compress png', 'compress jpeg', 'compress webp'],
+    positives: ['compress', 'compression', '压缩'],
+    categories: ['图像与视觉'],
+    specific: true,
   },
   {
     key: 'image',
@@ -79,8 +118,9 @@ const TASK_INTENTS = [
     key: 'graph',
     label: '图谱/关系可视化',
     triggers: ['知识图谱', '图谱', '关系图', '流程图', 'diagram', 'graph', 'mermaid', 'drawio'],
-    positives: ['graph', 'diagram', 'knowledge', 'chart', 'mermaid', 'drawio', '图谱'],
+    positives: ['graph', 'diagram', 'flowchart', 'chart', 'mermaid', 'drawio', '图谱', '关系图', '流程图'],
     categories: ['数据与图谱'],
+    specific: true,
   },
   {
     key: 'web_extract',
@@ -93,22 +133,25 @@ const TASK_INTENTS = [
     key: 'slides',
     label: '演示文稿',
     triggers: ['ppt', 'slides', '幻灯片', '演示文稿', '汇报'],
-    positives: ['ppt', 'slide', 'slides', 'presentation'],
+    positives: ['ppt', 'slide', 'slides', 'presentation', '幻灯片', '演示文稿'],
     categories: ['演示文稿（PPT/Slides）'],
+    specific: true,
   },
   {
     key: 'meeting',
     label: '会议纪要',
     triggers: ['会议纪要', '会议总结', '会议记录', 'meeting', 'minutes'],
-    positives: ['meeting', 'minutes', 'summary', 'transcript'],
+    positives: ['meeting', 'minutes', 'summary', 'transcript', '会议纪要', '会议记录'],
     categories: ['办公协作（飞书）'],
+    specific: true,
   },
   {
     key: 'code_review',
     label: '代码审查/CI',
     triggers: ['代码审查', 'pr', 'pull request', 'ci', 'review', '单测', '测试失败'],
-    positives: ['review', 'pr', 'pull', 'ci', 'test', 'fix'],
+    positives: ['review', 'pr', 'pull', 'ci', 'test', 'fix', '代码审查', '测试'],
     categories: ['研发辅助'],
+    specific: true,
   },
   {
     key: 'writing',
@@ -121,8 +164,83 @@ const TASK_INTENTS = [
     key: 'translate',
     label: '翻译',
     triggers: ['翻译', 'translate', 'translation'],
-    positives: ['translate', 'translation'],
+    positives: ['translate', 'translation', '翻译'],
     categories: ['翻译与写作'],
+    specific: true,
+  },
+  {
+    key: 'email',
+    label: '邮件撰写',
+    triggers: ['邮件', 'email'],
+    positives: ['email', 'mail', '邮件'],
+    categories: ['商务与文书'],
+    specific: true,
+  },
+  {
+    key: 'wechat_publish',
+    label: '微信公众号发布',
+    triggers: ['微信公众号', 'wechat official account'],
+    positives: ['wechat', '公众号', '微信公众号', 'official account'],
+    categories: ['发布分发'],
+    specific: true,
+  },
+  {
+    key: 'x_publish',
+    label: 'X/Twitter 发布',
+    triggers: ['推特', '推文', 'twitter', 'thread to x', 'to x'],
+    positives: ['twitter', 'tweet', 'post-to-x', '推特', '推文'],
+    categories: ['发布分发'],
+    specific: true,
+  },
+  {
+    key: 'youtube_transcript',
+    label: 'YouTube 字幕',
+    triggers: ['youtube transcript', 'youtube 字幕', 'youtube 视频字幕'],
+    positives: ['youtube transcript', 'youtube-transcript', 'subtitle', 'caption', '字幕'],
+    categories: ['内容抓取与转换'],
+    specific: true,
+  },
+  {
+    key: 'resume',
+    label: '简历',
+    triggers: ['简历', 'resume', 'curriculum vitae'],
+    positives: ['resume', 'curriculum vitae', '简历'],
+    categories: ['商务与文书'],
+    specific: true,
+  },
+  {
+    key: 'file_organize',
+    label: '文件整理',
+    triggers: ['整理文件', 'organize files', 'organize these files', 'file organizer'],
+    allOf: [['整理', '文件'], ['organize', 'files']],
+    positives: ['file-organizer', 'organize files', 'files and folders', '整理文件', '文件整理'],
+    categories: ['研发辅助'],
+    specific: true,
+  },
+  {
+    key: 'knowledge_retrieve',
+    label: '知识库检索',
+    triggers: ['知识库检索', '知识库', 'knowledge base'],
+    positives: ['kb', 'retriever', 'knowledge base', '知识库', '检索'],
+    categories: ['数据与图谱'],
+    specific: true,
+  },
+  {
+    key: 'video_download',
+    label: '视频下载',
+    triggers: ['下载网页', '下载视频', '视频下载', 'download video'],
+    allOf: [['下载', '视频'], ['download', 'video']],
+    positives: ['video-downloader', 'download videos', 'video download', '视频下载', '下载视频'],
+    categories: ['研发辅助'],
+    specific: true,
+  },
+  {
+    key: 'miniprogram',
+    label: '微信小程序',
+    triggers: ['微信小程序', 'wechat mini program', 'miniprogram'],
+    positives: ['wechat-miniprogram', 'wechat mini program', 'miniprogram', '微信小程序', '小程序'],
+    categories: ['小程序开发'],
+    specific: true,
   },
 ];
 
@@ -259,7 +377,7 @@ export function runAsk({ cwd, keywords, json = false, tool, category, lang = 'zh
 export function rankRecommendations(skills, query, usageOf = () => ({ count: 0, lastUsed: null })) {
   const profile = analyzeTask(query);
   const queryTerms = expandQuery(query, profile);
-  const queryTokens = tokenize(queryTerms.join(' '));
+  const queryTokens = recommendationTokens(queryTerms.join(' '));
   const requiredTerms = coreTerms(query);
   const direction = detectDirection(query);
   const rows = skills.map((skill) => {
@@ -371,7 +489,7 @@ function scoreSkill(skill, queryTerms, queryTokens, requiredTerms, direction, us
   const nameText = `${skill.dirName} ${skill.name}`.toLowerCase();
   const category = String(skill.category || '').toLowerCase();
   const desc = String(skill.description || '').toLowerCase();
-  const haystackTokens = tokenize(`${skill.dirName} ${skill.name} ${skill.category} ${skill.description}`);
+  const haystackTokens = recommendationTokens(`${skill.dirName} ${skill.name} ${skill.category} ${skill.description}`);
   const fullText = `${nameText} ${category} ${desc}`;
 
   if (requiredTerms.length && !requiredTerms.some((term) => fullText.includes(term))) {
@@ -391,6 +509,9 @@ function scoreSkill(skill, queryTerms, queryTokens, requiredTerms, direction, us
   }
 
   const intentScore = scoreIntent(skill, fullText, profile);
+  if (intentScore.blocked) {
+    return { score: 0, reasons: [], matchedTerms: [], direction, blockedReason: '专用任务意图不匹配' };
+  }
   if (intentScore.score > 0) {
     score += intentScore.score;
     for (const reason of intentScore.reasons) reasonSet.add(reason);
@@ -455,7 +576,7 @@ function scoreSkill(skill, queryTerms, queryTokens, requiredTerms, direction, us
 
 function expandQuery(query, profile = { terms: [] }) {
   const lower = query.toLowerCase();
-  const terms = new Set(lower.split(/\s+/).filter(Boolean));
+  const terms = new Set(lower.split(/\s+/).filter((term) => term && !ENGLISH_STOP_WORDS.has(term)));
   terms.add(lower);
   for (const [key, values] of SYNONYMS) {
     if (lower.includes(key)) for (const v of values) terms.add(v);
@@ -466,7 +587,10 @@ function expandQuery(query, profile = { terms: [] }) {
 
 function analyzeTask(query) {
   const lower = query.toLowerCase();
-  const intents = TASK_INTENTS.filter((intent) => intent.triggers.some((t) => lower.includes(t.toLowerCase())));
+  const intents = TASK_INTENTS.filter((intent) => (
+    intent.triggers.some((trigger) => matchesTrigger(lower, trigger))
+    || intent.allOf?.some((terms) => terms.every((term) => matchesTrigger(lower, term)))
+  ));
   const terms = new Set();
   for (const intent of intents) {
     for (const term of intent.positives) terms.add(term);
@@ -480,18 +604,21 @@ function scoreIntent(skill, fullText, profile) {
   let score = 0;
   if (!profile.intents.length) return { score, reasons, matchedTerms };
 
+  let specificMatched = false;
   const category = String(skill.category || '');
   for (const intent of profile.intents) {
-    const termHits = intent.positives.filter((term) => fullText.includes(term.toLowerCase()));
+    const termHits = intent.positives.filter((term) => matchesTrigger(fullText, term));
     const categoryHit = Boolean(category) && intent.categories.some((c) => category.includes(c) || c.includes(category));
     if (!termHits.length && !categoryHit) continue;
 
-    const partScore = Math.min(18, termHits.length * 5 + (categoryHit ? 6 : 0));
+    const partScore = Math.min(intent.specific ? 28 : 18, termHits.length * 6 + (categoryHit ? 6 : 0));
     score += partScore;
     reasons.push(`意图匹配：${intent.label}`);
+    if (intent.specific && termHits.length) specificMatched = true;
     for (const term of termHits.slice(0, 4)) matchedTerms.push(term);
   }
-  return { score, reasons, matchedTerms };
+  const blocked = profile.intents.some((intent) => intent.specific) && !specificMatched;
+  return { score, reasons, matchedTerms, blocked };
 }
 
 function coreTerms(query) {
@@ -499,37 +626,46 @@ function coreTerms(query) {
     .filter((term) => !CORE_TERM_STOP_WORDS.has(term));
 }
 
+function recommendationTokens(text) {
+  return new Set([...tokenize(text)].filter((token) => {
+    if (ENGLISH_STOP_WORDS.has(token)) return false;
+    return !/^[⺀-鿿豈-﫿]$/u.test(token);
+  }));
+}
+
+function matchesTrigger(lower, trigger) {
+  const value = trigger.toLowerCase();
+  if (!/^[a-z0-9 ]+$/.test(value)) return lower.includes(value);
+  return new RegExp(`\\b${escapeRe(value).replace(/ /g, '\\s+')}\\b`).test(lower);
+}
+
 function detectDirection(query) {
   const lower = query.toLowerCase();
-  const source = new Set();
-  const target = new Set();
-  const addSource = (terms) => terms.forEach((t) => source.add(t));
-  const addTarget = (terms) => terms.forEach((t) => target.add(t));
+  const formats = [
+    { query: ['markdown', 'md'], skill: ['markdown', 'md'] },
+    { query: ['html'], skill: ['html'] },
+    { query: ['web page', 'webpage', 'url', '网页', '网站', '链接'], skill: ['url', 'web', 'html'] },
+  ];
+  const connector = /(?:\bto\b|\binto\b|转成|转为|转换为|转换成|转)/;
 
-  const cn = lower.match(/(?:转成|转为|转换为)\s*([a-z0-9._-]+)/);
-  const to = lower.match(/\bto\s+([a-z0-9._-]+)/);
-  const fromTo = lower.match(/\bfrom\s+([a-z0-9._-]+)\s+to\s+([a-z0-9._-]+)/);
-  if (cn) addTarget([cn[1]]);
-  if (to) addTarget([to[1]]);
-  if (fromTo) {
-    addSource([fromTo[1]]);
-    addTarget([fromTo[2]]);
-  }
-  if (lower.includes('markdown') || lower.includes('md')) {
-    if (/markdown\s*(?:to|转|转成|转为)\s*html|md\s*(?:to|转|转成|转为)\s*html/.test(lower)) {
-      addSource(['markdown', 'md']);
-      addTarget(['html']);
-    } else if (/html\s*(?:to|转|转成|转为)\s*(?:markdown|md)/.test(lower)) {
-      addSource(['html']);
-      addTarget(['markdown', 'md']);
+  for (const sourceFormat of formats) {
+    for (const sourceTerm of sourceFormat.query) {
+      const sourceAt = lower.indexOf(sourceTerm);
+      if (sourceAt === -1) continue;
+      for (const targetFormat of formats) {
+        if (targetFormat === sourceFormat) continue;
+        for (const targetTerm of targetFormat.query) {
+          const targetAt = lower.indexOf(targetTerm, sourceAt + sourceTerm.length);
+          if (targetAt === -1) continue;
+          const between = lower.slice(sourceAt + sourceTerm.length, targetAt);
+          if (connector.test(between)) {
+            return { source: sourceFormat.skill, target: targetFormat.skill };
+          }
+        }
+      }
     }
   }
-  if (lower.includes('网页') || lower.includes('网站') || lower.includes('链接')) addSource(['url', 'web', 'html']);
-  if (lower.includes('公众号')) addSource(['wechat', 'article']);
-  if (lower.includes('图片') || lower.includes('图像')) addTarget(['image']);
-  if (lower.includes('小红书')) addTarget(['xhs', 'image', 'card']);
-
-  return { source: [...source], target: [...target] };
+  return { source: [], target: [] };
 }
 
 function scoreDirection(fullText, { source, target }) {
@@ -543,6 +679,7 @@ function scoreDirection(fullText, { source, target }) {
         return { score: 0, blocked: true, reason: `方向相反：${t} → ${s}` };
       }
     }
+    if (source.length) continue;
     if (new RegExp(`(?:to|转成|转为)[- ]?${escapeRe(t)}`).test(fullText) || fullText.includes(`convert to ${t}`)) {
       return { score: 8, reason: `目标匹配：${t}` };
     }

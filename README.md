@@ -108,6 +108,8 @@ skm recommend "markdown to html" --why
 
 By default, recommendations run locally. No external model is called, and no directory information is uploaded. The ranking combines skill name, category, description, task intent, conversion direction, usage history, recency, and whether the skill is available in both Claude Code and Codex.
 
+Recommendation changes are checked against a public 40-case Chinese/English regression benchmark. Run `npm run benchmark:recommend`; see [the recommendation guide](docs/recommend.en.md#measurable-regression-benchmark) for metrics and limitations.
+
 You can explicitly ask a local AIDE CLI to help judge the short candidate list:
 
 ```bash

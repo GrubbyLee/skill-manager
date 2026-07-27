@@ -9,6 +9,7 @@
   "files": [
     "bin",
     "src",
+    "benchmarks",
     "integrations",
     "scripts",
     "docs/*.md",
@@ -27,6 +28,7 @@
   ],
   "scripts": {
     "setup": "node scripts/install.mjs",
+    "benchmark:recommend": "node scripts/benchmark-recommend.mjs",
     "check": "node scripts/check-syntax.mjs",
     "test": "node --test"
   },
