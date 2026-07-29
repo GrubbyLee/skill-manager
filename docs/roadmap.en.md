@@ -11,6 +11,7 @@ skill-manager aims to become the most useful open-source governance tool for AID
 - detect duplicates, audit usage, and report risks
 - inspect and safely plan session log cleanup
 - export a one-page HTML overview report
+- export anonymized scan/report data and estimate MCP schema context cost
 - keep zero third-party dependencies with macOS / Windows CI validation
 - provide bilingual README/docs, issue templates, Discussions, and releases
 
@@ -22,18 +23,19 @@ skill-manager aims to become the most useful open-source governance tool for AID
 | P0 | Recommendation quality | Make "which skill should I use?" the default entry point | In progress |
 | P1 | HTML overview report | Shareable local health report | Implemented |
 | P1 | Graph layout | Clearer large graphs and clusters | In progress |
-| P1 | Install experience | Keep git clone install smooth before npm release | In progress |
+| P1 | Anonymized export | Share scan/report output without local paths, config locations, or MCP commands | Implemented |
+| P1 | Install experience | Keep git clone install smooth before npm release | First pass implemented |
 | P1 | English docs and CLI i18n | Serve global GitHub users while keeping Chinese docs; core CLI flows and detailed docs support English | Implemented |
-| P2 | More AIDE adapters | Cursor, Gemini CLI, and other tools | Planned |
-| P2 | MCP token measurement | Per-server MCP tool schema token estimate | Planned |
+| P2 | More AIDE adapters | Cursor, Gemini CLI, and other tools | First conservative directory-scan pass implemented |
+| P2 | MCP token estimate | Per-server MCP tool schema context estimate | Static estimate implemented |
 
 ## Recommendation
 
 - Implemented: a 40-case anonymous Chinese/English corpus with Top 1, Top 3, MRR, and known-error metrics
 - Implemented: automated recommendation thresholds that prevent silent ranking regressions
 - Implemented: stronger bilingual intents, non-adjacent action matching, and conversion direction handling
-- learn personal preferences from `skm audit` without letting unrelated frequent skills dominate
-- improve candidate compression and fallback messages for `--advisor codex|claude`
+- Implemented: learn personal preferences from `skm audit` without letting unrelated frequent skills dominate
+- Implemented: improve candidate compression and fallback messages for `--advisor codex|claude`
 - In progress: collect anonymized real-user samples to broaden wording, skill types, and known-error cases
 
 ## Internationalization
@@ -45,9 +47,17 @@ skill-manager aims to become the most useful open-source governance tool for AID
 ## Knowledge Graph
 
 - Implemented: lightweight collision avoidance, zooming, and fit-to-view for large graphs
-- Add more relationships: upstream/downstream, shared input/output formats, same-platform actions, strong/weak alternatives
-- Add summaries: densest suites, duplicate cores, platform ecosystems, and potential workflows
+- Implemented: upstream/downstream, shared input/output formats, same-platform actions, strong/weak alternatives
+- Implemented: summaries for densest suites, duplicate cores, platform ecosystems, and potential workflows
 - Implemented: a one-page HTML report combining graph, risk, and recommendation summaries
+
+## Adapters and MCP
+
+- Implemented: Claude Code / Codex skill and MCP scanning
+- Implemented: Cursor / Gemini common skill-directory scanning without reading sensitive caches or launching external tools
+- Implemented: static MCP schema context estimates for risk reports and HTML reports
+- Next: collect more AIDE directory-layout samples
+- Next: explore more accurate MCP schema measurement without reading secrets or starting unsafe processes
 
 ## Community
 

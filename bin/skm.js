@@ -14,10 +14,11 @@ import { runStatus } from '../src/commands/status.js';
 import { runDoctor } from '../src/commands/doctor.js';
 import { runRisks } from '../src/commands/risks.js';
 import { runReport } from '../src/commands/report.js';
+import { runSetup } from '../src/commands/setup.js';
 import { detectLang, langFromArgv, tr } from '../src/i18n.js';
 
 const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
-（不修改 AIDE 的配置与 skill 文件，仅 sessions --clean / disable / enable 例外且均有确认与备份；
+（不修改 AIDE 的配置与 skill 文件，仅 setup / sessions --clean / disable / enable 例外且均有确认或备份；
  工具自身的目录与缓存写在 ~/.skill-manager，首次运行会解析会话日志建立缓存，需数秒到几十秒）
 
 用法：skm <命令> [选项]
@@ -26,9 +27,10 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   （无命令）      健康体检概览：总量 / 僵尸率 / 重复 / 会话体积 / 健康分 + 建议
   status          同上（显式写法）
   doctor          只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI
-  risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、日志体积、MCP 可观测性
+  risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、MCP schema 估算、日志体积
   report          生成一页式总览报告（summary/json/html），汇总健康、风险、审计、会话与图谱概览
-  scan            扫描 Claude Code 与 Codex，生成 ~/.skill-manager/catalog.json
+  scan            扫描 Claude Code、Codex、Cursor、Gemini，生成 ~/.skill-manager/catalog.json
+  setup           显式安装 skill-navigator 桥接 skill（npm 安装后可选）
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）
   recommend <事>  根据自然语言任务描述推荐最合适的 skill（可选调用本机 Codex/Claude 增强判断）
@@ -44,9 +46,10 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 通用选项：
   --json          以 JSON 输出（供脚本或 AI 消费）
   --lang <zh-CN|en>  指定输出语言；也可用 SKM_LANG=en / SKM_LANG=zh-CN
+  --anonymize     导出时脱敏本机路径、工作区和 MCP 启动命令
 
 list 选项：
-  --tool <claude|codex>   只看某个工具
+  --tool <claude|codex|cursor|gemini>   只看某个工具
   --category <关键字>      按分类过滤（模糊匹配）
   --scope <user|project|plugin>
   --mcp                   列出 MCP server 而非 skill
@@ -54,10 +57,14 @@ list 选项：
 
 scan 选项：
   --verbose               显示全部解析警告
+  --export <json>         导出扫描结果；可配 --output 写文件
+
+setup 选项：
+  --dry-run               只显示将写入的桥接 skill 目录，不实际安装
 
 recommend 选项：
   --top <N>               推荐数量（默认 3）
-  --tool <claude|codex>   只推荐某个工具可用的 skill
+  --tool <claude|codex|cursor|gemini>   只推荐某个工具可用的 skill
   --category <关键字>      限制推荐分类
   --why                   显示更详细的命中词与分数
   --advisor <codex|claude> 显式调用本机 AIDE CLI 做增强推荐；失败时回退本地推荐
@@ -65,6 +72,7 @@ recommend 选项：
 report 选项：
   --format <summary|html|json>  导出格式；不指定时显示摘要
   --output <文件>          写入文件；可按扩展名自动推断格式
+  --anonymize              脱敏报告中的本机路径、工作区和 MCP 启动命令
 
 graph 选项：
   --format <summary|json|html|mermaid>  导出格式；不指定时显示图谱摘要
@@ -95,8 +103,8 @@ sessions 选项：
   skm dupes --json`;
 
 const HELP_EN = `skm — AIDE skill / MCP inventory and governance CLI
-(Most commands do not modify AIDE configs or skill files. Only sessions --clean / disable / enable can write files,
- and those actions have confirmation and backup safeguards. skm's own cache lives under ~/.skill-manager.)
+(Most commands do not modify AIDE configs or skill files. Only setup / sessions --clean / disable / enable can write files,
+ and those actions have explicit command, confirmation, or backup safeguards. skm's own cache lives under ~/.skill-manager.)
 
 Usage: skm <command> [options]
 
@@ -104,9 +112,10 @@ Commands:
   (no command)      Health overview: totals / zombie rate / duplicates / session size / score + suggestions
   status            Same as above
   doctor            Read-only diagnostics: Node, directories, catalog, advisor CLI, macOS/Windows CI
-  risks             Risk report: duplicates, idle MCP, context cost, log size, MCP observability
+  risks             Risk report: duplicates, idle MCP, context cost, MCP schema estimate, log size
   report            One-page overview report (summary/json/html): health, risks, usage, sessions, graph summary
-  scan              Scan Claude Code and Codex, write ~/.skill-manager/catalog.json
+  scan              Scan Claude Code, Codex, Cursor, and Gemini, write ~/.skill-manager/catalog.json
+  setup             Explicitly install the skill-navigator bridge skill after npm install
   list              List all skills by category
   search <text>     Search skills by name, category, and description
   recommend <task>  Recommend the best skills for a natural-language task
@@ -122,9 +131,10 @@ Commands:
 Global options:
   --json            Output JSON for scripts or other tools
   --lang <zh-CN|en> Select output language; SKM_LANG=en / SKM_LANG=zh-CN also works
+  --anonymize       Redact local paths, workspaces, and MCP launch commands in exports
 
 list options:
-  --tool <claude|codex>   Show only one tool
+  --tool <claude|codex|cursor|gemini>   Show only one tool
   --category <keyword>    Filter by category
   --scope <user|project|plugin>
   --mcp                   List MCP servers instead of skills
@@ -132,10 +142,14 @@ list options:
 
 scan options:
   --verbose               Show all parse warnings
+  --export <json>         Export scan result; combine with --output to write a file
+
+setup options:
+  --dry-run               Show bridge skill targets without installing
 
 recommend options:
   --top <N>               Number of recommendations (default 3)
-  --tool <claude|codex>   Recommend skills available to one tool
+  --tool <claude|codex|cursor|gemini>   Recommend skills available to one tool
   --category <keyword>    Restrict recommendation category
   --why                   Show matched terms and score details
   --advisor <codex|claude> Explicitly call local AIDE CLI for enhanced recommendation; falls back locally on failure
@@ -143,6 +157,7 @@ recommend options:
 report options:
   --format <summary|html|json>  Export format; omitted means summary
   --output <file>         Write to file; format can be inferred from extension
+  --anonymize             Redact local paths, workspaces, and MCP launch commands
 
 graph options:
   --format <summary|json|html|mermaid>  Export format; omitted means summary
@@ -157,6 +172,7 @@ sessions options:
 
 Examples:
   skm scan
+  skm setup
   skm doctor
   skm risks
   skm report --format html --output skm-report.html
@@ -188,11 +204,13 @@ try {
       yes: { type: 'boolean', default: false },
       history: { type: 'boolean', default: false },
       why: { type: 'boolean', default: false },
+      anonymize: { type: 'boolean', default: false },
       keep: { type: 'string' },
       days: { type: 'string' },
       top: { type: 'string' },
       format: { type: 'string' },
       output: { type: 'string' },
+      export: { type: 'string' },
       tool: { type: 'string' },
       advisor: { type: 'string' },
       lang: { type: 'string' },
@@ -214,7 +232,7 @@ if (!lang) {
   process.exit(1);
 }
 
-if (values.tool && !['claude', 'claude-code', 'codex'].includes(values.tool)) {
+if (values.tool && !['claude', 'claude-code', 'codex', 'cursor', 'gemini'].includes(values.tool)) {
   console.error(tr(lang, 'cli.toolInvalid', { value: values.tool }));
   process.exit(1);
 }
@@ -240,6 +258,10 @@ if (values.format && !['summary', 'json', 'html', 'mermaid'].includes(values.for
   console.error(tr(lang, 'cli.formatInvalid', { value: values.format }));
   process.exit(1);
 }
+if (values.export && values.export !== 'json') {
+  console.error(tr(lang, 'cli.exportInvalid', { value: values.export }));
+  process.exit(1);
+}
 
 const cmd = positionals[0] || 'status';
 const ctx = { cwd: process.cwd(), ...values, lang };
@@ -251,6 +273,7 @@ async function main() {
   else if (cmd === 'risks') runRisks(ctx);
   else if (cmd === 'report') runReport(ctx);
   else if (cmd === 'scan') runScan(ctx);
+  else if (cmd === 'setup') runSetup(ctx);
   else if (cmd === 'list') runList(ctx);
   else if (cmd === 'search') runSearch({ ...ctx, keywords: positionals.slice(1) });
   else if (cmd === 'recommend') await runRecommend({ ...ctx, keywords: positionals.slice(1) });

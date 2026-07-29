@@ -45,6 +45,9 @@ test('知识图谱：构建 skill/MCP 节点与核心关系', () => {
   assert.ok(graph.edges.some((e) => e.type === 'same_category' && e.target === 'category:内容抓取与转换'));
   assert.ok(graph.edges.some((e) => e.type === 'pipeline' && e.source === 'skill:baoyu-url-to-markdown' && e.target === 'skill:baoyu-markdown-to-html'));
   assert.ok(graph.edges.some((e) => e.type === 'reverse_transform'));
+  assert.ok(graph.edges.some((e) => e.type === 'upstream_downstream'));
+  assert.ok(graph.edges.some((e) => e.type === 'shared_io_format'));
+  assert.ok(Array.isArray(graph.summaries));
   assert.ok(graph.edges.some((e) => e.type === 'shared_platform' && e.target === 'platform:Lark / 飞书'));
   assert.ok(graph.edges.some((e) => e.type === 'uses_mcp' && e.target === 'mcp:lark'));
 });
@@ -145,6 +148,7 @@ test('知识图谱 HTML / Mermaid：支持英文展示文案', () => {
   };
   const graph = buildKnowledgeGraph(catalog);
   const html = renderGraph(graph, 'html', 'en');
+  const json = renderGraph(graph, 'json', 'en');
   const mermaid = renderGraph(graph, 'mermaid', 'en');
 
   assert.match(html, /<html lang="en">/);
@@ -152,6 +156,9 @@ test('知识图谱 HTML / Mermaid：支持英文展示文案', () => {
   assert.match(html, /Relationship Filters/);
   assert.match(html, /Showing __NODES__ node\(s\) \/ __EDGES__ relationship\(s\)/);
   assert.match(html, /Same family: directory name prefixes match/);
+  assert.match(html, /shared I\/O format/);
   assert.match(mermaid, /workflow|same family/);
+  assert.doesNotMatch(html, /输出|接收|共享格式：|同分类且名称\/描述相似度/);
+  assert.doesNotMatch(json, /输出|接收|共享格式：|同分类且名称\/描述相似度/);
   assert.doesNotMatch(html, /搜索 skill \/ 分类 \/ 平台/);
 });

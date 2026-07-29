@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { scanSkillDir } from './common.js';
+import { estimateMcpTokens } from './mcpCost.js';
 import { parseTomlSections } from '../toml.js';
 import { CODEX_SKILLS_DIR, CODEX_CONFIG_FILE } from '../paths.js';
 
@@ -17,12 +18,15 @@ export function scanCodex() {
         const parts = section.split('.');
         // 只取 mcp_servers.<name> 一级，跳过 mcp_servers.<name>.env 等子表（env 可能含敏感值）
         if (parts.length !== 2 || parts[0] !== 'mcp_servers') continue;
+        const transport = cfg.type || (cfg.url ? 'http' : 'stdio');
+        const command = cfg.command ? [cfg.command, ...(Array.isArray(cfg.args) ? cfg.args : [])].join(' ') : cfg.url || '';
         mcpServers.push({
           name: parts[1],
           tool: TOOL,
           scope: 'user',
-          transport: cfg.type || (cfg.url ? 'http' : 'stdio'),
-          command: cfg.command ? [cfg.command, ...(Array.isArray(cfg.args) ? cfg.args : [])].join(' ') : cfg.url || '',
+          transport,
+          command,
+          schemaTokens: estimateMcpTokens({ name: parts[1], transport, command }),
           configFile: CODEX_CONFIG_FILE,
         });
       }

@@ -23,8 +23,10 @@ Ranking uses:
 - Chinese/English synonyms
 - task intent, such as image, graph, slides, meeting notes, writing, translation
 - conversion direction, such as `markdown to html` or `html to markdown`
-- usage count and recency
+- usage count and recency; among already relevant candidates, common categories and suites get a small personal-preference boost
 - whether the skill is available in both Claude Code and Codex
+
+Personal preference only applies after relevance matching. For example, if you often use a `baoyu-*` image suite, image tasks may boost that suite slightly; a meeting-note task will not recommend image skills just because they are frequent.
 
 ## Measurable Regression Benchmark
 
@@ -63,7 +65,7 @@ Benchmark boundaries:
 | Option | Purpose |
 |---|---|
 | `--top <N>` | Return up to N recommendations, max 20 |
-| `--tool claude\|codex` | Restrict to one tool |
+| `--tool claude\|codex\|cursor\|gemini` | Restrict to one tool |
 | `--category <keyword>` | Restrict by category |
 | `--why` | Show score, matched terms, and reasons |
 | `--advisor codex\|claude` | Explicitly call a local AIDE CLI for enhanced ranking |
@@ -73,7 +75,9 @@ Benchmark boundaries:
 
 Advisor mode only runs when `--advisor` is explicitly passed. It uses Node.js built-in `child_process` to call the local `codex` or `claude` CLI.
 
-It sends a compact candidate list: skill name, category, tool source, description, usage count, local score, and local reasons.
+It sends a relevance-first compact candidate list: skill name, category, tool source, description, usage count, local score, and local reasons.
+
+Candidate compression prioritizes top local matches, category-relevant entries, and skills with real usage history. It does not hand the whole catalog to the advisor.
 
 It does not send:
 

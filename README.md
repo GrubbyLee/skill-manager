@@ -21,10 +21,7 @@ If `skm` helps you understand your local skill setup, a GitHub Star helps other 
 
 ## 30-Second Start
 
-```bash
-git clone https://github.com/GrubbyLee/skill-manager.git
-cd skill-manager
-node scripts/install.mjs
+npm i -g aide-skill-manager
 
 skm scan
 skm
@@ -33,9 +30,21 @@ skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
 
-This is a source install. The install script runs `npm link` inside the cloned repository so the `skm` command becomes available on your machine. It also installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`, so Claude Code and Codex can call your local `skm` command when you ask which skill to use. It does not install `aide-skill-manager` from the npm registry.
+Optional bridge skill setup:
 
-No npm package install is advertised yet. The package name `aide-skill-manager` is reserved, but the current recommended installation path is git clone plus `node scripts/install.mjs`.
+```bash
+skm setup
+```
+
+`npm i -g` installs the `skm` CLI. `skm setup` is explicit because it writes the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`, so Claude Code and Codex can call your local `skm` command when you ask which skill to use.
+
+Source install for local development:
+
+```bash
+git clone https://github.com/GrubbyLee/skill-manager.git
+cd skill-manager
+node scripts/install.mjs
+```
 
 CLI output supports language selection:
 
@@ -56,8 +65,9 @@ SKM_LANG=zh-CN skm doctor
 | How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
 | What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
 | Can I share one local overview? | `skm report --format html` | Single-file overview with health, risks, usage, sessions, graph summary |
+| Can I share scan/report output safely? | `skm scan --export json --output scan.json --anonymize` | Redacted paths, config locations, workspaces, and MCP commands |
 | Where did my session logs grow? | `skm sessions` | Workspace-level session log size and dry-run cleanup plan |
-| Can my AIDE call `skm` directly? | Ask in AIDE after installation | The auto-installed `skill-navigator` bridge skill calls local `skm` for you |
+| Can my AIDE call `skm` directly? | `skm setup`, then ask in AIDE | The `skill-navigator` bridge skill calls local `skm` for you |
 
 ## Command Cheatsheet
 
@@ -68,6 +78,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm risks` | Risk report without changing AIDE data |
 | `skm report` | One-page overview report |
 | `skm scan` | Scan skills and MCP servers, rebuild catalog |
+| `skm setup` | Install the optional `skill-navigator` bridge skill |
 | `skm list` / `skm list --mcp` | List skills or MCP servers |
 | `skm search <keyword>` | Search by name, category, and description |
 | `skm recommend <task>` | Ranked skill recommendations |
@@ -81,18 +92,18 @@ SKM_LANG=zh-CN skm doctor
 
 Detailed command manual: [docs/usage.en.md](docs/usage.en.md).
 
-Bundled bridge skill: `skill-navigator` is installed automatically for Claude Code and Codex to call local `skm`; it is not a CLI command.
+Bundled bridge skill: `skm setup` installs `skill-navigator` for Claude Code and Codex to call local `skm`; `skill-navigator` is not a CLI command.
 
 ## Features
 
-- Scans Claude Code and Codex CLI skills / MCP servers
+- Scans Claude Code and Codex CLI skills / MCP servers, plus conservative Cursor and Gemini skill-directory adapters
 - Detects shared symlinks, duplicate physical copies, and same-content copies
 - Classifies skills with local rules
-- Recommends skills from natural-language task descriptions
+- Recommends skills from natural-language task descriptions, with local usage preference boosts after relevance matching
 - Audits real usage from session logs
-- Finds zombie skills and idle Claude-side MCP servers
-- Exports JSON, Mermaid, and single-file HTML knowledge graphs
-- Exports single-file HTML overview reports
+- Finds zombie skills, idle Claude-side MCP servers, and high estimated MCP schema context cost
+- Exports JSON, Mermaid, and single-file HTML knowledge graphs with richer relationship summaries
+- Exports single-file HTML overview reports, with optional anonymized output for sharing
 - Uses zero third-party npm dependencies
 - Runs on Node.js >= 18
 
@@ -106,7 +117,9 @@ skm recommend "create image cards for Xiaohongshu" --top 5
 skm recommend "markdown to html" --why
 ```
 
-By default, recommendations run locally. No external model is called, and no directory information is uploaded. The ranking combines skill name, category, description, task intent, conversion direction, usage history, recency, and whether the skill is available in both Claude Code and Codex.
+By default, recommendations run locally. No external model is called, and no directory information is uploaded. The ranking combines skill name, category, description, task intent, conversion direction, usage history, recency, and which scanned tools provide the skill.
+
+The local ranker also learns lightweight personal preferences from real usage: if two candidates are already relevant, a category or suite you often use can receive a small boost. That boost never introduces unrelated high-frequency skills into the result list.
 
 Recommendation changes are checked against a public 40-case Chinese/English regression benchmark. Run `npm run benchmark:recommend`; see [the recommendation guide](docs/recommend.en.md#measurable-regression-benchmark) for metrics and limitations.
 
@@ -117,7 +130,7 @@ skm recommend "create a knowledge graph" --advisor codex --why
 skm recommend "summarize meeting notes" --advisor claude
 ```
 
-Advisor mode sends only a compact candidate list. It does not send real skill paths, config paths, MCP `env` values, API keys, passwords, private keys, or session log bodies.
+Advisor mode sends only a compact, relevance-first candidate list. It does not send real skill paths, config paths, MCP `env` values, API keys, passwords, private keys, or session log bodies.
 
 ## Knowledge Graph
 
@@ -129,15 +142,16 @@ The HTML graph is a zero-dependency single file. Open it in a browser and filter
 
 ![skm skill knowledge graph](docs/graphic.png)
 
-Current relationship types include same family, same category, duplicate, alternative, workflow, reverse conversion, shared platform, and uses MCP. Details are in [docs/graph.md](docs/graph.md).
+Current relationship types include same family, same category, duplicate, strong/weak alternative, workflow, upstream/downstream, shared input/output format, reverse conversion, shared platform, same-platform action, and uses MCP. Details are in [docs/graph.en.md](docs/graph.en.md).
 
 ## Overview Report
 
 ```bash
 skm report --format html --output skm-report.html
+skm report --format html --output skm-report.html --anonymize
 ```
 
-The report puts health score, risks, usage, context cost, session logs, graph summary, and next commands on one local HTML page. Details are in [docs/report.en.md](docs/report.en.md).
+The report puts health score, risks, usage, context cost, estimated MCP schema cost, session logs, graph summary, and next commands on one local HTML page. Use `--anonymize` before sharing a report outside your machine. Details are in [docs/report.en.md](docs/report.en.md).
 
 ## Visual Story
 
@@ -154,9 +168,11 @@ The report puts health score, risks, usage, context cost, session logs, graph su
 ```bash
 skm doctor
 skm scan
+skm scan --export json --output skm-scan.json --anonymize
 skm
 skm risks
 skm report --format html --output skm-report.html
+skm report --format html --output skm-report.html --anonymize
 skm dupes
 skm audit
 skm list --mcp
@@ -164,16 +180,17 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Refresh facts first, then inspect health, risks, duplicates, usage, MCP servers, and session logs. Use dry-run before any cleanup.
+Start with read-only commands. Refresh facts first, then inspect health, risks, duplicates, usage, MCP servers, and session logs. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
 
 ## Safety Boundaries
 
-Most commands are read-only for Claude Code and Codex data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your Claude/Codex configs, skills, MCP servers, or session logs. The explicit install script is the exception: it links `skm` locally and installs the bundled bridge skill into your user skill directories.
+Most commands are read-only for Claude Code and Codex data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your Claude/Codex configs, skills, MCP servers, or session logs. The explicit `skm setup` command and source install script are exceptions: they install the bundled bridge skill into your user skill directories.
 
-Inside the CLI, only three actions can modify AIDE files:
+Inside the CLI, only four actions can modify AIDE files:
 
 | Action | What changes | Safeguards |
 |---|---|---|
+| `setup` | Installs `skill-navigator` into user skill directories | Explicit command; existing different directories are backed up before replacement; `--dry-run` available |
 | `sessions --clean` | Deletes session log files | Requires retention policy; prints plan first; interactive confirmation or `--yes`; never deletes sessions active within 24 hours; aggregates usage stats before deletion |
 | `disable/enable <skill>` | Renames skill directories | Reversible, no deletion; plugin skills are refused |
 | `disable/enable --mcp` | Edits `~/.claude.json` / `config.toml` | Automatic backups; confirmation required; restore never overwrites manually recreated config |
@@ -182,14 +199,14 @@ More details: [docs/safety.md](docs/safety.md).
 
 ## Use Inside AIDE
 
-`node scripts/install.mjs` installs `skill-navigator` by default:
+`skm setup` installs `skill-navigator`:
 
 ```bash
 ~/.claude/skills/skill-navigator
 ~/.codex/skills/skill-navigator
 ```
 
-This thin skill is the bridge between your AIDE coding assistant and `skill-manager`: when you ask "which skill should I use for this task?", the assistant should call the local `skm` command instead of manually scanning directories. Re-run `node scripts/install.mjs` after pulling updates to refresh the bridge skill.
+This thin skill is the bridge between your AIDE coding assistant and `skill-manager`: when you ask "which skill should I use for this task?", the assistant should call the local `skm` command instead of manually scanning directories. Re-run `skm setup` after upgrading to refresh the bridge skill.
 
 ## Documentation
 
@@ -216,7 +233,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-`skm help`, argument validation, `doctor`, `scan`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
+`skm help`, argument validation, `doctor`, `scan`, `setup`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
 
 Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. JSON field names stay stable.
 
@@ -226,8 +243,8 @@ Manual validation entry: [GitHub Actions / macOS / Windows CI](https://github.co
 
 - More real-world `skm scan` / `skm recommend` samples
 - Better clustering and layout for large knowledge graphs
-- More AIDE adapters, such as Cursor and Gemini CLI
-- Per-server MCP tool schema token measurement
+- More AIDE adapters beyond the first conservative Cursor/Gemini directory scan
+- Real per-server MCP tool schema measurement beyond the current static estimate
 
 Full roadmap: [docs/roadmap.en.md](docs/roadmap.en.md).
 

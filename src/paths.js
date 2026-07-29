@@ -14,6 +14,14 @@ export const CLAUDE_PLUGINS_FILE = path.join(HOME, '.claude', 'plugins', 'instal
 export const CLAUDE_CONFIG_FILE = path.join(HOME, '.claude.json');
 export const CODEX_SKILLS_DIR = path.join(HOME, '.codex', 'skills');
 export const CODEX_CONFIG_FILE = path.join(HOME, '.codex', 'config.toml');
+export const CURSOR_SKILLS_DIRS = [
+  path.join(HOME, '.cursor', 'skills'),
+  path.join(HOME, '.cursor', 'SKILLs'),
+];
+export const GEMINI_SKILLS_DIRS = [
+  path.join(HOME, '.gemini', 'skills'),
+  path.join(HOME, '.gemini', 'SKILLs'),
+];
 
 // 会话日志根目录（usage 统计与 sessions 索引共用，单一来源）
 export const CLAUDE_SESSIONS_ROOT = path.join(HOME, '.claude', 'projects');

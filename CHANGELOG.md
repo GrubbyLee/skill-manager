@@ -2,6 +2,19 @@
 
 ## 未发布
 
+暂无。
+
+## v0.1.3
+
+- 首次支持 npm 官方源发布，安装方式为 `npm i -g aide-skill-manager`。
+- 新增 `skm setup`，npm 安装后可显式安装 `skill-navigator` 桥接 skill；支持 `--dry-run`，目标已有不同内容时先备份再替换。
+- README、命令手册与安全文档改为 npm 安装优先，同时保留源码安装路径。
+- npm 发布包补齐 README 引用的动态图资源，修正 `bin.skm` 发布元数据，避免 npm publish 自动修正。
+- 新增匿名导出：`scan` / `report` 支持 `--anonymize`，会脱敏路径、工作区、配置位置、MCP 命令和 warning 中内嵌的本机路径。
+- 新增 Cursor / Gemini skill 目录的保守扫描适配器。
+- 新增 MCP schema 常驻上下文静态估算，并接入 `risks` 与 `report`。
+- 知识图谱新增强/弱替代、上下游、共享格式、同平台动作和图谱摘要；英文 HTML/JSON 会本地化关系 label 与 reason。
+- 推荐排序会在相关候选内学习个人常用分类/套件偏好，不让高频无关 skill 混入。
 - 新增 40 条中英文匿名推荐基准，报告 Top 1、Top 3、MRR 和已知错误率，并接入自动回归门槛。
 - 增强中英文任务意图、非相邻动作词和转换方向识别，减少反向格式工具及无关候选。
 - 推荐规则使用完整英文词边界，并兼容中文名称与中文 description 的专用 skill。
@@ -9,9 +22,6 @@
 - 安装失败时补充退出码、信号和进程启动错误，避免只显示未知错误。
 - 安装后的 `skm help` 验证失败时返回非零状态，不再误报安装完成。
 - 删除中英文 README 快速开始中重复的手动 `npm link`，并同步中英文 Roadmap 状态。
-
-## v0.1.3
-
 - `risks`、`list`、`search`、`recommend`、`ask` 接入英文 / 简体中文输出。
 - `graph`、`audit`、`sessions` 接入英文 / 简体中文输出，HTML 图谱界面支持 `--lang en`。
 - `disable`、`enable` 接入英文 / 简体中文输出，保留确认、备份、防覆盖等写操作防护。

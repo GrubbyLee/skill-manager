@@ -4,6 +4,28 @@
 
 ## 安装
 
+npm 全局安装：
+
+```bash
+npm i -g aide-skill-manager
+skm scan
+```
+
+可选：安装桥接 skill，让 Claude Code / Codex 能在对话里调用本机 `skm`：
+
+```bash
+skm setup
+skm setup --dry-run
+```
+
+国内如果 npm 官方源较慢，可临时使用镜像：
+
+```bash
+npm i -g aide-skill-manager --registry=https://registry.npmmirror.com
+```
+
+源码安装适合本地开发或镜像兜底。
+
 GitHub 主仓：
 
 ```bash
@@ -20,7 +42,7 @@ cd skill-manager
 node scripts/install.mjs
 ```
 
-这是源码安装。安装脚本会在当前仓库执行 `npm link`，让本机可以直接使用 `skm` 命令；同时会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`。它不会从 npm registry 安装 `aide-skill-manager` 包。
+源码安装脚本会在当前仓库执行 `npm link`，让本机可以直接使用 `skm` 命令；同时会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`。
 
 不想全局 link 时，可以直接运行：
 
@@ -29,7 +51,7 @@ node bin/skm.js scan
 node bin/skm.js ask "把网页转成 markdown"
 ```
 
-这种方式适合临时体验 CLI；如果希望 Claude Code / Codex 通过附属 skill 默认访问本机 `skm`，仍建议运行 `node scripts/install.mjs`。
+这种方式适合临时体验 CLI；如果希望 Claude Code / Codex 通过附属 skill 默认访问本机 `skm`，npm 安装后运行 `skm setup`，源码安装时运行 `node scripts/install.mjs`。
 
 安装脚本支持 dry-run：
 
@@ -51,7 +73,7 @@ skm recommend "convert a web page to markdown" --lang en
 skm graph --format html --output skill-graph.html --lang en
 ```
 
-当前已覆盖 `help`、参数错误、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
+当前已覆盖 `help`、参数错误、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
 
 ## 推荐排查流程
 
@@ -77,9 +99,10 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm` / `skm status` | 一屏健康体检 | `--json` |
 | `skm doctor` | 环境诊断 | `--json` |
 | `skm risks` | 风险报告 | `--json` |
-| `skm report` | 一页式总览报告 | `--format html`、`--output`、`--json` |
-| `skm scan` | 扫描 skill / MCP | `--verbose`、`--json` |
-| `skm list` | 列出 skill | `--category`、`--tool`、`--scope`、`--raw`、`--json` |
+| `skm report` | 一页式总览报告 | `--format html`、`--output`、`--anonymize`、`--json` |
+| `skm scan` | 扫描 skill / MCP | `--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
+| `skm setup` | 安装桥接 skill | `--dry-run` |
+| `skm list` | 列出 skill | `--category`、`--tool claude\|codex\|cursor\|gemini`、`--scope`、`--raw`、`--json` |
 | `skm list --mcp` | 列出 MCP | `--tool`、`--json` |
 | `skm search <词>` | 搜索 skill | `--json` |
 | `skm recommend <任务>` | 推荐 skill | `--top`、`--tool`、`--category`、`--why`、`--advisor`、`--json` |
@@ -97,17 +120,18 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 ## scan
 
-扫描 Claude Code / Codex 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`。
+扫描 Claude Code / Codex 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`。Cursor 与 Gemini 目前采用保守适配：只扫描常见 skill 目录，不读取敏感编辑器缓存，不启动外部工具。
 
 ```bash
 skm scan
 skm scan --verbose
 skm scan --json
+skm scan --export json --output skm-scan.json --anonymize
 ```
 
 输出会包含：
 
-- Claude Code 与 Codex 两侧 skill 数量
+- Claude Code、Codex、Cursor、Gemini 各侧 skill 数量
 - 用户、项目、插件来源分布
 - MCP 数量
 - 已归档目录数量
@@ -117,6 +141,8 @@ skm scan --json
 - 分类分布
 
 已归档目录指名称以 `_` 或 `.` 开头、扫描时未计入的目录。
+
+`--anonymize` 会脱敏路径、真实路径、配置文件位置、扫描目录、工作区和 MCP `command`，适合把扫描结果发到 Issue、Discussions 或社区求助。JSON 字段名保持英文且稳定。
 
 ## status
 
@@ -140,17 +166,18 @@ skm risks --json
 
 `doctor` 检查运行环境，例如 Node.js 版本、目录、catalog、advisor CLI、CI 配置。
 
-`risks` 汇总分级风险，例如实体双份、双份且从未使用、闲置 MCP、高上下文开销、会话日志体积、不可观测项。它不直接禁用或删除任何 AIDE 数据。
+`risks` 汇总分级风险，例如实体双份、双份且从未使用、闲置 MCP、高上下文开销、高 MCP schema 估算、会话日志体积、不可观测项。它不直接禁用或删除任何 AIDE 数据。
 
 ## report
 
 ```bash
 skm report
 skm report --format html --output skm-report.html
+skm report --format html --output skm-report.html --anonymize
 skm report --json
 ```
 
-`report` 会生成一页式总览，包含健康分、风险、使用频率、上下文开销、会话日志、知识图谱摘要和下一步命令。HTML 报告是零依赖单文件，可直接用浏览器打开。详细说明见 [report.md](report.md)。
+`report` 会生成一页式总览，包含健康分、风险、使用频率、上下文开销、MCP schema 开销估算、会话日志、知识图谱摘要和下一步命令。HTML 报告是零依赖单文件，可直接用浏览器打开。对外分享前建议使用 `--anonymize`。详细说明见 [report.md](report.md)。
 
 ## list 与 search
 

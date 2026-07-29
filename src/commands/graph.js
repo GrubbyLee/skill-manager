@@ -10,15 +10,23 @@ import { fmtAgoLang, tr } from '../i18n.js';
 
 const EDGE_LIMITS = {
   alternative: 40,
+  strong_alternative: 30,
+  weak_alternative: 40,
+  shared_io_format: 60,
+  same_platform_action: 80,
 };
 
 const EDGE_LABELS = {
   same_family: '同源',
   same_category: '同类',
   duplicate: '重复',
-  alternative: '替代',
+  strong_alternative: '强替代',
+  weak_alternative: '弱替代',
   pipeline: '流程',
+  upstream_downstream: '上下游',
   reverse_transform: '反向转换',
+  shared_io_format: '共享格式',
+  same_platform_action: '同平台动作',
   shared_platform: '共享平台',
   uses_mcp: '使用 MCP',
 };
@@ -27,9 +35,13 @@ const EDGE_LABELS_EN = {
   same_family: 'same family',
   same_category: 'same category',
   duplicate: 'duplicate',
-  alternative: 'alternative',
+  strong_alternative: 'strong alternative',
+  weak_alternative: 'weak alternative',
   pipeline: 'workflow',
+  upstream_downstream: 'upstream/downstream',
   reverse_transform: 'reverse conversion',
+  shared_io_format: 'shared I/O format',
+  same_platform_action: 'same-platform action',
   shared_platform: 'shared platform',
   uses_mcp: 'uses MCP',
 };
@@ -38,9 +50,13 @@ const EDGE_DESCRIPTIONS = {
   same_family: '同源：目录名前缀相同，通常表示同一作者、同一套工具包或同一组能力，例如 baoyu-*、lark-*。适合观察成组安装与套件边界。',
   same_category: '同类：根据分类规则归入同一业务类别，表示用途相近但不一定互相依赖。该关系数量通常较多，适合做全局盘点。',
   duplicate: '重复：不同安装记录的 SKILL.md 内容哈希完全相同，表示实质上是同一份 skill。适合清理重复安装和降低上下文开销。',
-  alternative: '替代：同分类下名称或描述高度相似，但不属于同一前缀组。它们可能解决相近任务，适合比较保留哪一个。',
+  strong_alternative: '强替代：同分类下名称或描述高度相似，且不是同源套件成员。通常表示两个 skill 能覆盖非常接近的任务。',
+  weak_alternative: '弱替代：同分类下有一定相似度，但证据弱于强替代。适合人工浏览，不建议直接清理。',
   pipeline: '流程：一个 skill 的输出格式可以作为另一个 skill 的输入格式，例如 URL 转 Markdown 后再转 HTML。适合发现可串联的工作流。',
+  upstream_downstream: '上下游：一个 skill 的产物可能流向另一个 skill，强调先后顺序和任务链路。',
   reverse_transform: '反向转换：两个 skill 的转换方向相反，例如 Markdown 转 HTML 与 HTML 转 Markdown。适合识别互补工具。',
+  shared_io_format: '共享格式：两个 skill 处理相同输入或输出格式，例如 Markdown、HTML、PDF、图片。适合按材料形态整理工具。',
+  same_platform_action: '同平台动作：同一外部平台下的不同操作，例如飞书文档、飞书任务、飞书会议。适合观察平台生态内的能力分工。',
   shared_platform: '共享平台：名称或描述命中同一外部平台关键词，例如 GitHub、飞书、Notion。该关系数量通常较多，适合按平台查看生态。',
   uses_mcp: '使用 MCP：skill 描述中同时命中 MCP 与具体 MCP server 名称，表示它可能依赖或调用该 MCP 能力。当前属于推断关系。',
 };
@@ -49,9 +65,13 @@ const EDGE_DESCRIPTIONS_EN = {
   same_family: 'Same family: directory name prefixes match, usually meaning the same author, toolkit, or capability suite, such as baoyu-* or lark-*.',
   same_category: 'Same category: classification rules put these skills into the same business category. They are related by use case, not necessarily dependent.',
   duplicate: 'Duplicate: SKILL.md content hashes are identical across install records. Useful for cleaning duplicate installs and reducing context cost.',
-  alternative: 'Alternative: names or descriptions are highly similar within the same category but not in the same prefix family. Useful when deciding which tool to keep.',
+  strong_alternative: 'Strong alternative: highly similar names or descriptions within the same category, excluding same-family suites.',
+  weak_alternative: 'Weak alternative: related candidates with weaker similarity evidence. Useful for browsing, not automatic cleanup.',
   pipeline: 'Workflow: one skill output can be another skill input, such as URL to Markdown followed by Markdown to HTML.',
+  upstream_downstream: 'Upstream/downstream: one skill can feed another, emphasizing order in a workflow chain.',
   reverse_transform: 'Reverse conversion: two skills convert in opposite directions, such as Markdown to HTML and HTML to Markdown.',
+  shared_io_format: 'Shared I/O format: two skills process the same input or output format, such as Markdown, HTML, PDF, or images.',
+  same_platform_action: 'Same-platform action: different actions in the same external platform ecosystem, such as Lark Docs, Tasks, and Meetings.',
   shared_platform: 'Shared platform: names or descriptions match the same external platform keyword, such as GitHub, Lark, or Notion.',
   uses_mcp: 'Uses MCP: a skill description mentions both MCP and a specific MCP server name. This is inferred, not guaranteed.',
 };
@@ -59,9 +79,11 @@ const EDGE_DESCRIPTIONS_EN = {
 const DEFAULT_VISIBLE_EDGE_TYPES = new Set([
   'same_family',
   'duplicate',
-  'alternative',
+  'strong_alternative',
   'pipeline',
+  'upstream_downstream',
   'reverse_transform',
+  'shared_io_format',
   'uses_mcp',
 ]);
 
@@ -69,9 +91,13 @@ const EDGE_COLORS = {
   same_family: '#8b5cf6',
   same_category: '#38bdf8',
   duplicate: '#ef4444',
-  alternative: '#f59e0b',
+  strong_alternative: '#f97316',
+  weak_alternative: '#fbbf24',
   pipeline: '#22c55e',
+  upstream_downstream: '#84cc16',
   reverse_transform: '#f97316',
+  shared_io_format: '#06b6d4',
+  same_platform_action: '#2dd4bf',
   shared_platform: '#14b8a6',
   uses_mcp: '#e879f9',
 };
@@ -148,6 +174,7 @@ export function buildKnowledgeGraph(catalog, usage = { skills: {}, mcp: {} }) {
     const family = familyOf(skill.dirName);
     const platforms = detectPlatforms(skill);
     const transforms = detectTransforms(skill);
+    const actions = detectActions(skill);
     const duplicateEntity = isDupEntity(skill);
     const node = {
       id: skillId(skill.dirName),
@@ -159,6 +186,7 @@ export function buildKnowledgeGraph(catalog, usage = { skills: {}, mcp: {} }) {
       family,
       platforms,
       transforms,
+      actions,
       usageCount: u.count,
       lastUsed: u.lastUsed,
       descTokens: skill.descTokens || 0,
@@ -176,6 +204,8 @@ export function buildKnowledgeGraph(catalog, usage = { skills: {}, mcp: {} }) {
   addPlatformEdges(merged, addNode, addEdge);
   addDuplicateEdges(catalog.skills || [], addEdge);
   addTransformEdges([...skillByName.values()].map((v) => v.node), addEdge);
+  addSharedIoEdges([...skillByName.values()].map((v) => v.node), addEdge);
+  addPlatformActionEdges([...skillByName.values()].map((v) => v.node), addEdge);
   addAlternativeEdges([...skillByName.values()].map((v) => v.node), addEdge);
   addMcpEdges([...skillByName.values()].map((v) => v.node), catalog.mcpServers || [], addEdge);
 
@@ -188,6 +218,7 @@ export function buildKnowledgeGraph(catalog, usage = { skills: {}, mcp: {} }) {
     edges: edges.length,
     edgeTypes: Object.fromEntries([...groupBy(edges, (e) => e.type)].map(([type, list]) => [type, list.length])),
   };
+  const summaries = buildGraphSummaries(nodes, edges);
 
   return {
     version: 1,
@@ -196,6 +227,7 @@ export function buildKnowledgeGraph(catalog, usage = { skills: {}, mcp: {} }) {
     nodes,
     edges,
     stats,
+    summaries,
     legend: EDGE_LABELS,
   };
 }
@@ -318,6 +350,13 @@ function addTransformEdges(nodes, addEdge) {
               confidence: Math.min(ta.confidenceScore, tb.confidenceScore) >= 2 ? 'structural' : 'inferred',
               reason: `${a.label} 输出 ${ta.to}，${b.label} 接收 ${tb.from}`,
             });
+            addEdge({
+              source: a.id,
+              target: b.id,
+              type: 'upstream_downstream',
+              confidence: Math.min(ta.confidenceScore, tb.confidenceScore) >= 2 ? 'structural' : 'inferred',
+              reason: `${a.label} 可作为 ${b.label} 的上游`,
+            });
           }
           if (tb.to === ta.from) {
             addEdge({
@@ -327,10 +366,59 @@ function addTransformEdges(nodes, addEdge) {
               confidence: Math.min(ta.confidenceScore, tb.confidenceScore) >= 2 ? 'structural' : 'inferred',
               reason: `${b.label} 输出 ${tb.to}，${a.label} 接收 ${ta.from}`,
             });
+            addEdge({
+              source: b.id,
+              target: a.id,
+              type: 'upstream_downstream',
+              confidence: Math.min(ta.confidenceScore, tb.confidenceScore) >= 2 ? 'structural' : 'inferred',
+              reason: `${b.label} 可作为 ${a.label} 的上游`,
+            });
           }
         }
       }
     }
+  }
+}
+
+function addSharedIoEdges(nodes, addEdge) {
+  const pairs = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const shared = sharedFormats(nodes[i], nodes[j]);
+      if (shared.length) pairs.push({ a: nodes[i], b: nodes[j], shared });
+    }
+  }
+  for (const p of pairs.slice(0, EDGE_LIMITS.shared_io_format)) {
+    addEdge({
+      source: p.a.id,
+      target: p.b.id,
+      type: 'shared_io_format',
+      confidence: 'inferred',
+      reason: `共享格式：${p.shared.join(', ')}`,
+    });
+  }
+}
+
+function addPlatformActionEdges(nodes, addEdge) {
+  const pairs = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const commonPlatforms = nodes[i].platforms.filter((p) => nodes[j].platforms.includes(p));
+      if (!commonPlatforms.length) continue;
+      const actionA = nodes[i].actions[0];
+      const actionB = nodes[j].actions[0];
+      if (!actionA || !actionB || actionA === actionB) continue;
+      pairs.push({ a: nodes[i], b: nodes[j], platform: commonPlatforms[0], actionA, actionB });
+    }
+  }
+  for (const p of pairs.slice(0, EDGE_LIMITS.same_platform_action)) {
+    addEdge({
+      source: p.a.id,
+      target: p.b.id,
+      type: 'same_platform_action',
+      confidence: 'inferred',
+      reason: `${p.platform} 平台下的不同动作：${p.actionA} / ${p.actionB}`,
+    });
   }
 }
 
@@ -345,21 +433,48 @@ function addAlternativeEdges(nodes, addEdge) {
           tokenize(`${list[i].label} ${list[i].description}`),
           tokenize(`${list[j].label} ${list[j].description}`),
         );
-        if (score >= 0.4) pairs.push({ a: list[i], b: list[j], score });
+        if (score >= 0.32) pairs.push({ a: list[i], b: list[j], score });
       }
     }
   }
   pairs.sort((a, b) => b.score - a.score);
   for (const p of pairs.slice(0, EDGE_LIMITS.alternative)) {
+    const type = p.score >= 0.55 ? 'strong_alternative' : 'weak_alternative';
     addEdge({
       source: p.a.id,
       target: p.b.id,
-      type: 'alternative',
+      type,
       confidence: 'inferred',
       score: Number(p.score.toFixed(2)),
       reason: `同分类且名称/描述相似度 ${Math.round(p.score * 100)}%`,
     });
   }
+}
+
+function buildGraphSummaries(nodes, edges) {
+  const out = [];
+  const familyEdges = edges.filter((e) => e.type === 'same_family');
+  const byFamily = groupBy(familyEdges, (e) => e.target);
+  const denseFamily = [...byFamily.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+  if (denseFamily) {
+    const node = nodes.find((n) => n.id === denseFamily[0]);
+    out.push({ type: 'family', label: node?.label || denseFamily[0], count: denseFamily[1].length });
+  }
+
+  const duplicateCount = edges.filter((e) => e.type === 'duplicate').length;
+  if (duplicateCount) out.push({ type: 'duplicate', count: duplicateCount });
+
+  const platformEdges = edges.filter((e) => e.type === 'shared_platform' || e.type === 'same_platform_action');
+  const byPlatform = groupBy(platformEdges, (e) => e.target);
+  const densePlatform = [...byPlatform.entries()].sort((a, b) => b[1].length - a[1].length)[0];
+  if (densePlatform) {
+    const node = nodes.find((n) => n.id === densePlatform[0]);
+    out.push({ type: 'platform', label: node?.label || densePlatform[0], count: densePlatform[1].length });
+  }
+
+  const workflowCount = edges.filter((e) => e.type === 'pipeline' || e.type === 'upstream_downstream').length;
+  if (workflowCount) out.push({ type: 'workflow', count: workflowCount });
+  return out;
 }
 
 function addMcpEdges(skillNodes, mcpServers, addEdge) {
@@ -408,10 +523,23 @@ function printSummary(graph, catalog, lang = 'zh-CN') {
 }
 
 export function renderGraph(graph, format, lang = 'zh-CN') {
-  if (format === 'json') return JSON.stringify(graph, null, 2);
-  if (format === 'mermaid') return renderMermaid(graph, lang);
-  if (format === 'html') return renderHtml(graph, lang);
+  const localized = localizeGraphForOutput(graph, lang);
+  if (format === 'json') return JSON.stringify(localized, null, 2);
+  if (format === 'mermaid') return renderMermaid(localized, lang);
+  if (format === 'html') return renderHtml(localized, lang);
   throw new Error(tr(lang, 'graph.unsupportedFormat', { format }));
+}
+
+function localizeGraphForOutput(graph, lang) {
+  return {
+    ...graph,
+    legend: lang === 'en' ? EDGE_LABELS_EN : EDGE_LABELS,
+    edges: graph.edges.map((edge) => ({
+      ...edge,
+      label: edgeLabel(edge.type, lang),
+      reason: edgeReason(edge, lang),
+    })),
+  };
 }
 
 function renderMermaid(graph, lang = 'zh-CN') {
@@ -874,6 +1002,26 @@ function detectTransforms(skill) {
   return uniqueTransforms(transforms.filter((t) => t.from && t.to && t.from !== t.to));
 }
 
+function detectActions(skill) {
+  const text = `${skill.dirName} ${skill.description || ''}`.toLowerCase();
+  const rules = [
+    ['search', ['search', '查询', '检索']],
+    ['create', ['create', '生成', '创建', '撰写']],
+    ['post', ['post', 'publish', '发布']],
+    ['convert', ['convert', '转换', '-to-']],
+    ['download', ['download', '下载']],
+    ['analyze', ['analyze', '分析', '审计']],
+    ['manage', ['manage', '管理', '更新']],
+  ];
+  return rules.filter(([, words]) => words.some((w) => text.includes(w))).map(([name]) => name);
+}
+
+function sharedFormats(a, b) {
+  const formatsA = new Set((a.transforms || []).flatMap((t) => [t.from, t.to]));
+  const formatsB = new Set((b.transforms || []).flatMap((t) => [t.from, t.to]));
+  return [...formatsA].filter((item) => formatsB.has(item));
+}
+
 function normalizeTransformTerm(term) {
   const clean = String(term || '').replace(/s$/, '');
   return TRANSFORM_ALIASES.get(clean) || clean;
@@ -999,6 +1147,34 @@ function nodeTitle(n, lang = 'zh-CN') {
 
 function edgeLabel(type, lang = 'zh-CN') {
   return (lang === 'en' ? EDGE_LABELS_EN : EDGE_LABELS)[type] || type;
+}
+
+function edgeReason(edge, lang = 'zh-CN') {
+  const reason = String(edge.reason || '');
+  if (lang !== 'en' || !reason) return reason;
+
+  let m = reason.match(/^分类规则归为「(.+)」$/);
+  if (m) return `classified as "${m[1]}"`;
+  m = reason.match(/^目录名前缀同为 (.+)$/);
+  if (m) return `same directory prefix: ${m[1]}`;
+  m = reason.match(/^名称或描述命中平台关键词：(.+)$/);
+  if (m) return `name or description matches platform keyword: ${m[1]}`;
+  if (reason === 'SKILL.md 内容哈希完全相同') return 'identical SKILL.md content hash';
+  m = reason.match(/^(.+) ↔ (.+) 转换方向相反$/);
+  if (m) return `opposite conversion directions: ${m[1]} ↔ ${m[2]}`;
+  m = reason.match(/^(.+) 输出 (.+)，(.+) 接收 (.+)$/);
+  if (m) return `${m[1]} outputs ${m[2]}; ${m[3]} accepts ${m[4]}`;
+  m = reason.match(/^(.+) 可作为 (.+) 的上游$/);
+  if (m) return `${m[1]} can be upstream of ${m[2]}`;
+  m = reason.match(/^共享格式：(.+)$/);
+  if (m) return `shared format: ${m[1]}`;
+  m = reason.match(/^(.+) 平台下的不同动作：(.+) \/ (.+)$/);
+  if (m) return `different actions on ${m[1]}: ${m[2]} / ${m[3]}`;
+  m = reason.match(/^同分类且名称\/描述相似度 (\d+)%$/);
+  if (m) return `same category with ${m[1]}% name/description similarity`;
+  m = reason.match(/^skill 描述同时命中 MCP 与 (.+)$/);
+  if (m) return `skill description mentions MCP and ${m[1]}`;
+  return reason;
 }
 
 function edgeDescription(type, lang = 'zh-CN') {

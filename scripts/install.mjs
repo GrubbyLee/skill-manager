@@ -69,12 +69,16 @@ if (!fs.existsSync(bridgeSkillSource)) fail(tr(lang, 'install.missingBridgeSkill
 
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 if (pkg.name !== 'aide-skill-manager') fail(tr(lang, 'install.badName', { name: pkg.name }));
-if (!pkg.bin || pkg.bin.skm !== './bin/skm.js') fail(tr(lang, 'install.missingBinConfig'));
+if (!pkg.bin || pkg.bin.skm !== 'bin/skm.js') fail(tr(lang, 'install.missingBinConfig'));
 if (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) fail(tr(lang, 'install.dependencies'));
+const npmVersion = probeNpm();
+if (!npmVersion) fail(tr(lang, 'install.npmMissing'));
 
 console.log(tr(lang, 'install.checkOk'));
 console.log(tr(lang, 'install.projectDir', { root }));
+console.log(tr(lang, 'install.platform', { platform: process.platform, arch: process.arch }));
 console.log(lang === 'en' ? `Node.js: ${process.version}` : `Node.js：${process.version}`);
+console.log(tr(lang, 'install.npmOk', { version: npmVersion }));
 console.log(tr(lang, 'install.willRun'));
 printBridgeSkillPlan({ dryRun });
 
@@ -133,6 +137,36 @@ function printBridgeSkillPlan({ dryRun }) {
     const prefix = dryRun ? '[dry-run] ' : '';
     console.log(`  ${prefix}${target.tool}: ${target.dir}`);
   }
+}
+
+function probeNpm() {
+  const npm = installCommand('npmLink').command;
+  const result = spawnSync(npm, ['--version'], {
+    cwd: root,
+    encoding: 'utf8',
+    shell: false,
+    windowsHide: true,
+  });
+  if (result.status !== 0) return '';
+  if (result.error && !findOnPath(npm)) return '';
+  return String(result.stdout || result.stderr || '').trim().split(/\r?\n/)[0] || 'unknown';
+}
+
+function findOnPath(command) {
+  const names = process.platform === 'win32' && !/\.(cmd|exe)$/i.test(command)
+    ? [`${command}.cmd`, `${command}.exe`, command]
+    : [command];
+  for (const dir of String(process.env.PATH || '').split(path.delimiter)) {
+    for (const name of names) {
+      const file = path.join(dir, name);
+      try {
+        if (fs.existsSync(file)) return true;
+      } catch {
+        // ignore invalid PATH entries
+      }
+    }
+  }
+  return false;
 }
 
 function installBridgeSkill() {

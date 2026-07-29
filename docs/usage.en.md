@@ -4,6 +4,22 @@ This is the detailed command manual for `skill-manager` (`skm`).
 
 ## Install
 
+npm global install:
+
+```bash
+npm i -g aide-skill-manager
+skm scan
+```
+
+Optional bridge skill setup, so Claude Code and Codex can call your local `skm` from chat:
+
+```bash
+skm setup
+skm setup --dry-run
+```
+
+Source install is useful for local development.
+
 GitHub:
 
 ```bash
@@ -12,7 +28,7 @@ cd skill-manager
 node scripts/install.mjs
 ```
 
-This is a source install. The install script runs `npm link` inside the cloned repository so the `skm` command becomes available on your machine. It also installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`. It does not install `aide-skill-manager` from the npm registry.
+The source install script runs `npm link` inside the cloned repository so the `skm` command becomes available on your machine. It also installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`.
 
 Run without global link:
 
@@ -21,7 +37,7 @@ node bin/skm.js scan
 node bin/skm.js ask "convert a web page to markdown"
 ```
 
-This is useful for a temporary CLI trial. If you want Claude Code or Codex to use the bundled bridge skill and call your local `skm` by default, run `node scripts/install.mjs`.
+This is useful for a temporary CLI trial. If you want Claude Code or Codex to use the bundled bridge skill and call your local `skm` by default, run `skm setup` after npm install, or `node scripts/install.mjs` for source install.
 
 Preview the install without writing global commands or user skill directories:
 
@@ -62,9 +78,10 @@ Start with read-only commands. Use dry-run before cleanup.
 | `skm` / `skm status` | One-screen health check | `--json` |
 | `skm doctor` | Environment diagnostics | `--json` |
 | `skm risks` | Risk report | `--json` |
-| `skm report` | One-page overview report | `--format html`, `--output`, `--json` |
-| `skm scan` | Scan skills and MCP servers | `--verbose`, `--json` |
-| `skm list` | List skills | `--category`, `--tool`, `--scope`, `--raw`, `--json` |
+| `skm report` | One-page overview report | `--format html`, `--output`, `--anonymize`, `--json` |
+| `skm scan` | Scan skills and MCP servers | `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
+| `skm setup` | Install the bridge skill | `--dry-run` |
+| `skm list` | List skills | `--category`, `--tool claude\|codex\|cursor\|gemini`, `--scope`, `--raw`, `--json` |
 | `skm list --mcp` | List MCP servers | `--tool`, `--json` |
 | `skm search <text>` | Search skills | `--json` |
 | `skm recommend <task>` | Ranked recommendations | `--top`, `--tool`, `--category`, `--why`, `--advisor`, `--json` |
@@ -85,9 +102,12 @@ Start with read-only commands. Use dry-run before cleanup.
 skm scan
 skm scan --verbose
 skm scan --json
+skm scan --export json --output skm-scan.json --anonymize
 ```
 
-Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, and context estimates.
+Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, and context estimates. Claude Code and Codex are fully scanned for skills/MCP; Cursor and Gemini currently use conservative skill-directory adapters only. They do not read sensitive editor caches or launch external tools.
+
+Use `--anonymize` before sharing output. It redacts paths, real paths, config file locations, scan directories, workspaces, and MCP commands while keeping stable JSON field names.
 
 ## status
 
@@ -105,10 +125,11 @@ The health score is heuristic. It is useful for comparing your own setup before 
 ```bash
 skm report
 skm report --format html --output skm-report.html
+skm report --format html --output skm-report.html --anonymize
 skm report --json
 ```
 
-The HTML report is a single local file covering health, risks, top-used skills, context cost, session logs, graph summary, and next commands.
+The HTML report is a single local file covering health, risks, top-used skills, context cost, estimated MCP schema cost, session logs, graph summary, and next commands. Use `--anonymize` before sharing a report.
 
 ## recommend / ask
 

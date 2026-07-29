@@ -1,10 +1,10 @@
 {
   "name": "aide-skill-manager",
   "version": "0.1.3",
-  "description": "Zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize Claude Code / Codex skills and MCP servers.",
+  "description": "Zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize AIDE skills and MCP servers.",
   "type": "module",
   "bin": {
-    "skm": "./bin/skm.js"
+    "skm": "bin/skm.js"
   },
   "files": [
     "bin",
@@ -15,6 +15,8 @@
     "docs/*.md",
     "docs/demo.png",
     "docs/demo.en.png",
+    "docs/demo.en.gif",
+    "docs/demo.zh-CN.gif",
     "docs/graphic.png",
     "docs/comic-*.jpg",
     "CONTRIBUTING.md",

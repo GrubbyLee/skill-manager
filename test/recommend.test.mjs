@@ -94,6 +94,23 @@ test('推荐排序：图谱类任务命中数据与图谱能力，历史高频�
   assert.equal(ranked.some((r) => r.skill.dirName === 'email-draft-polish'), false);
 });
 
+test('推荐排序：只在相关候选内学习个人常用分类偏好', () => {
+  const skills = [
+    skill('web-report-builder', 'Create HTML reports from markdown', { category: '内容抓取与转换' }),
+    skill('plain-report-builder', 'Create HTML reports from markdown', { category: '研发辅助' }),
+    skill('email-draft-polish', 'Draft and polish emails', { category: '商务与文书' }),
+  ];
+  const usage = {
+    'web-report-builder': { count: 12, lastUsed: new Date().toISOString() },
+    'email-draft-polish': { count: 99, lastUsed: new Date().toISOString() },
+  };
+
+  const ranked = rankRecommendations(skills, 'create html report', (m) => usage[m.dirName] || { count: 0, lastUsed: null });
+  assert.equal(ranked[0].skill.dirName, 'web-report-builder');
+  assert.ok(ranked[0].reasons.includes('个人偏好：常用分类/套件'));
+  assert.equal(ranked.some((r) => r.skill.dirName === 'email-draft-polish'), false);
+});
+
 test('增强推荐：候选清单来自扫描结果但不暴露路径字段', () => {
   const skills = [
     { ...skill('baoyu-comic', 'Knowledge comic creator supporting storyboard panels', { category: '图像与视觉' }), path: '/secret/path', realPath: '/secret/real' },

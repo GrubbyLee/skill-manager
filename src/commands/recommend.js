@@ -271,7 +271,7 @@ export async function runRecommend({ cwd, keywords, json = false, top, tool, cat
   let advisorError = null;
 
   if (advisor) {
-    const candidates = buildAdvisorCandidates(merged, ranked, usageOf);
+    const candidates = buildAdvisorCandidates(merged, ranked, usageOf, query);
     if (!candidates.length) {
       advisorError = tr(lang, 'recommend.noAdvisorCandidates');
     } else {
@@ -385,12 +385,12 @@ export function rankRecommendations(skills, query, usageOf = () => ({ count: 0, 
     const scored = scoreSkill(skill, queryTerms, queryTokens, requiredTerms, direction, usage, profile);
     return { skill, usage, ...scored };
   });
-  return rows
-    .filter((r) => r.score > 0)
-    .sort((a, b) => b.score - a.score || b.usage.count - a.usage.count || a.skill.dirName.localeCompare(b.skill.dirName));
+  const filtered = rows.filter((r) => r.score > 0);
+  applyPreferenceBoost(filtered, skills, usageOf);
+  return filtered.sort((a, b) => b.score - a.score || b.usage.count - a.usage.count || a.skill.dirName.localeCompare(b.skill.dirName));
 }
 
-export function buildAdvisorCandidates(skills, ranked, usageOf = () => ({ count: 0, lastUsed: null })) {
+export function buildAdvisorCandidates(skills, ranked, usageOf = () => ({ count: 0, lastUsed: null }), query = '') {
   const out = [];
   const seen = new Set();
   const addSkill = (skill, local = null) => {
@@ -411,14 +411,38 @@ export function buildAdvisorCandidates(skills, ranked, usageOf = () => ({ count:
     });
   };
 
-  for (const local of ranked) addSkill(local.skill, local);
+  for (const local of ranked.slice(0, Math.min(ranked.length, 30))) addSkill(local.skill, local);
+  const profile = analyzeTask(query);
+  const preferredCategories = new Set(profile.intents.flatMap((intent) => intent.categories || []));
   const rest = [...skills].sort((a, b) => {
+    const ac = preferredCategories.has(a.category) ? 1 : 0;
+    const bc = preferredCategories.has(b.category) ? 1 : 0;
     const au = usageOf(a)?.count || 0;
     const bu = usageOf(b)?.count || 0;
-    return bu - au || b.tools.length - a.tools.length || a.dirName.localeCompare(b.dirName);
+    return bc - ac || bu - au || b.tools.length - a.tools.length || a.dirName.localeCompare(b.dirName);
   });
   for (const skill of rest) addSkill(skill);
   return out;
+}
+
+function applyPreferenceBoost(rows, allSkills, usageOf) {
+  const categoryUse = new Map();
+  const familyUse = new Map();
+  for (const skill of allSkills) {
+    const count = usageOf(skill)?.count || 0;
+    if (!count) continue;
+    categoryUse.set(skill.category, (categoryUse.get(skill.category) || 0) + count);
+    const family = familyOf(skill.dirName);
+    if (family) familyUse.set(family, (familyUse.get(family) || 0) + count);
+  }
+  for (const row of rows) {
+    const catCount = categoryUse.get(row.skill.category) || 0;
+    const famCount = familyUse.get(familyOf(row.skill.dirName)) || 0;
+    const boost = Math.min(5, Math.floor(Math.log2(catCount + 1))) + Math.min(3, Math.floor(Math.log2(famCount + 1)));
+    if (boost <= 0) continue;
+    row.score += boost;
+    row.reasons.push('个人偏好：常用分类/套件');
+  }
 }
 
 export async function askAdvisor({ advisor, query, candidates, top = DEFAULT_TOP, cwd, spawnImpl = spawn, timeoutMs = ADVISOR_TIMEOUT_MS }) {
@@ -813,6 +837,11 @@ function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function familyOf(name) {
+  const parts = String(name || '').split('-');
+  return parts.length > 1 ? parts[0] : '';
+}
+
 function truncateText(text, max) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
@@ -860,6 +889,7 @@ function localizeReason(reason, lang) {
   if (reason === 'Claude/Codex 两侧可用') return 'available in both Claude and Codex';
   if (reason === '最近 30 天用过') return 'used in the last 30 days';
   if (reason === '最近 90 天用过') return 'used in the last 90 days';
+  if (reason === '个人偏好：常用分类/套件') return 'personal preference: commonly used category/suite';
   let m = reason.match(/^历史用过 (\d+) 次$/);
   if (m) return `used ${m[1]} time(s) before`;
   m = reason.match(/^意图匹配：(.+)$/);

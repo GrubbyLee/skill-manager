@@ -10,6 +10,8 @@ import {
   CLAUDE_SESSIONS_ROOT,
   CODEX_SESSIONS_ROOT,
   CATALOG_PATH,
+  CURSOR_SKILLS_DIRS,
+  GEMINI_SKILLS_DIRS,
 } from '../paths.js';
 import { fmtDateTime, paint } from '../utils.js';
 import { renderTable, termWidth } from '../table.js';
@@ -69,6 +71,8 @@ export function collectDoctor({ cwd, spawnImpl = spawnSync, nodeVersion = proces
   ]) {
     add(fs.existsSync(file) ? 'ok' : 'warn', name, fs.existsSync(file) ? file : (en ? `not found: ${file}` : `未发现：${file}`));
   }
+  addOptionalDirs(checks, en ? 'Cursor skill directories' : 'Cursor skill 目录', CURSOR_SKILLS_DIRS, en);
+  addOptionalDirs(checks, en ? 'Gemini CLI skill directories' : 'Gemini CLI skill 目录', GEMINI_SKILLS_DIRS, en);
 
   const catalog = loadCatalog();
   if (!catalog) {
@@ -95,6 +99,17 @@ export function collectDoctor({ cwd, spawnImpl = spawnSync, nodeVersion = proces
     checks,
     nextSteps: buildNextSteps(checks, lang),
   };
+}
+
+function addOptionalDirs(checks, name, dirs, en) {
+  const existing = dirs.filter((dir) => fs.existsSync(dir));
+  checks.push({
+    status: 'ok',
+    name,
+    detail: existing.length
+      ? existing.join(' / ')
+      : (en ? `optional adapter; no known directory found (${dirs.join(' / ')})` : `可选适配器；未发现已知目录（${dirs.join(' / ')}）`),
+  });
 }
 
 function readPackage(cwd) {

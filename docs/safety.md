@@ -23,12 +23,13 @@ skm sessions
 
 其中 `scan`、`audit`、`risks`、`sessions` 可能更新 `~/.skill-manager` 下的 skm 自身数据，例如 catalog、usage cache、audit history、sessions index。这些不是 AIDE 数据，不会改变 Claude Code 或 Codex 的行为。
 
-显式运行 `node scripts/install.mjs` 是安装阶段的例外：它会执行本地 `npm link`，并把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 与 `~/.codex/skills/`。如果目标目录已有不同内容，安装脚本会先备份旧目录再替换。
+显式运行 `skm setup` 或 `node scripts/install.mjs` 是安装阶段的例外：它们会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 与 `~/.codex/skills/`。如果目标目录已有不同内容，会先备份旧目录再替换。
 
-## CLI 三类写操作
+## CLI 四类写操作
 
 | 动作 | 改动内容 | 防护 |
 |---|---|---|
+| `setup` | 安装 `skill-navigator` 桥接 skill | 显式命令；支持 `--dry-run`；目标已有不同内容时先备份再替换 |
 | `sessions --clean` | 删除会话日志文件 | 必须显式给保留策略；先打印完整计划；交互确认或 `--yes`；24 小时内活跃会话永不删；未知工作区只接受 `--days` 策略；删除前聚合统计 |
 | `disable/enable <skill>` | 重命名 skill 目录 | 完全可逆，不删文件；插件 skill 拒绝处理 |
 | `disable/enable --mcp` | 修改 `~/.claude.json` / `config.toml` | 每个 MCP 每次操作独立备份；Codex 侧行级注释可逐字节还原；恢复时不覆盖用户手动重建的同名配置；需确认 |

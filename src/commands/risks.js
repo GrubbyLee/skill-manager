@@ -8,6 +8,7 @@ import { renderTable, termWidth } from '../table.js';
 import { fmtAgoLang, tr } from '../i18n.js';
 
 const HIGH_CONTEXT_TOKENS = 180;
+const HIGH_MCP_SCHEMA_TOKENS = 120;
 const STALE_DAYS = 90;
 const LARGE_LOG_BYTES = 1e9;
 const RECLAIM_HINT_BYTES = 50e6;
@@ -74,6 +75,9 @@ export function collectRisks({ catalog, merged = mergeByDirName(catalog.skills),
     .sort((a, b) => Date.parse(a.usage.lastUsed) - Date.parse(b.usage.lastUsed));
   const missingDescription = merged.filter((m) => !String(m.description || '').trim());
   const { idle: idleMcp, unobservable: codexOnlyMcp } = findIdleMcp(catalog.mcpServers || [], usage);
+  const highMcpSchema = summarizeMcpSchema(catalog.mcpServers || [], usage)
+    .filter((m) => m.schemaTokens >= HIGH_MCP_SCHEMA_TOKENS)
+    .sort((a, b) => b.schemaTokens - a.schemaTokens);
   const sessionBytes = sessions.reduce((sum, s) => sum + s.size, 0);
   const cleanPlan = planClean(sessions, { keep: 3, days: 30 });
   const reclaimBytes = cleanPlan.groups.flatMap((g) => g.toDelete).reduce((sum, s) => sum + s.size, 0);
@@ -106,6 +110,13 @@ export function collectRisks({ catalog, merged = mergeByDirName(catalog.skills),
     count: idleMcp.length,
     suggestion: idleMcp.length ? riskSuggestion(lang, 'idleClaudeMcp', idleMcp.join(' ')) : tr(lang, 'common.none'),
     samples: idleMcp,
+  });
+  addItem(items, {
+    severity: highMcpSchema.length ? 'low' : 'ok',
+    title: riskText(lang, 'highMcpSchema'),
+    count: highMcpSchema.length,
+    suggestion: highMcpSchema.length ? riskSuggestion(lang, 'highMcpSchema') : tr(lang, 'common.none'),
+    samples: highMcpSchema.map((m) => sampleText(lang, 'highMcpSchema', m)),
   });
   addItem(items, {
     severity: sessionBytes > LARGE_LOG_BYTES ? 'medium' : reclaimBytes > RECLAIM_HINT_BYTES ? 'low' : 'ok',
@@ -193,6 +204,7 @@ function riskText(lang, key, value) {
     stale: `Unused for ${value}+ days`,
     missingDescription: 'Missing description',
     codexOnlyMcp: 'Codex-only MCP',
+    highMcpSchema: 'High MCP schema estimate',
   };
   const zh = {
     duplicateNeverUsed: '双份且从未使用',
@@ -203,6 +215,7 @@ function riskText(lang, key, value) {
     stale: `${value} 天以上未用`,
     missingDescription: 'description 缺失',
     codexOnlyMcp: '仅 Codex 侧 MCP',
+    highMcpSchema: '高 MCP schema 估算',
   };
   return (lang === 'en' ? en : zh)[key];
 }
@@ -218,6 +231,7 @@ function riskSuggestion(lang, key, value = '') {
     stale: 'Use skm audit to decide whether to archive or disable them',
     missingDescription: 'Add SKILL.md frontmatter descriptions to improve search, recommendation, and graph quality',
     codexOnlyMcp: 'Currently unobservable from Claude logs; skm does not recommend disabling them based on this alone',
+    highMcpSchema: 'Review high-cost MCP servers first; this is a static estimate and does not start the server',
   };
   const zh = {
     duplicateNeverUsed: `先核对 skm audit 与 skm dupes，再考虑 skm disable ${value}`,
@@ -229,6 +243,7 @@ function riskSuggestion(lang, key, value = '') {
     stale: '结合 skm audit 判断是否归档或禁用',
     missingDescription: '补齐 SKILL.md frontmatter description，可提升搜索、推荐和图谱质量',
     codexOnlyMcp: '当前无法从 Claude 日志观测，不据此建议禁用',
+    highMcpSchema: '优先复核高开销 MCP；这是静态估算，不会启动 server',
   };
   return (lang === 'en' ? en : zh)[key];
 }
@@ -240,11 +255,27 @@ function sampleText(lang, key, value) {
     if (key === 'highContextNeverUsed') return `${value.skill.dirName} (about ${value.skill.descTokens || 0} tokens)`;
     if (key === 'sessionLogSize') return `Total ${fmtBytes(value.sessionBytes)}, 30 days ∪ keep 3 can reclaim ${fmtBytes(value.reclaimBytes)}`;
     if (key === 'stale') return `${value.skill.dirName} (last used ${fmtAgoLang(lang, value.usage.lastUsed)}, used ${value.usage.count} time(s))`;
+    if (key === 'highMcpSchema') return `${value.name} (about ${value.schemaTokens} tokens, used ${value.usageCount} time(s))`;
   }
   if (key === 'duplicateNeverUsed') return `${value.skill.dirName}（${value.skill.tools.join(' + ')}，约 ${value.skill.descTokens || 0} token）`;
   if (key === 'duplicateEntity') return `${value.dirName}（${value.entries.length} 处安装）`;
   if (key === 'highContextNeverUsed') return `${value.skill.dirName}（约 ${value.skill.descTokens || 0} token）`;
   if (key === 'sessionLogSize') return `总量 ${fmtBytes(value.sessionBytes)}，按 30 天 ∪ 留 3 个策略可释放 ${fmtBytes(value.reclaimBytes)}`;
   if (key === 'stale') return `${value.skill.dirName}（最近 ${fmtAgoLang(lang, value.usage.lastUsed)}，用过 ${value.usage.count} 次）`;
+  if (key === 'highMcpSchema') return `${value.name}（约 ${value.schemaTokens} token，用过 ${value.usageCount} 次）`;
   return String(value);
+}
+
+function summarizeMcpSchema(mcpServers, usage) {
+  const byName = new Map();
+  for (const server of mcpServers) {
+    const row = byName.get(server.name) || {
+      name: server.name,
+      schemaTokens: 0,
+      usageCount: usage.mcp?.[server.name]?.count || 0,
+    };
+    row.schemaTokens = Math.max(row.schemaTokens, server.schemaTokens || 0);
+    byName.set(server.name, row);
+  }
+  return [...byName.values()];
 }

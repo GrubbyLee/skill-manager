@@ -24,12 +24,13 @@ skm sessions
 
 Some commands update skm's own files under `~/.skill-manager`, such as catalog, usage cache, audit history, and session index. These files do not change Claude Code or Codex behavior.
 
-Explicitly running `node scripts/install.mjs` is the install-time exception: it runs local `npm link` and installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`. If a target directory already exists with different content, the installer backs it up before replacing it.
+Explicitly running `skm setup` or `node scripts/install.mjs` is the install-time exception: it installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`. If a target directory already exists with different content, skm backs it up before replacing it.
 
 ## CLI Write Operations
 
 | Action | What changes | Safeguards |
 |---|---|---|
+| `setup` | Installs the `skill-navigator` bridge skill | Explicit command, supports `--dry-run`, backs up existing different content before replacement |
 | `sessions --clean` | Deletes session log files | Requires retention policy, prints plan first, confirmation or `--yes`, never deletes sessions active within 24 hours, aggregates usage before deletion |
 | `disable/enable <skill>` | Renames skill directories | Reversible, no deletion, plugin skills are refused |
 | `disable/enable --mcp` | Edits `~/.claude.json` / `config.toml` | Per-operation backups, confirmation, Codex line comments are reversible, restore never overwrites manually recreated config |

@@ -1,26 +1,33 @@
 import { scanClaudeCode } from '../adapters/claudeCode.js';
 import { scanCodex } from '../adapters/codex.js';
+import { scanCursor } from '../adapters/cursor.js';
+import { scanGemini } from '../adapters/gemini.js';
 import { loadRules, classify } from '../classify.js';
 import { saveCatalog, loadCatalog, mergeByDirName, CATALOG_REL } from '../catalog.js';
 import { renderTable, termWidth } from '../table.js';
 import { paint, paintErr } from '../utils.js';
 import { tr } from '../i18n.js';
+import { anonymizeCatalog } from '../anonymize.js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // silent 模式：汇总走 stderr，保证 --json 消费方的 stdout 干净（兜底重扫场景）
-export function runScan({ cwd, json = false, verbose = false, silent = false, lang = 'zh-CN' }) {
+export function runScan({ cwd, json = false, verbose = false, silent = false, lang = 'zh-CN', export: exportFormat, output, anonymize = false }) {
   const print = silent ? console.error : console.log;
   // 着色按实际写入的流判断（stdout 与 stderr 的 TTY 状态可能不同）
   const pal = silent ? paintErr : paint;
   const claude = scanClaudeCode({ cwd });
   const codex = scanCodex();
+  const cursor = scanCursor({ cwd });
+  const gemini = scanGemini({ cwd });
   const ruleSet = loadRules();
 
-  const skills = [...claude.skills, ...codex.skills].map((s) => ({
+  const skills = [...claude.skills, ...codex.skills, ...cursor.skills, ...gemini.skills].map((s) => ({
     ...s,
     category: classify(s, ruleSet),
   }));
-  const mcpServers = [...claude.mcpServers, ...codex.mcpServers];
-  const warnings = [...claude.warnings, ...codex.warnings];
+  const mcpServers = [...claude.mcpServers, ...codex.mcpServers, ...cursor.mcpServers, ...gemini.mcpServers];
+  const warnings = [...claude.warnings, ...codex.warnings, ...cursor.warnings, ...gemini.warnings];
 
   const catalog = {
     version: 1,
@@ -29,12 +36,19 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
     skills,
     mcpServers,
     warnings,
-    archived: { 'claude-code': claude.archived, codex: codex.archived },
+    archived: { 'claude-code': claude.archived, codex: codex.archived, cursor: cursor.archived, gemini: gemini.archived },
   };
   saveCatalog(catalog);
 
-  if (json) {
-    console.log(JSON.stringify(catalog, null, 2));
+  if (json || exportFormat) {
+    const exported = anonymize ? anonymizeCatalog(catalog) : catalog;
+    const text = JSON.stringify(exported, null, 2);
+    if (output) {
+      writeTextFile(output, text);
+      print(tr(lang, 'scan.exported', { output, anonymize }));
+    } else {
+      console.log(text);
+    }
     return;
   }
 
@@ -60,6 +74,8 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
   const width = termWidth();
   const claudeStats = skillStats('claude-code');
   const codexStats = skillStats('codex');
+  const cursorStats = skillStats('cursor');
+  const geminiStats = skillStats('gemini');
 
   print(`\n${tr(lang, 'scan.overview')}`);
   print(renderTable(
@@ -76,6 +92,8 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
     [
       ['Claude Code', claudeStats.skills, claudeStats.user, claudeStats.project, claudeStats.plugin, claudeStats.mcp, claudeStats.archived, tr(lang, 'scan.tokens', { n: claudeStats.tokens })],
       ['Codex', codexStats.skills, codexStats.user, codexStats.project, codexStats.plugin, codexStats.mcp, codexStats.archived, tr(lang, 'scan.tokens', { n: codexStats.tokens })],
+      ['Cursor', cursorStats.skills, cursorStats.user, cursorStats.project, cursorStats.plugin, cursorStats.mcp, cursorStats.archived, tr(lang, 'scan.tokens', { n: cursorStats.tokens })],
+      ['Gemini CLI', geminiStats.skills, geminiStats.user, geminiStats.project, geminiStats.plugin, geminiStats.mcp, geminiStats.archived, tr(lang, 'scan.tokens', { n: geminiStats.tokens })],
     ],
     Math.min(width, 100),
   ));
@@ -104,7 +122,7 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
     [...byCat.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => [c, tr(lang, 'scan.unit.items', { n })]),
     Math.min(width, 80),
   ));
-  if (catalog.archived['claude-code'] + catalog.archived.codex > 0) {
+  if (Object.values(catalog.archived).reduce((sum, n) => sum + n, 0) > 0) {
     print(`\n${tr(lang, 'scan.archivedNote')}`);
   }
   if (warnings.length) {
@@ -112,6 +130,11 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
     if (verbose) for (const w of warnings) print(pal.yellow(`    - ${w}`));
   }
   print(`\n${tr(lang, 'scan.catalogWritten', { file: CATALOG_REL })}`);
+}
+
+function writeTextFile(file, text) {
+  fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
+  fs.writeFileSync(file, text);
 }
 
 // 各命令的统一兜底：目录缺失/损坏 → 静默重扫（汇总走 stderr）→ 仍失败则抛出明确错误

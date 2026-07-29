@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { scanSkillDir } from './common.js';
+import { estimateMcpTokens } from './mcpCost.js';
 import { CLAUDE_SKILLS_DIR, CLAUDE_PLUGINS_FILE, CLAUDE_CONFIG_FILE } from '../paths.js';
 
 const TOOL = 'claude-code';
@@ -68,6 +69,7 @@ function pushMcpServers(list, servers, scope, configFile) {
       scope,
       transport: cfg.type || (cfg.url ? 'http' : 'stdio'),
       command: cfg.command ? [cfg.command, ...(cfg.args || [])].join(' ') : cfg.url || '',
+      schemaTokens: estimateMcpTokens({ name, transport: cfg.type || (cfg.url ? 'http' : 'stdio'), command: cfg.command ? [cfg.command, ...(cfg.args || [])].join(' ') : cfg.url || '' }),
       configFile,
     });
   }

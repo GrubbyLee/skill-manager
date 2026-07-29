@@ -11,8 +11,9 @@ import { computeHealthScore } from './status.js';
 import { renderTable, termWidth } from '../table.js';
 import { fmtAgoLang, tr } from '../i18n.js';
 import { fmtBytes, fmtDateTime, fmtDay, paint } from '../utils.js';
+import { anonymizeReportData } from '../anonymize.js';
 
-export function runReport({ cwd, json = false, format, output, lang = 'zh-CN' }) {
+export function runReport({ cwd, json = false, format, output, lang = 'zh-CN', anonymize = false }) {
   const resolvedFormat = json ? 'json' : (format || (output ? inferFormat(output) : 'summary'));
   if (!['summary', 'html', 'json'].includes(resolvedFormat)) {
     throw new Error(tr(lang, 'report.unsupportedFormat', { format: resolvedFormat }));
@@ -29,14 +30,15 @@ export function runReport({ cwd, json = false, format, output, lang = 'zh-CN' })
   const usage = scanUsage({ log: (msg) => console.error(msg), lang });
   const sessions = buildSessionIndex();
   const data = buildReportData({ catalog, merged, usage, sessions, lang });
+  const exportedData = anonymize ? anonymizeReportData(data) : data;
 
   if (resolvedFormat === 'json') {
-    console.log(JSON.stringify(data, null, 2));
+    console.log(JSON.stringify(exportedData, null, 2));
     return;
   }
 
   if (resolvedFormat === 'html') {
-    const html = renderReportHtml(data, lang);
+    const html = renderReportHtml(exportedData, lang);
     if (output) {
       writeTextFile(output, html);
       console.log(tr(lang, 'report.exported', { output }));
@@ -46,7 +48,7 @@ export function runReport({ cwd, json = false, format, output, lang = 'zh-CN' })
     return;
   }
 
-  printReportSummary(data, lang);
+  printReportSummary(exportedData, lang);
 }
 
 export function buildReportData({ catalog, merged = mergeByDirName(catalog.skills || []), usage, sessions = [], lang = 'zh-CN' }) {
@@ -67,6 +69,7 @@ export function buildReportData({ catalog, merged = mergeByDirName(catalog.skill
   });
   const riskReport = collectRisks({ catalog, merged, usage, sessions, lang });
   const graph = buildKnowledgeGraph(catalog, usage);
+  const mcpCost = summarizeMcpCost(catalog.mcpServers || [], usage);
 
   return {
     version: 1,
@@ -76,6 +79,7 @@ export function buildReportData({ catalog, merged = mergeByDirName(catalog.skill
       score,
       skills: merged.length,
       mcpServers: new Set((catalog.mcpServers || []).map((m) => m.name)).size,
+      mcpSchemaTokens: mcpCost.totalTokens,
       neverUsed: neverUsed.length,
       duplicateInstalls: dupEntities.length,
       idleMcp,
@@ -103,11 +107,13 @@ export function buildReportData({ catalog, merged = mergeByDirName(catalog.skill
           descTokens: skill.descTokens || 0,
           usageCount: usageOf(skill).count,
         })),
+      topMcpContext: mcpCost.top,
     },
     sessions: summarizeSessions(sessions).slice(0, 10),
     graph: {
       stats: graph.stats,
       edgeTypes: graph.stats.edgeTypes,
+      summaries: graph.summaries,
     },
     commands: {
       refresh: 'skm scan',
@@ -129,6 +135,7 @@ function printReportSummary(data, lang) {
       [tr(lang, 'report.score'), `${data.health.score} / 100`],
       [tr(lang, 'report.skills'), data.health.skills],
       [tr(lang, 'report.mcp'), data.health.mcpServers],
+      [tr(lang, 'report.mcpTokens'), data.health.mcpSchemaTokens],
       [tr(lang, 'report.neverUsed'), data.health.neverUsed],
       [tr(lang, 'report.duplicates'), data.health.duplicateInstalls],
       [tr(lang, 'report.sessions'), fmtBytes(data.health.sessionBytes)],
@@ -207,6 +214,7 @@ export function renderReportHtml(data, lang = 'zh-CN') {
     ${metricCard(tr(lang, 'report.score'), `${data.health.score} / 100`, 'score')}
     ${metricCard(tr(lang, 'report.skills'), data.health.skills)}
     ${metricCard(tr(lang, 'report.mcp'), data.health.mcpServers)}
+    ${metricCard(tr(lang, 'report.mcpTokens'), data.health.mcpSchemaTokens)}
     ${metricCard(tr(lang, 'report.neverUsed'), data.health.neverUsed)}
     ${metricCard(tr(lang, 'report.duplicates'), data.health.duplicateInstalls)}
     ${metricCard(tr(lang, 'report.sessions'), fmtBytes(data.health.sessionBytes))}
@@ -222,6 +230,7 @@ export function renderReportHtml(data, lang = 'zh-CN') {
 
     <article class="card wide">
       <h2>${escapeHtml(labels.graphSummary)}</h2>
+      ${summaryList(data.graph.summaries, lang)}
       ${renderBars(data.graph.edgeTypes, lang)}
       <p><b>${escapeHtml(tr(lang, 'report.openGraph'))}:</b> <code>${escapeHtml(data.commands.graph)}</code></p>
     </article>
@@ -239,6 +248,11 @@ export function renderReportHtml(data, lang = 'zh-CN') {
     <article class="card wide">
       <h2>${escapeHtml(labels.topContext)}</h2>
       ${contextTable(data.usage.topContext, lang)}
+    </article>
+
+    <article class="card wide">
+      <h2>${escapeHtml(tr(lang, 'report.topMcpContext'))}</h2>
+      ${mcpContextTable(data.usage.topMcpContext, lang)}
     </article>
 
     <article class="card wide">
@@ -270,6 +284,19 @@ function contextTable(rows, lang) {
   return `<table><thead><tr><th>${escapeHtml(tr(lang, 'report.col.name'))}</th><th>token</th><th>${escapeHtml(tr(lang, 'report.col.count'))}</th><th>${escapeHtml(tr(lang, 'report.col.category'))}</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${escapeHtml(r.dirName)} <span class="pill">${escapeHtml(localizedToolLabel(r.tools, lang))}</span></td><td>${r.descTokens}</td><td>${r.usageCount}</td><td>${escapeHtml(r.category)}</td></tr>`).join('')}</tbody></table>`;
 }
 
+function mcpContextTable(rows, lang) {
+  if (!rows.length) return `<p>${escapeHtml(tr(lang, 'common.none'))}</p>`;
+  return `<table><thead><tr><th>${escapeHtml(tr(lang, 'report.col.name'))}</th><th>token</th><th>${escapeHtml(tr(lang, 'report.col.count'))}</th><th>${escapeHtml(tr(lang, 'report.col.tool'))}</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td>${r.schemaTokens}</td><td>${r.usageCount}</td><td>${escapeHtml(r.tools.join(' / '))}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function summaryList(summaries = [], lang) {
+  if (!summaries.length) return '';
+  return `<ul>${summaries.slice(0, 5).map((s) => {
+    const item = localizeGraphSummary(s, lang);
+    return `<li><b>${escapeHtml(item.title)}</b>${lang === 'en' ? ': ' : '：'}${escapeHtml(item.detail)}</li>`;
+  }).join('')}</ul>`;
+}
+
 function sessionTable(rows, lang) {
   if (!rows.length) return `<p>${escapeHtml(tr(lang, 'common.none'))}</p>`;
   return `<table><thead><tr><th>${escapeHtml(tr(lang, 'report.col.workspace'))}</th><th>${escapeHtml(tr(lang, 'report.col.count'))}</th><th>${escapeHtml(tr(lang, 'report.col.size'))}</th><th>${escapeHtml(tr(lang, 'sessions.col.newest'))}</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${escapeHtml(r.workspace ?? tr(lang, 'sessions.unknownWorkspace'))}</td><td>${r.count}</td><td>${escapeHtml(fmtBytes(r.bytes))}</td><td>${escapeHtml(fmtDay(r.newest))}</td></tr>`).join('')}</tbody></table>`;
@@ -293,6 +320,29 @@ function summarizeSessions(sessions) {
     map.set(key, row);
   }
   return [...map.values()].sort((a, b) => b.bytes - a.bytes);
+}
+
+function summarizeMcpCost(mcpServers, usage) {
+  const byName = new Map();
+  for (const server of mcpServers) {
+    const row = byName.get(server.name) || {
+      name: server.name,
+      tools: new Set(),
+      schemaTokens: 0,
+      usageCount: usage.mcp?.[server.name]?.count || 0,
+      lastUsed: usage.mcp?.[server.name]?.lastUsed || null,
+    };
+    row.tools.add(server.tool);
+    row.schemaTokens = Math.max(row.schemaTokens, server.schemaTokens || 0);
+    byName.set(server.name, row);
+  }
+  const top = [...byName.values()]
+    .map((r) => ({ ...r, tools: [...r.tools] }))
+    .sort((a, b) => b.schemaTokens - a.schemaTokens || a.name.localeCompare(b.name));
+  return {
+    totalTokens: top.reduce((sum, r) => sum + r.schemaTokens, 0),
+    top: top.slice(0, 10),
+  };
 }
 
 function inferFormat(output) {
@@ -319,8 +369,13 @@ function edgeName(type, lang) {
     same_category: 'same category',
     duplicate: 'duplicate',
     alternative: 'alternative',
+    strong_alternative: 'strong alternative',
+    weak_alternative: 'weak alternative',
     pipeline: 'workflow',
+    upstream_downstream: 'upstream/downstream',
     reverse_transform: 'reverse conversion',
+    shared_io_format: 'shared I/O format',
+    same_platform_action: 'same-platform action',
     shared_platform: 'shared platform',
     uses_mcp: 'uses MCP',
   };
@@ -329,12 +384,41 @@ function edgeName(type, lang) {
     same_category: '同类',
     duplicate: '重复',
     alternative: '替代',
+    strong_alternative: '强替代',
+    weak_alternative: '弱替代',
     pipeline: '流程',
+    upstream_downstream: '上下游',
     reverse_transform: '反向转换',
+    shared_io_format: '共享格式',
+    same_platform_action: '同平台动作',
     shared_platform: '共享平台',
     uses_mcp: '使用 MCP',
   };
   return (lang === 'en' ? en : zh)[type] || type;
+}
+
+function localizeGraphSummary(summary, lang) {
+  if (summary.type === 'family') {
+    return lang === 'en'
+      ? { title: 'Densest suite', detail: `${summary.label}, ${summary.count} related skill(s)` }
+      : { title: '最密集套件', detail: `${summary.label}，关联 ${summary.count} 个 skill` };
+  }
+  if (summary.type === 'duplicate') {
+    return lang === 'en'
+      ? { title: 'Duplicate core', detail: `${summary.count} duplicate relationship(s); review with skm dupes` }
+      : { title: '重复核心', detail: `${summary.count} 条内容重复关系，建议用 skm dupes 复核` };
+  }
+  if (summary.type === 'platform') {
+    return lang === 'en'
+      ? { title: 'Platform ecosystem', detail: `${summary.label}, ${summary.count} relationship(s)` }
+      : { title: '平台生态', detail: `${summary.label}，关联 ${summary.count} 条关系` };
+  }
+  if (summary.type === 'workflow') {
+    return lang === 'en'
+      ? { title: 'Potential workflows', detail: `${summary.count} upstream/downstream or workflow relationship(s)` }
+      : { title: '潜在工作流', detail: `${summary.count} 条上下游或流程关系，可在 HTML 图谱中筛选查看` };
+  }
+  return { title: summary.title || summary.type, detail: summary.detail || '' };
 }
 
 function escapeHtml(s) {

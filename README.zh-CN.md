@@ -19,12 +19,8 @@
 
 ## 30 秒体验
 
-GitHub 主仓：
-
 ```bash
-git clone https://github.com/GrubbyLee/skill-manager.git
-cd skill-manager
-node scripts/install.mjs
+npm i -g aide-skill-manager
 
 skm scan
 skm
@@ -33,7 +29,21 @@ skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
 
-国内也可以从 Gitee 镜像克隆：
+可选：安装桥接 skill，让 Claude Code / Codex 在对话里直接调用本机 `skm`：
+
+```bash
+skm setup
+```
+
+`npm i -g` 负责安装 `skm` 命令。`skm setup` 是显式写操作，会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`。这样你在 AIDE 内询问“该用哪个 skill”时，它可以默认访问本机 `skm`。
+
+如果 npm 官方源较慢，国内可临时使用镜像安装：
+
+```bash
+npm i -g aide-skill-manager --registry=https://registry.npmmirror.com
+```
+
+源码安装仍然保留，适合本地开发或从 Gitee 镜像体验：
 
 ```bash
 git clone https://gitee.com/synovation/skill-manager.git
@@ -41,9 +51,7 @@ cd skill-manager
 node scripts/install.mjs
 ```
 
-这是源码安装。安装脚本会在克隆后的仓库内执行 `npm link`，让本机可以直接使用 `skm` 命令；同时会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 和 `~/.codex/skills/`，让 Claude Code / Codex 在你询问“该用哪个 skill”时默认访问本机 `skm`。它不会从 npm registry 安装 `aide-skill-manager` 包。
-
-> 当前 README 仅保留 git clone + 本地安装脚本方式。npm 包名已预留为 `aide-skill-manager`，正式发布前不建议在文档中引导 npm 安装。
+源码安装脚本会在克隆后的仓库内执行 `npm link`，并安装桥接 skill。
 
 CLI 输出支持语言切换：
 
@@ -64,8 +72,9 @@ SKM_LANG=zh-CN skm doctor
 | skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
 | 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
 | 能否导出一页总览？ | `skm report --format html` | 健康、风险、使用、会话、图谱摘要汇总 |
+| 能否安全分享扫描/报告结果？ | `skm scan --export json --output scan.json --anonymize` | 脱敏路径、配置位置、工作区和 MCP 命令 |
 | 会话日志太大怎么办？ | `skm sessions` | 按工作区统计日志体积，支持 dry-run 清理计划 |
-| 能让编程助手直接调用 skm 吗？ | 安装后直接在 AIDE 内提问 | 自动安装的 `skill-navigator` 桥接 skill 会代你调用本机 `skm` |
+| 能让编程助手直接调用 skm 吗？ | `skm setup` 后在 AIDE 内提问 | `skill-navigator` 桥接 skill 会代你调用本机 `skm` |
 
 ## 命令速查
 
@@ -76,6 +85,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm risks` | 风险报告，不修改 AIDE 数据 |
 | `skm report` | 一页式总览报告 |
 | `skm scan` | 扫描 skill / MCP，重建目录 |
+| `skm setup` | 安装可选的 `skill-navigator` 桥接 skill |
 | `skm list` / `skm list --mcp` | 列出 skill 或 MCP |
 | `skm search <关键词>` | 按名称、分类、描述搜索 |
 | `skm recommend <任务>` | 表格形式推荐 skill |
@@ -89,16 +99,19 @@ SKM_LANG=zh-CN skm doctor
 
 完整命令说明见 [docs/usage.md](docs/usage.md)。
 
-附属桥接 skill：`skill-navigator` 会自动安装，供 Claude Code / Codex 调用本机 `skm`；它不是 CLI 命令。
+附属桥接 skill：运行 `skm setup` 会安装 `skill-navigator`，供 Claude Code / Codex 调用本机 `skm`；它不是 CLI 命令。
 
 ## 项目特性
 
-- 双工具覆盖：Claude Code 与 Codex CLI 的 skill / MCP 统一扫描
+- 多工具覆盖：Claude Code 与 Codex CLI 的 skill / MCP 统一扫描，并保守扫描 Cursor / Gemini 的 skill 目录
 - 软链感知：区分共享实体、实体双份和内容不同
 - 四级重复检测：同名、同内容、同类多实现、文本高度相似
 - 真实使用审计：解析会话日志，只统计真正读取或调用过的 skill / MCP
-- 知识图谱：导出 JSON、Mermaid 或单文件 HTML
-- 总览报告：导出单文件 HTML，汇总健康、风险、使用、会话与图谱摘要
+- 推荐增强：自然语言推荐会在相关候选内学习你的常用分类和套件偏好
+- MCP 开销估算：标记高 schema 上下文开销的 MCP server
+- 知识图谱：导出 JSON、Mermaid 或单文件 HTML，包含更丰富的关系和摘要
+- 总览报告：导出单文件 HTML，汇总健康、风险、使用、会话、MCP schema 估算与图谱摘要
+- 匿名导出：扫描与报告支持脱敏，便于开源社区反馈
 - 零第三方依赖：全部功能基于 Node.js 内置模块实现
 - 双语入口：README 默认英文，中文文档保留；核心 CLI 输出支持中英文切换
 - 开源友好：macOS / Windows 通过 GitHub Actions 按需验证，Linux 由维护者本机验证
@@ -113,7 +126,9 @@ skm recommend "生成小红书图片卡片" --top 5
 skm recommend "markdown to html" --why
 ```
 
-推荐逻辑默认完全本地运行，不调用外部模型，不上传目录信息。它会综合名称、分类、description、中文任务意图、转换方向、历史使用、最近使用和两侧可用性。
+推荐逻辑默认完全本地运行，不调用外部模型，不上传目录信息。它会综合名称、分类、description、中文任务意图、转换方向、历史使用、最近使用和各扫描工具侧的可用性。
+
+本地排序还会从真实使用记录里学习轻量个人偏好：只有候选已经和任务相关时，常用分类或常用套件才会获得小幅加权，不会让高频但无关的 skill 混入推荐结果。
 
 推荐规则改动会经过 40 条中英文公开回归样本检验。可运行 `npm run benchmark:recommend` 查看结果；指标定义和适用边界见 [推荐功能文档](docs/recommend.md#可度量的回归基准)。
 
@@ -124,7 +139,7 @@ skm recommend "生成知识图谱" --advisor codex --why
 skm recommend "整理会议纪要" --advisor claude
 ```
 
-增强模式只会发送精简候选清单，不发送 skill 路径、真实配置路径、MCP `env` 值、API Key、密码或密钥文件。详细说明见 [docs/recommend.md](docs/recommend.md)。
+增强模式只会发送按相关性压缩后的精简候选清单，不发送 skill 路径、真实配置路径、MCP `env` 值、API Key、密码或密钥文件。详细说明见 [docs/recommend.md](docs/recommend.md)。
 
 ## 知识图谱
 
@@ -136,15 +151,16 @@ skm graph --format html --output skill-graph.html
 
 ![skm skill 知识图谱示意图](docs/graphic.png)
 
-支持的关系包括同源、同类、重复、替代、流程、反向转换、共享平台、使用 MCP。关系含义和交互说明见 [docs/graph.md](docs/graph.md)。
+支持的关系包括同源、同类、重复、强/弱替代、流程、上下游、共享输入输出格式、反向转换、共享平台、同平台动作、使用 MCP。关系含义和交互说明见 [docs/graph.md](docs/graph.md)。
 
 ## 总览报告
 
 ```bash
 skm report --format html --output skm-report.html
+skm report --format html --output skm-report.html --anonymize
 ```
 
-报告会把健康分、风险项、使用频率、上下文开销、会话日志、图谱摘要和下一步命令放到一页本地 HTML。详细说明见 [docs/report.md](docs/report.md)。
+报告会把健康分、风险项、使用频率、上下文开销、MCP schema 估算、会话日志、图谱摘要和下一步命令放到一页本地 HTML。对外分享前建议加 `--anonymize`。详细说明见 [docs/report.md](docs/report.md)。
 
 ## 四格小漫画
 
@@ -161,9 +177,11 @@ skm report --format html --output skm-report.html
 ```bash
 skm doctor
 skm scan
+skm scan --export json --output skm-scan.json --anonymize
 skm
 skm risks
 skm report --format html --output skm-report.html
+skm report --format html --output skm-report.html --anonymize
 skm dupes
 skm audit
 skm list --mcp
@@ -171,16 +189,17 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-排查时先刷新事实，再看整体健康、风险、重复与使用频率。真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+排查时先刷新事实，再看整体健康、风险、重复与使用频率。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
 
 ## 安全边界
 
-默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude/Codex 的配置、skill、MCP 或会话日志。显式运行安装脚本是例外：它会本地 link `skm`，并把附属桥接 skill 安装到用户 skill 目录。
+默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude/Codex 的配置、skill、MCP 或会话日志。显式运行 `skm setup` 或源码安装脚本是例外：它们会把附属桥接 skill 安装到用户 skill 目录。
 
-CLI 内只有三类动作会修改 AIDE 文件：
+CLI 内只有四类动作会修改 AIDE 文件：
 
 | 动作 | 改动内容 | 防护 |
 |---|---|---|
+| `setup` | 安装 `skill-navigator` 到用户 skill 目录 | 显式命令；目标已有不同内容时先备份再替换；支持 `--dry-run` |
 | `sessions --clean` | 删除会话日志文件 | 必须给保留策略；先打印计划；交互确认或 `--yes`；24 小时内活跃会话永不删；删除前聚合统计 |
 | `disable/enable <skill>` | 重命名 skill 目录 | 完全可逆，不删除文件；插件 skill 拒绝处理 |
 | `disable/enable --mcp` | 修改 `~/.claude.json` / `config.toml` | 自动备份；需确认；恢复时不覆盖用户手动重建的同名配置 |
@@ -189,14 +208,14 @@ CLI 内只有三类动作会修改 AIDE 文件：
 
 ## 在 AIDE 内使用
 
-`node scripts/install.mjs` 会默认安装 `skill-navigator`：
+`skm setup` 会安装 `skill-navigator`：
 
 ```bash
 ~/.claude/skills/skill-navigator
 ~/.codex/skills/skill-navigator
 ```
 
-这个薄入口 skill 是 Claude Code / Codex 与本项目之间的桥梁：之后你可以直接在对话里问“我要做 XX 该用哪个 skill”，编程助手应通过本机 `skm` 命令读取清单、审计和推荐结果，而不是手动扫描目录。拉取项目更新后，重新运行 `node scripts/install.mjs` 即可刷新桥接 skill。
+这个薄入口 skill 是 Claude Code / Codex 与本项目之间的桥梁：之后你可以直接在对话里问“我要做 XX 该用哪个 skill”，编程助手应通过本机 `skm` 命令读取清单、审计和推荐结果，而不是手动扫描目录。升级后重新运行 `skm setup` 即可刷新桥接 skill。
 
 ## 文档
 
@@ -222,7 +241,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-`skm help`、参数校验、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
+`skm help`、参数校验、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
 
 可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。JSON 字段名保持稳定。
 
@@ -232,8 +251,8 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 
 - 真实用户样本收集，校准分类、推荐和图谱
 - 更强的知识图谱聚类、布局和导出样式
-- 更多 AIDE 适配器，例如 Cursor、Gemini CLI
-- MCP 逐 server 的 tool schema token 实测
+- 在当前 Cursor / Gemini 目录扫描基础上继续扩展更多 AIDE 适配器
+- 在当前 MCP schema 静态估算基础上继续做逐 server 实测
 
 完整路线图见 [docs/roadmap.md](docs/roadmap.md)。
 
