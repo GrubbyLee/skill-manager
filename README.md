@@ -21,6 +21,7 @@ If `skm` helps you understand your local skill setup, a GitHub Star helps other 
 
 ## 30-Second Start
 
+```bash
 npm i -g aide-skill-manager
 
 skm scan
