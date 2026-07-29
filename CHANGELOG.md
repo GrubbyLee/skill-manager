@@ -2,7 +2,8 @@
 
 ## 未发布
 
-暂无。
+- 新增 npm Trusted Publishing 工作流，main 分支提交后会在版本未发布时自动发布 npm 包。
+- 新增中英文发布流程文档，记录 npmjs.com 端 Trusted Publisher 配置与日常发布步骤。
 
 ## v0.1.3
 

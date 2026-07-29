@@ -1,0 +1,89 @@
+name: 发布到 npm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'bin/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'integrations/**'
+      - 'benchmarks/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'README.zh-CN.md'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+  workflow_dispatch:
+    inputs:
+      force_publish:
+        description: '即使版本查询失败也尝试发布；已发布的同版本仍会被 npm 拒绝'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Trusted Publishing
+    runs-on: ubuntu-latest
+    env:
+      FORCE_PUBLISH: ${{ inputs.force_publish }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: 校验发布环境
+        run: |
+          node --version
+          npm --version
+          node -e "const v=process.versions.node.split('.').map(Number); if (v[0] < 22 || (v[0] === 22 && v[1] < 14)) throw new Error('Trusted Publishing 需要 Node.js >= 22.14.0')"
+          node -e "const v=require('child_process').execSync('npm --version',{encoding:'utf8'}).trim().split('.').map(Number); if (v[0] < 11 || (v[0] === 11 && v[1] < 5) || (v[0] === 11 && v[1] === 5 && v[2] < 1)) throw new Error('Trusted Publishing 需要 npm >= 11.5.1')"
+
+      - name: 安装校验
+        run: npm install --ignore-scripts
+
+      - name: 语法检查
+        run: npm run check
+
+      - name: 单元测试
+        run: npm test
+
+      - name: 打包预检
+        run: npm pack --dry-run --registry=https://registry.npmjs.org
+
+      - name: 判断当前版本是否需要发布
+        id: version
+        run: |
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          echo "package_name=${package_name}" >> "$GITHUB_OUTPUT"
+          echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
+
+          published_version="$(npm view "${package_name}@${package_version}" version --registry=https://registry.npmjs.org 2>/dev/null || true)"
+          if [ "$published_version" = "$package_version" ] && [ "${FORCE_PUBLISH:-false}" != "true" ]; then
+            echo "版本 ${package_name}@${package_version} 已发布，跳过 npm publish。"
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "准备发布 ${package_name}@${package_version}。"
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 使用 Trusted Publishing 发布到 npm
+        if: steps.version.outputs.should_publish == 'true'
+        run: npm publish --provenance --registry=https://registry.npmjs.org

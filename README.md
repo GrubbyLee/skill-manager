@@ -222,6 +222,7 @@ This thin skill is the bridge between your AIDE coding assistant and `skill-mana
 | [docs/graph.en.md](docs/graph.en.md) / [docs/graph.md](docs/graph.md) | Knowledge graph relationships and HTML interactions |
 | [docs/report.en.md](docs/report.en.md) / [docs/report.md](docs/report.md) | HTML overview report |
 | [docs/safety.en.md](docs/safety.en.md) / [docs/safety.md](docs/safety.md) | Safety boundaries and data notes |
+| [docs/release.en.md](docs/release.en.md) / [docs/release.md](docs/release.md) | npm Trusted Publishing release flow |
 | [docs/roadmap.en.md](docs/roadmap.en.md) / [docs/roadmap.md](docs/roadmap.md) | Roadmap |
 | [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide |
 | [SECURITY.md](SECURITY.md) | Security policy and sensitive data reporting notes |

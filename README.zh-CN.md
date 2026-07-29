@@ -229,6 +229,7 @@ CLI 内只有四类动作会修改 AIDE 文件：
 | [docs/graph.md](docs/graph.md) | 知识图谱关系、交互和导出 |
 | [docs/report.md](docs/report.md) | HTML 总览报告 |
 | [docs/safety.md](docs/safety.md) | 只读边界、写操作防护、数据说明 |
+| [docs/release.md](docs/release.md) | npm Trusted Publishing 发布流程 |
 | [docs/roadmap.md](docs/roadmap.md) | 项目路线图与近期优先级 |
 | [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献方式、本地开发、提交流程 |
 | [SECURITY.md](SECURITY.md) | 安全报告方式与敏感数据提醒 |
