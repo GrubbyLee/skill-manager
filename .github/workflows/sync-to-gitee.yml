@@ -1,10 +1,10 @@
 name: 同步到 Gitee
 
-# push 到 GitHub 的 main 分支或任何标签时，自动将完整仓库同步到 Gitee 镜像
+# push 到 GitHub 的 main 分支时，自动将完整仓库与标签同步到 Gitee 镜像。
+# 标签由 main 分支同步任务统一推送，避免同一次发布触发 tag 任务后重复推送。
 on:
   push:
     branches: [main]
-    tags: ['*']
   workflow_dispatch: {}
 
 jobs:
