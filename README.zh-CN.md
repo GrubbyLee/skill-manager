@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/GrubbyLee/skill-manager?style=social)](https://github.com/GrubbyLee/skill-manager/stargazers)
 
-> Claude Code / Codex skill 与 MCP 的扫描、推荐、去重、审计、知识图谱工具。
+> Claude Code / Codex / Cursor / Gemini skill 与 MCP 的扫描、推荐、去重、审计、知识图谱工具。
 
 一台机器装久了，skill 会越来越像一间堆满工具的工作室：有的重复，有的很久没用，有的藏在软链后面，有的 MCP 每次启动都占上下文。`skm` 做的事很简单：清点它们、解释它们、帮你决定下一步。
 
@@ -64,11 +64,11 @@ SKM_LANG=zh-CN skm doctor
 
 | 你遇到的问题 | 运行 | skm 给你的答案 |
 |---|---|---|
-| 我到底装了多少 skill / MCP？ | `skm scan` | Claude Code / Codex 两侧数量、分类、上下文估算 |
+| 我到底装了多少 skill / MCP？ | `skm scan` | Claude Code / Codex / Cursor / Gemini 数量、分类、上下文估算、静态安全摘要 |
 | 这台机器状态健康吗？ | `skm` | 健康分、僵尸率、重复安装、闲置 MCP、日志体积 |
 | 做某件事该用哪个 skill？ | `skm ask "任务"` | 首选 skill、理由、备选 |
 | 哪些 skill 重复了？ | `skm dupes` | 同名、同内容、同类多实现、文本相似 |
-| 哪些从未真正用过？ | `skm audit` | 使用频率、僵尸 skill、MCP 调用记录 |
+| 哪些从未真正用过？ | `skm audit` | 使用频率、僵尸 skill、MCP 调用记录、静态安全发现 |
 | skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
 | 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
 | 能否导出一页总览？ | `skm report --format html` | 健康、风险、使用、会话、图谱摘要汇总 |
@@ -92,7 +92,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm ask <任务>` | 问答形式推荐 skill |
 | `skm graph` | 导出知识图谱 |
 | `skm dupes` | 检测重复与相似 skill |
-| `skm audit` | 审计真实使用频率 |
+| `skm audit` | 审计真实使用频率和静态安全信号 |
 | `skm sessions` | 查看会话日志分布 |
 | `skm sessions --clean` | 按策略清理会话日志，需确认 |
 | `skm disable` / `skm enable` | 软禁用或恢复 skill / MCP |
@@ -103,10 +103,11 @@ SKM_LANG=zh-CN skm doctor
 
 ## 项目特性
 
-- 多工具覆盖：Claude Code 与 Codex CLI 的 skill / MCP 统一扫描，并保守扫描 Cursor / Gemini 的 skill 目录
+- 多工具覆盖：统一扫描 Claude Code、Codex CLI、Cursor、Gemini 的 skill，并尽量读取常见 MCP 配置
 - 软链感知：区分共享实体、实体双份和内容不同
 - 四级重复检测：同名、同内容、同类多实现、文本高度相似
 - 真实使用审计：解析会话日志，只统计真正读取或调用过的 skill / MCP
+- 静态安全审计：识别疑似外发密钥、破坏性命令、提示词注入、MCP 命令携带密钥等信号
 - 推荐增强：自然语言推荐会在相关候选内学习你的常用分类和套件偏好
 - MCP 开销估算：标记高 schema 上下文开销的 MCP server
 - 知识图谱：导出 JSON、Mermaid 或单文件 HTML，包含更丰富的关系和摘要
@@ -193,7 +194,9 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 ## 安全边界
 
-默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude/Codex 的配置、skill、MCP 或会话日志。显式运行 `skm setup` 或源码安装脚本是例外：它们会把附属桥接 skill 安装到用户 skill 目录。
+默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude Code、Codex、Cursor、Gemini 的配置、skill、MCP 或会话日志。显式运行 `skm setup` 或源码安装脚本是例外：它们会把附属桥接 skill 安装到支持的用户 skill 目录。
+
+安全审计是静态、保守的：只读取 `SKILL.md`、目录元数据和 MCP 的非 `env` 配置字段，不执行 skill/MCP，不输出 env 值；疑似命令证据会先脱敏再展示。
 
 CLI 内只有四类动作会修改 AIDE 文件：
 

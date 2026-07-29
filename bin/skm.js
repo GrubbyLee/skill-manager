@@ -37,7 +37,7 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   ask <事>        以问答口吻给出首选 skill、理由和备选
   graph           生成 skill / MCP 知识图谱（summary/json/html/mermaid，HTML 支持搜索聚焦与节点拖动）
   dupes           重复检测：同名安装 / 内容相同 / 同类多实现 / 文本相似
-  audit           健康审计：使用频率、僵尸 skill、MCP 使用、上下文开销（--history 看归档）
+  audit           健康审计：使用频率、僵尸 skill、MCP 使用、上下文开销、静态安全审计（--history 看归档）
   sessions        按工作区展示会话日志分布；--clean 按保留策略清理
   disable <名>    禁用 skill（目录加 _disabled- 前缀，可逆）；--mcp 禁用 MCP（改配置，先备份）
   enable [名]     恢复被禁用的 skill / MCP；不带参数列出已禁用项
@@ -122,7 +122,7 @@ Commands:
   ask <task>        Q&A-style recommendation with best match, reasons, and alternatives
   graph             Generate a skill / MCP knowledge graph (summary/json/html/mermaid)
   dupes             Duplicate detection: same name / same content / same category / text similarity
-  audit             Usage audit: skill/MCP frequency, zombie skills, context cost (--history for snapshots)
+  audit             Usage audit: skill/MCP frequency, zombie skills, context cost, static security audit (--history for snapshots)
   sessions          Show session logs by workspace; --clean applies a retention policy
   disable <name>    Disable skills by renaming directories; --mcp disables MCP servers with backups
   enable [name]     Restore disabled skills / MCP servers; without names, list disabled items

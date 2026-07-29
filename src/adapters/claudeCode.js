@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { scanSkillDir } from './common.js';
-import { estimateMcpTokens } from './mcpCost.js';
+import { pushJsonMcpServers } from './mcpConfig.js';
 import { CLAUDE_SKILLS_DIR, CLAUDE_PLUGINS_FILE, CLAUDE_CONFIG_FILE } from '../paths.js';
 
 const TOOL = 'claude-code';
@@ -41,13 +41,13 @@ export function scanClaudeCode({ cwd }) {
 
   // 全局 MCP（~/.claude.json）。注意：绝不读取/输出 env 中的敏感值
   const globalConfig = readJson(CLAUDE_CONFIG_FILE, warnings);
-  pushMcpServers(mcpServers, globalConfig?.mcpServers, 'user', CLAUDE_CONFIG_FILE);
+  pushJsonMcpServers(mcpServers, globalConfig?.mcpServers, { tool: TOOL, scope: 'user', configFile: CLAUDE_CONFIG_FILE });
 
   // 项目级 MCP（<cwd>/.mcp.json）
   const projectMcp = fs.existsSync(path.join(cwd, '.mcp.json'))
     ? readJson(path.join(cwd, '.mcp.json'), warnings)
     : null;
-  pushMcpServers(mcpServers, projectMcp?.mcpServers, 'project', path.join(cwd, '.mcp.json'));
+  pushJsonMcpServers(mcpServers, projectMcp?.mcpServers, { tool: TOOL, scope: 'project', configFile: path.join(cwd, '.mcp.json') });
 
   return { skills, mcpServers, warnings, archived };
 }
@@ -57,21 +57,6 @@ function isSameDir(a, b) {
     return fs.realpathSync(a) === fs.realpathSync(b);
   } catch {
     return path.resolve(a) === path.resolve(b);
-  }
-}
-
-function pushMcpServers(list, servers, scope, configFile) {
-  if (!servers || typeof servers !== 'object') return;
-  for (const [name, cfg] of Object.entries(servers)) {
-    list.push({
-      name,
-      tool: TOOL,
-      scope,
-      transport: cfg.type || (cfg.url ? 'http' : 'stdio'),
-      command: cfg.command ? [cfg.command, ...(cfg.args || [])].join(' ') : cfg.url || '',
-      schemaTokens: estimateMcpTokens({ name, transport: cfg.type || (cfg.url ? 'http' : 'stdio'), command: cfg.command ? [cfg.command, ...(cfg.args || [])].join(' ') : cfg.url || '' }),
-      configFile,
-    });
   }
 }
 

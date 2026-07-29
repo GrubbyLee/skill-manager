@@ -8,6 +8,7 @@ import { renderTable, termWidth } from '../table.js';
 import { paint, paintErr } from '../utils.js';
 import { tr } from '../i18n.js';
 import { anonymizeCatalog } from '../anonymize.js';
+import { collectSecurityReport, formatSecuritySummary } from '../securityAudit.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -28,6 +29,7 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
   }));
   const mcpServers = [...claude.mcpServers, ...codex.mcpServers, ...cursor.mcpServers, ...gemini.mcpServers];
   const warnings = [...claude.warnings, ...codex.warnings, ...cursor.warnings, ...gemini.warnings];
+  const security = collectSecurityReport({ skills, mcpServers });
 
   const catalog = {
     version: 1,
@@ -35,6 +37,7 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
     scanCwd: cwd,
     skills,
     mcpServers,
+    security,
     warnings,
     archived: { 'claude-code': claude.archived, codex: codex.archived, cursor: cursor.archived, gemini: gemini.archived },
   };
@@ -107,6 +110,7 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
     [
       [tr(lang, 'scan.metric.uniqueSkills'), tr(lang, 'scan.unit.items', { n: merged.length })],
       [tr(lang, 'scan.metric.sameNameBoth'), tr(lang, 'scan.unit.items', { n: both })],
+      [tr(lang, 'scan.metric.security'), formatSecuritySummary(security.summary, lang)],
       [tr(lang, 'scan.metric.warnings'), tr(lang, 'scan.unit.warnings', { n: warnings.length })],
       [tr(lang, 'scan.metric.catalogFile'), CATALOG_REL],
     ],
@@ -140,11 +144,16 @@ function writeTextFile(file, text) {
 // 各命令的统一兜底：目录缺失/损坏 → 静默重扫（汇总走 stderr）→ 仍失败则抛出明确错误
 export function ensureCatalog(cwd, lang = 'zh-CN') {
   let catalog = loadCatalog();
-  if (!catalog) {
-    console.error(tr(lang, 'scan.catalogMissing'));
+  if (!catalog || isCatalogOutdated(catalog)) {
+    console.error(tr(lang, catalog ? 'scan.catalogOutdated' : 'scan.catalogMissing'));
     runScan({ cwd, silent: true, lang });
     catalog = loadCatalog();
   }
   if (!catalog) throw new Error(tr(lang, 'scan.catalogLoadFailed'));
   return catalog;
+}
+
+function isCatalogOutdated(catalog) {
+  if (!catalog.security || !Array.isArray(catalog.security.findings)) return true;
+  return (catalog.skills || []).some((skill) => !Array.isArray(skill.securityFindings));
 }

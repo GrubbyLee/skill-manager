@@ -9,9 +9,9 @@ English | [简体中文](README.zh-CN.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/GrubbyLee/skill-manager?style=social)](https://github.com/GrubbyLee/skill-manager/stargazers)
 
-> A zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize Claude Code / Codex skills and MCP servers.
+> A zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize Claude Code / Codex / Cursor / Gemini skills and MCP servers.
 
-When you keep adding skills to Claude Code or Codex, the local setup can become hard to reason about: duplicated skills, shared symlinks, unused tools, unclear names, and MCP servers that keep consuming context. `skm` turns that local toolbox into something you can inspect, search, compare, and clean up safely.
+When you keep adding skills to Claude Code, Codex, Cursor, or Gemini, the local setup can become hard to reason about: duplicated skills, shared symlinks, unused tools, unclear names, and MCP servers that keep consuming context. `skm` turns that local toolbox into something you can inspect, search, compare, audit, and clean up safely.
 
 If `skm` helps you understand your local skill setup, a GitHub Star helps other AIDE users find the project.
 
@@ -58,11 +58,11 @@ SKM_LANG=zh-CN skm doctor
 
 | Question | Command | What you get |
 |---|---|---|
-| How many skills and MCP servers are installed? | `skm scan` | Counts, categories, install sources, context estimate |
+| How many skills and MCP servers are installed? | `skm scan` | Claude Code / Codex / Cursor / Gemini counts, categories, install sources, context estimate, static security summary |
 | Is my local AIDE setup healthy? | `skm` | Health score, zombie skills, duplicate installs, idle MCP, session size |
 | Which skill should I use for this task? | `skm ask "task"` | Best match, reasons, alternatives |
 | Which skills are duplicated? | `skm dupes` | Same name, same content, same category, text similarity |
-| Which skills were never really used? | `skm audit` | Real usage frequency from Claude Code / Codex sessions |
+| Which skills were never really used? | `skm audit` | Real usage frequency from Claude Code / Codex sessions, plus static skill/MCP security findings |
 | How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
 | What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
 | Can I share one local overview? | `skm report --format html` | Single-file overview with health, risks, usage, sessions, graph summary |
@@ -86,7 +86,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm ask <task>` | Q&A-style skill recommendation |
 | `skm graph` | Export the skill knowledge graph |
 | `skm dupes` | Detect duplicates and similar skills |
-| `skm audit` | Audit real usage frequency |
+| `skm audit` | Audit real usage frequency and static safety signals |
 | `skm sessions` | Inspect session log distribution |
 | `skm sessions --clean` | Clean session logs with confirmation |
 | `skm disable` / `skm enable` | Soft-disable or restore skills / MCP servers |
@@ -97,11 +97,12 @@ Bundled bridge skill: `skm setup` installs `skill-navigator` for Claude Code and
 
 ## Features
 
-- Scans Claude Code and Codex CLI skills / MCP servers, plus conservative Cursor and Gemini skill-directory adapters
+- Scans Claude Code, Codex CLI, Cursor, and Gemini skills, plus common MCP config files where available
 - Detects shared symlinks, duplicate physical copies, and same-content copies
 - Classifies skills with local rules
 - Recommends skills from natural-language task descriptions, with local usage preference boosts after relevance matching
 - Audits real usage from session logs
+- Adds static, read-only security audit for suspicious skill instructions and MCP launch configuration
 - Finds zombie skills, idle Claude-side MCP servers, and high estimated MCP schema context cost
 - Exports JSON, Mermaid, and single-file HTML knowledge graphs with richer relationship summaries
 - Exports single-file HTML overview reports, with optional anonymized output for sharing
@@ -185,7 +186,9 @@ Start with read-only commands. Refresh facts first, then inspect health, risks, 
 
 ## Safety Boundaries
 
-Most commands are read-only for Claude Code and Codex data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your Claude/Codex configs, skills, MCP servers, or session logs. The explicit `skm setup` command and source install script are exceptions: they install the bundled bridge skill into your user skill directories.
+Most commands are read-only for Claude Code, Codex, Cursor, and Gemini data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your AIDE configs, skills, MCP servers, or session logs. The explicit `skm setup` command and source install script are exceptions: they install the bundled bridge skill into supported user skill directories.
+
+The security audit is static and conservative: it reads `SKILL.md`, directory metadata, and non-`env` MCP config fields only. It never executes a skill or MCP server, and suspicious command evidence is redacted before display.
 
 Inside the CLI, only four actions can modify AIDE files:
 

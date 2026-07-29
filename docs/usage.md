@@ -120,7 +120,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 ## scan
 
-扫描 Claude Code / Codex 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`。Cursor 与 Gemini 目前采用保守适配：只扫描常见 skill 目录，不读取敏感编辑器缓存，不启动外部工具。
+扫描 Claude Code、Codex、Cursor、Gemini 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`。Cursor 与 Gemini 仍采用保守适配：扫描常见 skill 目录和 MCP 配置文件，不读取敏感编辑器缓存，不启动外部工具。
 
 ```bash
 skm scan
@@ -138,6 +138,7 @@ skm scan --export json --output skm-scan.json --anonymize
 - 去重后 skill 总数
 - 两侧同名安装数量
 - 常驻上下文开销估算
+- 静态安全审计摘要（高 / 中 / 低 / 信息）
 - 分类分布
 
 已归档目录指名称以 `_` 或 `.` 开头、扫描时未计入的目录。
@@ -244,7 +245,14 @@ skm audit --json
 - Claude Code：Skill 工具调用、斜杠命令、MCP 工具调用
 - Codex：只统计 `function_call` 中实际读取 `SKILL.md` 的行为
 
-解析结果会写入 `~/.skill-manager/usage-cache.json` 做增量缓存；每次审计还会归档快照到 `~/.skill-manager/audit-history/`。
+同时，`audit` 会展示 `scan` 已记录的静态安全审计结果，包括：
+
+- skill 中疑似读取或外发密钥、私钥、`.env`、凭据的描述
+- 疑似破坏性命令、远程脚本直连执行、编码 PowerShell、高权限命令
+- MCP 启动命令中疑似携带 token/API key/password
+- MCP 明文 HTTP、shell 求值、动态包运行器、过高容器权限或免确认信任配置
+
+安全审计只读取 `SKILL.md`、目录元数据和 MCP 非 `env` 配置字段；不会执行 skill/MCP，也不会输出 env 值。解析结果会写入 `~/.skill-manager/usage-cache.json` 做增量缓存；每次审计还会归档快照到 `~/.skill-manager/audit-history/`。
 
 ## sessions
 

@@ -54,7 +54,8 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 ## 适配器与 MCP 路线
 
 - 已完成：Claude Code / Codex skill 与 MCP 扫描
-- 已完成：Cursor / Gemini 常见 skill 目录扫描，不读取敏感缓存，不启动外部工具
+- 已完成：Cursor / Gemini 常见 skill 目录与 MCP 配置扫描，不读取敏感缓存，不启动外部工具
+- 已完成：`scan` / `audit` 静态安全审计，覆盖 skill 文本、目录元数据与 MCP 非 env 配置字段
 - 已完成：MCP schema 常驻上下文静态估算，用于风险提示和 HTML 报告
 - 下一步：收集更多 AIDE 目录结构样本
 - 下一步：在不读取密钥、不启动危险进程的前提下探索更准确的 MCP schema 实测

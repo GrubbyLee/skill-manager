@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { parseFrontmatter, fallbackDescription } from '../frontmatter.js';
+import { auditSkillSecurity } from '../securityAudit.js';
 
 // 扫描一个 skills 根目录：每个子目录一个 skill，以 SKILL.md 为准。
 // 以 . 或 _ 开头的目录视为已归档/隐藏，跳过但计数。
@@ -31,7 +32,7 @@ export function scanSkillDir(baseDir, { tool, scope, source = null }) {
     if (!hasFrontmatter) warnings.push(`无 frontmatter：${mdPath}`);
     const description = String(data.description || fallbackDescription(text) || '').trim();
     const stats = dirStats(dir);
-    skills.push({
+    const skill = {
       id: `${tool}:${scope}:${ent.name}`,
       tool,
       scope,
@@ -49,7 +50,9 @@ export function scanSkillDir(baseDir, { tool, scope, source = null }) {
       totalBytes: stats.totalBytes,
       // 该 skill 常驻上下文的开销 ≈ name + description（正文按需加载）
       descTokens: estimateTokens(`${data.name || ent.name} ${description}`),
-    });
+    };
+    skill.securityFindings = auditSkillSecurity(text, skill);
+    skills.push(skill);
   }
   return { skills, warnings, archived };
 }

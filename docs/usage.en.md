@@ -88,7 +88,7 @@ Start with read-only commands. Use dry-run before cleanup.
 | `skm ask <task>` | Q&A recommendation | `--tool`, `--category`, `--json` |
 | `skm graph` | Knowledge graph | `--format json\|html\|mermaid`, `--output` |
 | `skm dupes` | Duplicate detection | `--json` |
-| `skm audit` | Usage audit | `--history`, `--json` |
+| `skm audit` | Usage and static security audit | `--history`, `--json` |
 | `skm sessions` | Session log distribution | `--json` |
 | `skm sessions --clean` | Clean session logs | `--days`, `--keep`, `--dry-run`, `--yes` |
 | `skm disable <name>` | Soft-disable skills | multiple names supported |
@@ -105,7 +105,7 @@ skm scan --json
 skm scan --export json --output skm-scan.json --anonymize
 ```
 
-Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, and context estimates. Claude Code and Codex are fully scanned for skills/MCP; Cursor and Gemini currently use conservative skill-directory adapters only. They do not read sensitive editor caches or launch external tools.
+Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, context estimates, and a static security summary. Claude Code, Codex, Cursor, and Gemini are scanned into the same catalog; Cursor and Gemini use conservative skill-directory and MCP-config adapters. skm does not read sensitive editor caches or launch external tools.
 
 Use `--anonymize` before sharing output. It redacts paths, real paths, config file locations, scan directories, workspaces, and MCP commands while keeping stable JSON field names.
 
@@ -160,7 +160,9 @@ skm audit --history
 skm audit --json
 ```
 
-`audit` reads session logs to reconstruct real skill and MCP usage. It caches parsed results in `~/.skill-manager/usage-cache.json`.
+`audit` reads session logs to reconstruct real skill and MCP usage. It also shows static security findings recorded by `scan`, including suspicious secret access/exfiltration wording, destructive commands, remote script execution, encoded PowerShell, privileged commands, MCP command-line secrets, plain HTTP endpoints, shell evaluation, dynamic package runners, over-privileged containers, and trust-without-confirmation settings.
+
+The security audit only reads `SKILL.md`, directory metadata, and non-`env` MCP config fields. It never executes skills or MCP servers, and it redacts suspicious command evidence before display. Parsed usage results are cached in `~/.skill-manager/usage-cache.json`.
 
 ## sessions
 

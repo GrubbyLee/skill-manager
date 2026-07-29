@@ -54,7 +54,8 @@ skill-manager aims to become the most useful open-source governance tool for AID
 ## Adapters and MCP
 
 - Implemented: Claude Code / Codex skill and MCP scanning
-- Implemented: Cursor / Gemini common skill-directory scanning without reading sensitive caches or launching external tools
+- Implemented: Cursor / Gemini common skill-directory and MCP-config scanning without reading sensitive caches or launching external tools
+- Implemented: static security audit in `scan` / `audit`, covering skill text, directory metadata, and non-env MCP config fields
 - Implemented: static MCP schema context estimates for risk reports and HTML reports
 - Next: collect more AIDE directory-layout samples
 - Next: explore more accurate MCP schema measurement without reading secrets or starting unsafe processes

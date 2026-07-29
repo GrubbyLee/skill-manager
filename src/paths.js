@@ -18,10 +18,12 @@ export const CURSOR_SKILLS_DIRS = [
   path.join(HOME, '.cursor', 'skills'),
   path.join(HOME, '.cursor', 'SKILLs'),
 ];
+export const CURSOR_MCP_FILE = path.join(HOME, '.cursor', 'mcp.json');
 export const GEMINI_SKILLS_DIRS = [
   path.join(HOME, '.gemini', 'skills'),
   path.join(HOME, '.gemini', 'SKILLs'),
 ];
+export const GEMINI_SETTINGS_FILE = path.join(HOME, '.gemini', 'settings.json');
 
 // 会话日志根目录（usage 统计与 sessions 索引共用，单一来源）
 export const CLAUDE_SESSIONS_ROOT = path.join(HOME, '.claude', 'projects');

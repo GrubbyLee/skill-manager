@@ -8,6 +8,7 @@ import { ensureCatalog } from './scan.js';
 import { DATA_DIR } from '../paths.js';
 import { fmtDay, fmtDateTime, fileStamp, DAY_MS, paint } from '../utils.js';
 import { fmtAgoLang, tr } from '../i18n.js';
+import { collectSecurityReport, formatSecuritySummary, localizeSecurityFinding } from '../securityAudit.js';
 
 const ZOMBIE_DAYS = 90;
 const HISTORY_DIR = path.join(DATA_DIR, 'audit-history');
@@ -34,6 +35,7 @@ export function runAudit({ cwd, json = false, history = false, lang = 'zh-CN' })
   const used = rows.filter((r) => r.u.count > 0);
   const neverUsed = rows.filter((r) => r.u.count === 0);
   const stale = used.filter((r) => r.u.lastUsed && now - Date.parse(r.u.lastUsed) > ZOMBIE_DAYS * DAY_MS);
+  const security = collectSecurityReport(catalog);
 
   // 每次审计自动归档快照（聚合数据仅几十 KB），日志被清理后仍可回看历史结论
   archiveSnapshot({
@@ -43,6 +45,7 @@ export function runAudit({ cwd, json = false, history = false, lang = 'zh-CN' })
     usedCount: used.length,
     neverUsedCount: neverUsed.length,
     staleCount: stale.length,
+    security,
     usage: used.map((r) => ({ dirName: r.m.dirName, count: r.u.count, lastUsed: r.u.lastUsed })),
     neverUsed: neverUsed.map((r) => r.m.dirName),
     mcpUsage: usage.mcp,
@@ -55,6 +58,7 @@ export function runAudit({ cwd, json = false, history = false, lang = 'zh-CN' })
       neverUsed: neverUsed.map((r) => r.m.dirName),
       staleOver90d: stale.map((r) => r.m.dirName),
       mcpUsage: usage.mcp,
+      security,
     }, null, 2));
     return;
   }
@@ -105,6 +109,25 @@ export function runAudit({ cwd, json = false, history = false, lang = 'zh-CN' })
     const u = usageOf(m);
     console.log(tr(lang, 'audit.contextLine', { tokens: String(m.descTokens).padStart(4), name: m.dirName, tool: localizedToolLabel(m.tools, lang), count: u.count }));
   }
+
+  console.log('\n' + paint.bold(tr(lang, 'audit.securityTitle')));
+  console.log(tr(lang, 'audit.securitySummary', { summary: formatSecuritySummary(security.summary, lang) }));
+  const visibleFindings = security.findings.filter((f) => f.severity !== 'info').slice(0, 12);
+  if (visibleFindings.length) {
+    console.log(renderTable(
+      [{ title: tr(lang, 'risks.col.severity'), width: 8 }, { title: tr(lang, 'audit.col.target'), width: 26 }, { title: tr(lang, 'risks.col.item'), width: 26 }, { title: tr(lang, 'risks.col.suggestion'), width: 0 }],
+      visibleFindings.map((f) => {
+        const text = localizeSecurityFinding(f, lang);
+        return [securitySeverityLabel(f.severity, lang), `${f.targetName} (${f.tool})`, text.title, f.evidence ? `${text.recommendation} [${f.evidence}]` : text.recommendation];
+      }),
+      width,
+    ));
+    const more = security.findings.filter((f) => f.severity !== 'info').length - visibleFindings.length;
+    if (more > 0) console.log(tr(lang, 'audit.securityMore', { count: more }));
+  } else {
+    console.log(tr(lang, 'audit.securityNoBlocking'));
+  }
+  console.log(paint.gray(tr(lang, 'audit.securityNote')));
 
   // 建议与 status 仪表盘共用同一生成逻辑，保证命令与口径一致
   const { tips } = buildCleanupTips({ merged, usageOf, idleMcp });
@@ -166,6 +189,14 @@ function joinNames(names, lang) {
 function localizedToolLabel(tools, lang) {
   const label = toolLabel(tools);
   return label === '两侧' ? tr(lang, 'tool.both') : label;
+}
+
+function securitySeverityLabel(severity, lang = 'zh-CN') {
+  if (severity === 'high') return paint.red(tr(lang, 'risk.severity.high'));
+  if (severity === 'medium') return paint.yellow(tr(lang, 'risk.severity.medium'));
+  if (severity === 'low') return paint.cyan(tr(lang, 'risk.severity.low'));
+  if (severity === 'info') return paint.gray(tr(lang, 'risk.severity.info'));
+  return severity;
 }
 
 function localizeTip(tip, lang) {
