@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>skill-manager 产品演示 PPT</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b1020;
+    --panel: #111827;
+    --panel-2: #162033;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --line: rgba(148, 163, 184, .22);
+    --accent: #7dd3fc;
+    --accent-2: #86efac;
+    --accent-3: #fbbf24;
+    --danger: #fb7185;
+    --purple: #c084fc;
+    --shadow: 0 32px 90px rgba(0, 0, 0, .45);
+    font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #020617;
+    color: var(--text);
+  }
+  .deck {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    padding: 58px 76px;
+    background:
+      radial-gradient(circle at 85% 12%, rgba(125, 211, 252, .16), transparent 34%),
+      radial-gradient(circle at 12% 88%, rgba(134, 239, 172, .10), transparent 32%),
+      linear-gradient(135deg, #0b1020 0%, #0d1324 48%, #050816 100%);
+    overflow: hidden;
+  }
+  .slide.active { display: block; }
+  .slide::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(148, 163, 184, .055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, .055) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,.8), transparent 88%);
+    pointer-events: none;
+  }
+  .content { position: relative; z-index: 1; height: 100%; }
+  .kicker {
+    margin: 0 0 14px;
+    color: var(--accent-2);
+    font: 700 13px/1.2 "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .cover-logo {
+    position: absolute;
+    right: 76px;
+    top: 58px;
+    width: 170px;
+    height: 170px;
+    filter: drop-shadow(0 24px 44px rgba(0, 0, 0, .36));
+  }
+  h1, h2, h3, p { margin-top: 0; }
+  h1 {
+    margin-bottom: 20px;
+    max-width: 980px;
+    font-size: 74px;
+    line-height: 1.02;
+    letter-spacing: -.025em;
+  }
+  h2 {
+    margin-bottom: 18px;
+    max-width: 930px;
+    font-size: 50px;
+    line-height: 1.08;
+    letter-spacing: -.018em;
+  }
+  h3 { margin-bottom: 10px; font-size: 22px; }
+  .lede {
+    max-width: 870px;
+    color: var(--muted);
+    font-size: 24px;
+    line-height: 1.55;
+  }
+  .grad {
+    background: linear-gradient(120deg, #7dd3fc, #86efac 50%, #c084fc);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .grid { display: grid; gap: 20px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .split { display: grid; grid-template-columns: .86fr 1.14fr; gap: 34px; align-items: center; height: calc(100% - 98px); }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px;
+    background: rgba(17, 24, 39, .76);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, .18);
+  }
+  .card strong { color: #fff; }
+  .card p { margin-bottom: 0; color: var(--muted); line-height: 1.55; }
+  .pill-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 13px;
+    background: rgba(15, 23, 42, .74);
+    color: #cbd5e1;
+    font: 700 13px/1.2 "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  .metric {
+    border-left: 3px solid var(--accent);
+    min-height: 132px;
+  }
+  .metric b {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 38px;
+    letter-spacing: -.015em;
+  }
+  .metric span { color: var(--muted); line-height: 1.5; }
+  .terminal {
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, .26);
+    border-radius: 14px;
+    background: #010409;
+    box-shadow: var(--shadow);
+    font: 13px/1.46 "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  .terminal .bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 14px;
+    border-bottom: 1px solid rgba(148, 163, 184, .22);
+    background: #111827;
+    color: #94a3b8;
+    font-size: 12px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #fb7185; }
+  .dot:nth-child(2) { background: #fbbf24; }
+  .dot:nth-child(3) { background: #22c55e; }
+  pre {
+    margin: 0;
+    padding: 18px 20px;
+    max-height: 475px;
+    overflow: hidden;
+    white-space: pre-wrap;
+    color: #dbeafe;
+  }
+  .cmd { color: #86efac; }
+  .ok { color: #86efac; }
+  .warn { color: #fbbf24; }
+  .hot { color: #fb7185; }
+  .dim { color: #94a3b8; }
+  .image-frame {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(15, 23, 42, .7);
+    box-shadow: var(--shadow);
+  }
+  .image-frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .image-frame.contain img { object-fit: contain; background: #020617; }
+  .caption { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+  .feature-title {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .feature-title code {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px;
+    background: rgba(2, 6, 23, .78);
+    color: var(--accent-2);
+    font: 700 18px/1 "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  ul.clean {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 13px;
+  }
+  ul.clean li {
+    padding-left: 20px;
+    position: relative;
+    color: #cbd5e1;
+    line-height: 1.5;
+  }
+  ul.clean li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: .65em;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .footer {
+    position: absolute;
+    left: 76px;
+    right: 76px;
+    bottom: 28px;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    color: #64748b;
+    font: 12px/1 "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  .nav-hint {
+    position: fixed;
+    right: 18px;
+    bottom: 14px;
+    z-index: 4;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 12px;
+    background: rgba(2, 6, 23, .7);
+    color: #94a3b8;
+    font: 12px/1 "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  .progress {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    z-index: 5;
+    width: 100%;
+    height: 4px;
+    background: rgba(148, 163, 184, .16);
+  }
+  .progress i {
+    display: block;
+    width: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #7dd3fc, #86efac, #c084fc);
+  }
+  .note { display: none; }
+  @media print {
+    body { overflow: visible; }
+    .deck { height: auto; }
+    .slide { position: relative; display: block; page-break-after: always; width: 100vw; height: 100vh; }
+    .nav-hint, .progress { display: none; }
+  }
+</style>
+</head>
+<body>
+<main class="deck">
+  <section class="slide active" data-title="开篇">
+    <div class="content">
+      <img class="cover-logo" src="logo-mark.svg" alt="skill-manager logo">
+      <p class="kicker">open-source AIDE skill governance</p>
+      <h1><span class="grad">skill-manager</span><br>让本机 skill 与 MCP 一眼看清</h1>
+      <p class="lede">一个零第三方依赖的命令行工具，用来扫描、推荐、去重、审计、画图谱，并安全治理 Claude Code / Codex / Cursor / Gemini 的 skill 与 MCP。</p>
+      <div class="pill-row">
+        <span class="pill">npm i -g aide-skill-manager</span>
+        <span class="pill">命令名 skm</span>
+        <span class="pill">Node.js >= 18</span>
+        <span class="pill">MIT License</span>
+      </div>
+      <div class="grid g4" style="margin-top:48px">
+        <div class="card metric"><b>182</b><span>本机去重 skill 示例规模</span></div>
+        <div class="card metric"><b>7</b><span>MCP 节点进入统一治理视图</span></div>
+        <div class="card metric"><b>0</b><span>第三方 npm 依赖</span></div>
+        <div class="card metric"><b>双语</b><span>README、docs 与核心 CLI 输出</span></div>
+      </div>
+    </div>
+    <div class="footer"><span>skill-manager product deck</span><span>01</span></div>
+  </section>
+
+  <section class="slide" data-title="整体介绍">
+    <div class="content">
+      <p class="kicker">why it exists</p>
+      <h2>它不是“又一个 skill”，而是本机 AIDE 工具箱的治理层。</h2>
+      <div class="grid g3" style="margin-top:34px">
+        <div class="card">
+          <h3>先清点</h3>
+          <p>统一读取各 AIDE 的 skill、MCP、目录来源、分类、上下文估算和静态安全信号。</p>
+        </div>
+        <div class="card">
+          <h3>再判断</h3>
+          <p>回答“该用哪个 skill”“哪些重复”“哪些从没用过”“哪些 MCP 可能拖慢启动”。</p>
+        </div>
+        <div class="card">
+          <h3>最后治理</h3>
+          <p>默认只读；真正会改 AIDE 数据的动作都有确认、备份、dry-run 或安全窗口。</p>
+        </div>
+      </div>
+      <div class="split" style="height:390px; margin-top:34px">
+        <div class="image-frame"><img src="comic-01-tool-chaos.jpg" alt="工具太多导致混乱的漫画"></div>
+        <div>
+          <h3>产品定位</h3>
+          <ul class="clean">
+            <li>面向频繁安装 skill / MCP 的 AI 开发用户。</li>
+            <li>先把本机真实状态变成结构化目录，再提供搜索、推荐、审计和图谱。</li>
+            <li>适合本地排查、开源分享、团队入门、长期维护个人 AIDE 环境。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>two-page overview</span><span>02</span></div>
+  </section>
+
+  <section class="slide" data-title="scan">
+    <div class="content">
+      <div class="feature-title"><code>skm scan</code><h2>扫描本机 skill / MCP，重建事实目录。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>统一统计 Claude Code、Codex、Cursor、Gemini。</li>
+            <li>输出安装来源、分类、上下文估算和静态安全摘要。</li>
+            <li>结果写入 <code>~/.skill-manager/catalog.json</code>，后续命令复用这份目录。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm scan</span>
+扫描完成 ✓
+
+扫描概览
+工具          skill   用户    插件    MCP    上下文估算
+Claude Code   103     88      15      5      约 11061 token
+Codex         135     135     0       4      约 12220 token
+Cursor        1       1       0       0      约 54 token
+Gemini CLI    0       0       0       0      约 0 token
+
+汇总
+去重后 skill              182 个
+两侧同名安装              56 个
+静态安全审计              高 8 / 中 33 / 低 4 / 信息 77
+目录文件                  ~/.skill-manager/catalog.json</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>inventory first</span><span>03</span></div>
+  </section>
+
+  <section class="slide" data-title="status">
+    <div class="content">
+      <div class="feature-title"><code>skm</code><h2>裸命令就是一屏健康体检。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>不用记很多参数，直接运行 <code>skm</code> 就看到机器状态。</li>
+            <li>健康分、僵尸率、重复安装、闲置 MCP、会话日志体积集中展示。</li>
+            <li>给出下一步命令，不直接修改你的配置或文件。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm</span>
+skill 健康体检（目录扫描于今天）
+  能力总量    182 个 skill / 7 个 MCP
+  僵尸 skill  107 个从未使用（59%）
+  重复安装    55 组实体双份
+  闲置 MCP    drawio（另有 2 个仅 Codex 侧配置，无法观测）
+  会话日志    2.5GB（预计可释放 221.4MB）
+  健康分      36 / 100
+
+建议
+  1. 双份且从未使用 26 个，优先核对
+  2. 禁用闲置 MCP：skm disable --mcp drawio
+  3. 会话瘦身：skm sessions --clean --dry-run</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>health at a glance</span><span>04</span></div>
+  </section>
+
+  <section class="slide" data-title="doctor">
+    <div class="content">
+      <div class="feature-title"><code>skm doctor</code><h2>先确认环境，没有隐形前提。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>检查 Node 版本、ES Modules、零依赖、命令入口。</li>
+            <li>确认 Claude / Codex / Cursor / Gemini 常见目录是否可读。</li>
+            <li>适合用户提 issue 前自查，也适合 README 安装验证。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm doctor</span>
+skm 环境诊断
+
+项目                    状态      说明
+Node.js 版本            正常      当前 24.14.0，要求 >= 18
+零第三方依赖            正常      dependencies 为空
+ES Modules              正常      type=module
+skm 命令入口            正常      bin/skm.js
+Claude skill 目录       正常      ~/.claude/skills
+Codex skill 目录        正常      ~/.codex/skills
+Cursor skill 目录       正常      ~/.cursor/skills
+扫描目录                正常      182 个去重 skill / 238 条安装记录
+
+结论：无失败项</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>diagnostics</span><span>05</span></div>
+  </section>
+
+  <section class="slide" data-title="ask">
+    <div class="content">
+      <div class="feature-title"><code>skm ask</code><h2>用一句自然语言，找到该用的 skill。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>适合“我知道要做什么，但忘了该用哪个 skill”。</li>
+            <li>默认本地推荐，不调用外部模型，不上传目录信息。</li>
+            <li>结合名称、description、分类、转换方向、历史使用和可用工具侧。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm ask "把网页转成 Markdown"</span>
+任务：把网页转成 Markdown
+
+首选：baoyu-url-to-markdown（两侧，内容抓取与转换）
+理由：方向匹配：url → markdown；
+意图匹配：网页抓取/转换；
+名称高度匹配；描述匹配；任务词相似；
+Claude/Codex 两侧可用；历史用过 2 次。
+
+进一步确认：
+skm recommend "把网页转成 Markdown" --why</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>task to skill</span><span>06</span></div>
+  </section>
+
+  <section class="slide" data-title="recommend">
+    <div class="content">
+      <div class="feature-title"><code>skm recommend</code><h2>需要比较多个候选时，看排序和理由。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li><code>--top</code> 控制候选数量，<code>--why</code> 展示命中依据。</li>
+            <li>支持中英文任务意图、格式转换方向、个人偏好轻量加权。</li>
+            <li>需要增强判断时，可显式使用 <code>--advisor codex|claude</code>。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm recommend "生成知识图谱" --top 3 --why</span>
+推荐任务：生成知识图谱
+
+推荐  分数   名称                  工具    命中 / 理由
+1     77     fireworks-tech-graph  claude  命中 graph, diagram, 图谱
+2     59     baoyu-diagram         两侧    意图匹配：图谱/关系可视化
+3     41     excalidraw-diagram    codex   名称高度匹配
+
+提示：recommend 默认是本地启发式推荐；
+显式加 --advisor 时才调用本机 AIDE CLI。</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>ranked recommendation</span><span>07</span></div>
+  </section>
+
+  <section class="slide" data-title="audit">
+    <div class="content">
+      <div class="feature-title"><code>skm audit</code><h2>审计真实使用，而不是“装了就算用过”。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>Codex 只统计实际读取 <code>SKILL.md</code> 的行为。</li>
+            <li>Claude 侧统计 Skill 工具调用、斜杠命令和 MCP 调用。</li>
+            <li>同时展示 scan 记录的静态安全发现。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm audit</span>
+观察窗口：2026-05-19 起
+
+一、使用频率 Top 20（共 75 个 skill 被用过）
+名称                   次数   最近使用    分类
+baoyu-image-gen        123    今天        图像与视觉
+gpt-image-2            14     今天        图像与视觉
+baoyu-comic            13     今天        图像与视觉
+html-ppt-skill         3      今天        演示文稿
+
+二、僵尸 skill：从未使用 107 个（占 59%）
+三、MCP 使用情况：codex / web-search-prime / web-reader ...</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>observable usage</span><span>08</span></div>
+  </section>
+
+  <section class="slide" data-title="risks">
+    <div class="content">
+      <div class="feature-title"><code>skm risks</code><h2>把风险按优先级摆出来，但不替你乱动。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>风险包括双份未使用、高上下文开销、闲置 MCP、日志体积等。</li>
+            <li>所有建议都指向可复核命令，不自动删除或禁用。</li>
+            <li>适合做一般性排查和清理前评估。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm risks</span>
+skm 风险报告（风险分 46 / 100，越高越安全）
+
+等级      风险项                 数量      建议
+高        双份且从未使用         26        先核对 audit 与 dupes
+中        实体双份安装           55        运行 skm dupes 查看明细
+中        高上下文开销且未使用   8         优先审查长 description
+中        Claude 侧闲置 MCP      1         可考虑 disable --mcp
+中        会话日志体积           2.5GB     先 dry-run 清理计划
+
+说明：本命令不会修改 AIDE 数据。</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>risk list</span><span>09</span></div>
+  </section>
+
+  <section class="slide" data-title="dupes">
+    <div class="content">
+      <div class="feature-title"><code>skm dupes</code><h2>重复不是一个问题，而是四类问题。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>同名多处安装：常见于 Claude 和 Codex 两侧都装一份。</li>
+            <li>同内容异名：实质上同一个 skill，目录名不同。</li>
+            <li>同类多实现：功能近似，但不一定应该删除。</li>
+            <li>文本相似：用于人工判断，不做自动清理依据。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm dupes</span>
+一、同名多处安装（56 组）
+  aceternity-ui  [claude/user + codex/user]
+    内容完全相同，可考虑软链化或保留一份
+  ai-article-daily  [claude/user + codex/user]
+    内容完全相同，可考虑软链化或保留一份
+  baoyu-image-gen  [claude/user + codex/user]
+    内容完全相同，可考虑软链化或保留一份
+  html-ppt-skill  [claude/user + codex/user]
+    内容完全相同，可考虑软链化或保留一份</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>duplicate detection</span><span>10</span></div>
+  </section>
+
+  <section class="slide" data-title="graph">
+    <div class="content">
+      <div class="feature-title"><code>skm graph</code><h2>把 skill 目录画成知识图谱。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>支持 JSON、Mermaid、单文件 HTML 三种导出。</li>
+            <li>关系包括同源、同类、重复、流程、反向转换、共享平台、使用 MCP。</li>
+            <li>HTML 图谱支持关系筛选、节点拖动、节点上限、搜索聚焦。</li>
+          </ul>
+          <div class="terminal" style="margin-top:22px">
+            <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm graph --format html --output skill-graph.html</span>
+skill 节点            182 个
+MCP 节点              7 个
+关系边                484 条
+导出：skill-graph.html</pre>
+          </div>
+        </div>
+        <div class="image-frame contain" style="height:520px"><img src="graphic.png" alt="skill-manager 知识图谱示意图"></div>
+      </div>
+    </div>
+    <div class="footer"><span>knowledge graph</span><span>11</span></div>
+  </section>
+
+  <section class="slide" data-title="report">
+    <div class="content">
+      <div class="feature-title"><code>skm report</code><h2>导出一页式 HTML 总览报告。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>把健康分、风险、使用频率、会话日志、图谱摘要放在一页。</li>
+            <li>支持 <code>--anonymize</code>，适合分享给社区或 Issue。</li>
+            <li>报告是本地单文件 HTML，不需要联网或服务端。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm report --format html --output skm-report.html --anonymize</span>
+skm 总览报告
+
+项目                      数值
+健康分                    36 / 100
+skill                     182
+MCP                       7
+MCP token 估算            113
+从未使用                  107
+实体双份                  55
+会话日志                  2.5GB
+可释放                    221.4MB
+
+总览报告已导出：skm-report.html</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>shareable overview</span><span>12</span></div>
+  </section>
+
+  <section class="slide" data-title="mcp">
+    <div class="content">
+      <div class="feature-title"><code>skm list --mcp</code><h2>MCP 不是越多越好，它会吃上下文。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>列出 MCP server 的工具来源、范围、transport 和启动命令摘要。</li>
+            <li>安全边界：不读取、不输出 <code>env</code> 字段值。</li>
+            <li>配合 <code>skm audit</code> 判断哪些 MCP 长期没有使用信号。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm list --mcp</span>
+名称                  工具     范围      传输       启动命令 / URL
+drawio                claude   user      stdio      npx ...
+zai-mcp-server        claude   user      stdio      npx ...
+web-search-prime      claude   user      http       https://...
+codex                 claude   user      stdio      npx ...
+pencil                claude   user      stdio      本地命令
+web-reader            claude   user      http       https://...
+
+共 9 个 MCP server。
+提示：MCP 的 tool schema 会全量注入上下文。</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>MCP inventory</span><span>13</span></div>
+  </section>
+
+  <section class="slide" data-title="sessions">
+    <div class="content">
+      <div class="feature-title"><code>skm sessions</code><h2>会话日志可以排查，也可以先 dry-run 清理。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>按工作区统计会话数、体积、最老和最新时间。</li>
+            <li><code>sessions --clean</code> 必须先给保留策略，支持 dry-run。</li>
+            <li>24 小时内活跃会话永不删除；删除前先聚合使用统计。</li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm sessions</span>
+会话数    体积      最老        最新        工作区
+46        736.6MB   2026-04-14  2026-07-27  workspace-a
+28        236.9MB   2026-07-05  2026-07-29  workspace-b
+49        58.9MB    2026-07-18  2026-07-31  skill-manager
+
+合计：2.5GB
+
+建议先看计划：
+skm sessions --clean --days 30 --keep 3 --dry-run</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>session governance</span><span>14</span></div>
+  </section>
+
+  <section class="slide" data-title="setup">
+    <div class="content">
+      <div class="feature-title"><code>skm setup</code><h2>把本工具接进 Claude Code / Codex 的日常对话。</h2></div>
+      <div class="split">
+        <div>
+          <ul class="clean">
+            <li>安装附属桥接 skill：<code>skill-navigator</code>。</li>
+            <li>之后可以在 AIDE 内直接问“我要做这件事该用哪个 skill”。</li>
+            <li>显式写操作；目标已有不同内容时会先备份；支持 dry-run。</li>
+          </ul>
+          <div class="pill-row">
+            <span class="pill">GitHub: GrubbyLee/skill-manager</span>
+            <span class="pill">npm: aide-skill-manager</span>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal screenshot</span></div>
+<pre><span class="cmd">$ skm setup --dry-run</span>
+skm 桥接 skill 安装
+
+将安装附属 skill：skill-navigator
+  [dry-run] Claude Code: ~/.claude/skills/skill-navigator
+  [dry-run] Codex: ~/.codex/skills/skill-navigator
+
+[dry-run] 未执行安装。
+
+$ npm i -g aide-skill-manager
+$ skm scan
+$ skm ask "我要做某件事该用哪个 skill"</pre>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>bridge skill</span><span>15</span></div>
+  </section>
+</main>
+<div class="nav-hint">← / → 翻页 · F 全屏 · O 总览</div>
+<div class="progress"><i></i></div>
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const bar = document.querySelector('.progress i');
+  let index = Math.max(0, Math.min(slides.length - 1, Number(location.hash.slice(1)) - 1 || 0));
+
+  function show(i) {
+    index = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((slide, n) => slide.classList.toggle('active', n === index));
+    bar.style.width = `${((index + 1) / slides.length) * 100}%`;
+    history.replaceState(null, '', `#${index + 1}`);
+  }
+
+  function overview() {
+    const active = document.body.classList.toggle('overview');
+    if (!active) {
+      document.querySelector('#overview-style')?.remove();
+      slides.forEach(slide => slide.onclick = null);
+      return;
+    }
+    const style = document.createElement('style');
+    style.id = 'overview-style';
+    style.textContent = `
+      body.overview { overflow:auto; }
+      body.overview .deck { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; height:auto; padding:16px; }
+      body.overview .slide { display:block; position:relative; height:32vw; min-height:230px; padding:24px; transform:none; border:1px solid rgba(148,163,184,.2); border-radius:14px; cursor:pointer; }
+      body.overview .slide h1 { font-size:28px; }
+      body.overview .slide h2 { font-size:24px; }
+      body.overview .slide .split, body.overview .slide .grid { display:none; }
+      body.overview .footer, body.overview .nav-hint, body.overview .progress { display:none; }
+    `;
+    document.head.appendChild(style);
+    slides.forEach((slide, n) => slide.onclick = () => {
+      document.body.classList.remove('overview');
+      document.querySelector('#overview-style')?.remove();
+      slide.onclick = null;
+      show(n);
+    });
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (document.body.classList.contains('overview') && event.key !== 'Escape') return;
+    if (['ArrowRight', 'PageDown', ' '].includes(event.key)) show(index + 1);
+    if (['ArrowLeft', 'PageUp'].includes(event.key)) show(index - 1);
+    if (event.key === 'Home') show(0);
+    if (event.key === 'End') show(slides.length - 1);
+    if (event.key.toLowerCase() === 'f') document.documentElement.requestFullscreen?.();
+    if (event.key.toLowerCase() === 'o') overview();
+    if (event.key === 'Escape' && document.body.classList.contains('overview')) {
+      document.body.classList.remove('overview');
+      document.querySelector('#overview-style')?.remove();
+      slides.forEach(slide => slide.onclick = null);
+    }
+  });
+  show(index);
+</script>
+</body>
+</html>

@@ -53,6 +53,9 @@
     }
 
     .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
       color: var(--text);
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 16px;
@@ -60,8 +63,9 @@
       text-decoration: none;
     }
 
-    .brand span {
-      color: var(--green);
+    .brand img {
+      width: 34px;
+      height: 34px;
     }
 
     .language-switch {
@@ -117,6 +121,13 @@
       font-size: 13px;
       font-weight: 700;
       text-transform: uppercase;
+    }
+
+    .intro-logo {
+      display: block;
+      width: min(640px, 100%);
+      height: auto;
+      margin: 0 0 24px;
     }
 
     h1 {
@@ -264,7 +275,7 @@
 <body>
   <div class="shell">
     <header>
-      <a class="brand" href="https://github.com/GrubbyLee/skill-manager"><span>&gt;</span> skm</a>
+      <a class="brand" href="https://github.com/GrubbyLee/skill-manager"><img src="./logo-mark.svg" alt=""> skm</a>
       <div class="language-switch" id="language-switch" role="group" aria-label="Video language">
         <button id="lang-en" type="button" aria-pressed="true" data-lang="en">English</button>
         <button id="lang-zh" type="button" aria-pressed="false" data-lang="zh-CN">中文</button>
@@ -274,8 +285,9 @@
     <main>
       <section class="intro" aria-labelledby="page-title">
         <div>
+          <img class="intro-logo" src="./logo.svg" alt="skill-manager">
           <p class="eyebrow" id="eyebrow">Project tour</p>
-          <h1 id="page-title">skill-manager</h1>
+          <h1 id="page-title">Project Tour</h1>
           <p class="summary" id="summary">See why skm exists, how to install it, and how it turns a crowded Claude Code or Codex setup into an inventory you can search, audit, and understand.</p>
         </div>
         <p class="duration" id="duration">English · 53 sec</p>
@@ -313,6 +325,7 @@
       en: {
         documentLang: 'en',
         title: 'skill-manager | Project Tour',
+        heading: 'Project Tour',
         eyebrow: 'Project tour',
         summary: 'See why skm exists, how to install it, and how it turns a crowded Claude Code or Codex setup into an inventory you can search, audit, and understand.',
         duration: 'English · 53 sec',
@@ -332,6 +345,7 @@
       'zh-CN': {
         documentLang: 'zh-CN',
         title: 'skill-manager | 中文介绍',
+        heading: '中文介绍',
         eyebrow: '项目介绍',
         summary: '用一段短视频了解 skm 的初衷、安装方式，以及它如何清点、推荐、审计和梳理 Claude Code / Codex 中的 skill 与 MCP。',
         duration: '中文 · 75 秒',
@@ -360,6 +374,7 @@
 
       document.documentElement.lang = selected.documentLang;
       document.title = selected.title;
+      document.querySelector('#page-title').textContent = selected.heading;
       document.querySelector('#eyebrow').textContent = selected.eyebrow;
       document.querySelector('#summary').textContent = selected.summary;
       document.querySelector('#duration').textContent = selected.duration;

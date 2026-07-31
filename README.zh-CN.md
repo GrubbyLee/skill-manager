@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" alt="skill-manager" width="720">
+</p>
+
 # skill-manager（skm）
 
 [English](README.md) | 简体中文

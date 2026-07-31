@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- 新增独立品牌 Logo：主 Logo、方形标识与 PNG 兜底图，并接入 README、中文 README、GitHub Pages 首页和产品演示 PPT。
 - HTML 知识图谱新增“节点上限”控件，大图可优先显示高信号节点，搜索时自动放开上限避免隐藏精确匹配。
 - README 与详细文档补清 Cursor / Gemini 的保守扫描边界：当前不读取敏感编辑器缓存，也不推断真实使用次数。
 - 新增 npm Trusted Publishing 工作流，main 分支提交后会在版本未发布时自动发布 npm 包。
