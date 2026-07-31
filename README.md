@@ -101,7 +101,7 @@ Bundled bridge skill: `skm setup` installs `skill-navigator` for Claude Code and
 - Detects shared symlinks, duplicate physical copies, and same-content copies
 - Classifies skills with local rules
 - Recommends skills from natural-language task descriptions, with local usage preference boosts after relevance matching
-- Audits real usage from session logs
+- Audits real usage from observable session logs; Claude Code and Codex signals are more complete, while Cursor and Gemini currently focus on scanning and static safety checks
 - Adds static, read-only security audit for suspicious skill instructions and MCP launch configuration
 - Finds zombie skills, idle Claude-side MCP servers, and high estimated MCP schema context cost
 - Exports JSON, Mermaid, and single-file HTML knowledge graphs with richer relationship summaries
@@ -140,7 +140,7 @@ Advisor mode sends only a compact, relevance-first candidate list. It does not s
 skm graph --format html --output skill-graph.html
 ```
 
-The HTML graph is a zero-dependency single file. Open it in a browser and filter relationships from the left panel; the graph only shows nodes involved in the selected relationships. Nodes are draggable, which helps when you have many installed skills.
+The HTML graph is a zero-dependency single file. Open it in a browser and filter relationships from the left panel, cap visible high-signal nodes, hide idle skills, or focus important nodes. The graph only shows nodes involved in the current filters. Nodes are draggable, and search temporarily bypasses the node limit so dense graphs stay browsable without hiding exact matches.
 
 ![skm skill knowledge graph](docs/graphic.png)
 
@@ -188,7 +188,7 @@ Start with read-only commands. Refresh facts first, then inspect health, risks, 
 
 Most commands are read-only for Claude Code, Codex, Cursor, and Gemini data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your AIDE configs, skills, MCP servers, or session logs. The explicit `skm setup` command and source install script are exceptions: they install the bundled bridge skill into supported user skill directories.
 
-The security audit is static and conservative: it reads `SKILL.md`, directory metadata, and non-`env` MCP config fields only. It never executes a skill or MCP server, and suspicious command evidence is redacted before display.
+The security audit is static and conservative: it reads `SKILL.md`, directory metadata, and non-`env` MCP config fields only. It never executes a skill or MCP server, and suspicious command evidence is redacted before display. Usage auditing depends on observable AIDE session logs: Claude Code and Codex provide fuller skill usage signals, while Cursor and Gemini are scanned conservatively without reading sensitive editor caches or inventing usage counts.
 
 Inside the CLI, only four actions can modify AIDE files:
 
@@ -246,9 +246,8 @@ Manual validation entry: [GitHub Actions / macOS / Windows CI](https://github.co
 
 ## Roadmap
 
-- More real-world `skm scan` / `skm recommend` samples
-- Better clustering and layout for large knowledge graphs
-- More AIDE adapters beyond the first conservative Cursor/Gemini directory scan
+- Better clustering, layout, and export styles for large knowledge graphs
+- Extend Cursor / Gemini usage auditing only after stable public log formats are available
 - Real per-server MCP tool schema measurement beyond the current static estimate
 
 Full roadmap: [docs/roadmap.en.md](docs/roadmap.en.md).

@@ -120,7 +120,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 ## scan
 
-扫描 Claude Code、Codex、Cursor、Gemini 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`。Cursor 与 Gemini 仍采用保守适配：扫描常见 skill 目录和 MCP 配置文件，不读取敏感编辑器缓存，不启动外部工具。
+扫描 Claude Code、Codex、Cursor、Gemini 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`。Cursor 与 Gemini 采用保守适配：扫描常见 skill 目录和 MCP 配置文件，不读取敏感编辑器缓存，不启动外部工具。
 
 ```bash
 skm scan
@@ -244,6 +244,8 @@ skm audit --json
 
 - Claude Code：Skill 工具调用、斜杠命令、MCP 工具调用
 - Codex：只统计 `function_call` 中实际读取 `SKILL.md` 的行为
+
+使用频率只来自可观测日志。Claude Code / Codex 的 skill 使用信号更完整；Cursor / Gemini 当前以扫描、分类、重复检测、静态安全审计和报告展示为主，不会为了补齐统计而推断真实使用次数。
 
 同时，`audit` 会展示 `scan` 已记录的静态安全审计结果，包括：
 

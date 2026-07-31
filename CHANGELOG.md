@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- HTML 知识图谱新增“节点上限”控件，大图可优先显示高信号节点，搜索时自动放开上限避免隐藏精确匹配。
+- README 与详细文档补清 Cursor / Gemini 的保守扫描边界：当前不读取敏感编辑器缓存，也不推断真实使用次数。
 - 新增 npm Trusted Publishing 工作流，main 分支提交后会在版本未发布时自动发布 npm 包。
 - 新增中英文发布流程文档，记录 npmjs.com 端 Trusted Publisher 配置与日常发布步骤。
 

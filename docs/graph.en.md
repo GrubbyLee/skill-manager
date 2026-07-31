@@ -54,6 +54,7 @@ JSON and HTML graph output includes summary entries:
 - relationship filters affect both edges and nodes
 - hover over relationship names for detailed explanations
 - search focuses matching nodes and one-hop relationships
+- node limit keeps high-signal nodes first, ranked by usage, relationship count, and duplicate-install signals; search temporarily bypasses the limit so exact matches are not hidden
 - important-node mode keeps used, duplicated, or highly connected skills
 - hide never-used skills to reduce noise
 - labels can be toggled off
@@ -66,4 +67,4 @@ JSON and HTML graph output includes summary entries:
 - For suites, keep only same family.
 - For workflows, enable workflow, upstream/downstream, shared I/O format, and reverse conversion.
 - For platform ecosystems, enable shared platform and search for `github`, `lark`, `notion`, or `wechat`.
-- If the graph is dense, disable same category/shared platform and enable important-node mode.
+- If the graph is dense, set the node limit to High-signal top 60/100, disable same category/shared platform, enable important-node mode or hide never-used skills, then fit view.

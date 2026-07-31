@@ -47,6 +47,8 @@ skm audit
 skm risks
 ```
 
+Usage auditing only uses observable session logs. Claude Code and Codex provide fuller usage signals; Cursor and Gemini are scanned conservatively without reading sensitive editor caches or inventing usage counts from directory presence.
+
 ## Session Cleanup
 
 Always start with dry-run:

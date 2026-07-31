@@ -46,6 +46,8 @@ skm audit
 skm risks
 ```
 
+使用频率审计只来自可观测会话日志。Claude Code / Codex 的使用信号更完整；Cursor / Gemini 当前不读取敏感编辑器缓存，也不会根据目录存在推断真实使用次数。
+
 确认闲置或重复后再操作。
 
 ## 会话日志清理

@@ -106,7 +106,7 @@ SKM_LANG=zh-CN skm doctor
 - 多工具覆盖：统一扫描 Claude Code、Codex CLI、Cursor、Gemini 的 skill，并尽量读取常见 MCP 配置
 - 软链感知：区分共享实体、实体双份和内容不同
 - 四级重复检测：同名、同内容、同类多实现、文本高度相似
-- 真实使用审计：解析会话日志，只统计真正读取或调用过的 skill / MCP
+- 真实使用审计：解析可观测会话日志，只统计真正读取或调用过的 skill / MCP；Claude Code / Codex 信号更完整，Cursor / Gemini 暂以扫描和静态安全审计为主
 - 静态安全审计：识别疑似外发密钥、破坏性命令、提示词注入、MCP 命令携带密钥等信号
 - 推荐增强：自然语言推荐会在相关候选内学习你的常用分类和套件偏好
 - MCP 开销估算：标记高 schema 上下文开销的 MCP server
@@ -148,7 +148,7 @@ skm recommend "整理会议纪要" --advisor claude
 skm graph --format html --output skill-graph.html
 ```
 
-生成结果是零依赖单 HTML 文件，可直接用浏览器打开。左侧可以筛选关系，右侧只显示勾选关系涉及的节点和连线；节点可拖动，适合 skill 很多时手工拉开密集区域。
+生成结果是零依赖单 HTML 文件，可直接用浏览器打开。左侧可以筛选关系、限制节点上限、隐藏闲置节点或只看重点节点；右侧只显示当前筛选结果涉及的节点和连线。节点可拖动，搜索会临时放开节点上限，适合 skill 很多时先收敛再定位。
 
 ![skm skill 知识图谱示意图](docs/graphic.png)
 
@@ -196,7 +196,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude Code、Codex、Cursor、Gemini 的配置、skill、MCP 或会话日志。显式运行 `skm setup` 或源码安装脚本是例外：它们会把附属桥接 skill 安装到支持的用户 skill 目录。
 
-安全审计是静态、保守的：只读取 `SKILL.md`、目录元数据和 MCP 的非 `env` 配置字段，不执行 skill/MCP，不输出 env 值；疑似命令证据会先脱敏再展示。
+安全审计是静态、保守的：只读取 `SKILL.md`、目录元数据和 MCP 的非 `env` 配置字段，不执行 skill/MCP，不输出 env 值；疑似命令证据会先脱敏再展示。使用频率审计依赖 AIDE 会话日志是否可解析：Claude Code / Codex 的 skill 使用信号更完整，Cursor / Gemini 当前不读取敏感编辑器缓存，因此不会为了凑数字推断真实使用次数。
 
 CLI 内只有四类动作会修改 AIDE 文件：
 
@@ -253,9 +253,8 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 
 ## Roadmap
 
-- 真实用户样本收集，校准分类、推荐和图谱
 - 更强的知识图谱聚类、布局和导出样式
-- 在当前 Cursor / Gemini 目录扫描基础上继续扩展更多 AIDE 适配器
+- 在当前 Cursor / Gemini 保守扫描基础上，等待其公开稳定的使用日志格式后再扩展真实使用审计
 - 在当前 MCP schema 静态估算基础上继续做逐 server 实测
 
 完整路线图见 [docs/roadmap.md](docs/roadmap.md)。

@@ -19,7 +19,6 @@ skill-manager aims to become the most useful open-source governance tool for AID
 
 | Priority | Area | Value | Status |
 |---|---|---|---|
-| P0 | Real user samples | Calibrate classification, recommendation, and graph relationships | In progress |
 | P0 | Recommendation quality | Make "which skill should I use?" the default entry point | In progress |
 | P1 | HTML overview report | Shareable local health report | Implemented |
 | P1 | Graph layout | Clearer large graphs and clusters | In progress |
@@ -36,12 +35,12 @@ skill-manager aims to become the most useful open-source governance tool for AID
 - Implemented: stronger bilingual intents, non-adjacent action matching, and conversion direction handling
 - Implemented: learn personal preferences from `skm audit` without letting unrelated frequent skills dominate
 - Implemented: improve candidate compression and fallback messages for `--advisor codex|claude`
-- In progress: collect anonymized real-user samples to broaden wording, skill types, and known-error cases
+- Next: expand built-in benchmark scenarios across file formats, platform actions, and compound workflows
 
 ## Internationalization
 
 - Implemented: bilingual README, detailed English docs, `--lang` / `SKM_LANG`, help, validation errors, all primary commands, and the install script
-- Next: refine English wording and category localization from real user feedback
+- Next: refine English wording, category localization, and cross-platform message consistency
 - Constraints: no third-party dependencies; stable JSON field names; Simplified Chinese docs remain available
 
 ## Knowledge Graph
@@ -49,6 +48,7 @@ skill-manager aims to become the most useful open-source governance tool for AID
 - Implemented: lightweight collision avoidance, zooming, and fit-to-view for large graphs
 - Implemented: upstream/downstream, shared input/output formats, same-platform actions, strong/weak alternatives
 - Implemented: summaries for densest suites, duplicate cores, platform ecosystems, and potential workflows
+- Implemented: high-signal node limits in HTML graphs, with search bypassing the limit to keep exact matches visible
 - Implemented: a one-page HTML report combining graph, risk, and recommendation summaries
 
 ## Adapters and MCP
@@ -57,18 +57,17 @@ skill-manager aims to become the most useful open-source governance tool for AID
 - Implemented: Cursor / Gemini common skill-directory and MCP-config scanning without reading sensitive caches or launching external tools
 - Implemented: static security audit in `scan` / `audit`, covering skill text, directory metadata, and non-env MCP config fields
 - Implemented: static MCP schema context estimates for risk reports and HTML reports
-- Next: collect more AIDE directory-layout samples
+- Next: extend Cursor / Gemini real usage auditing after stable public log formats are available
 - Next: explore more accurate MCP schema measurement without reading secrets or starting unsafe processes
 
 ## Community
 
-The most useful feedback:
+Good discussion areas:
 
-- share the category distribution from `skm scan`
-- report misclassified or missing skills with their names and descriptions
-- check whether `skm ask "<task>"` recommendations feel right
-- share graph screenshots and identify useful or noisy relationships
-- provide directory and MCP configuration samples from additional AIDE tools
+- installation and scan experience
+- recommendation, graph, audit, and report design
+- new AIDE adapter ideas
+- MCP context governance and safety boundaries
 
 Links:
 

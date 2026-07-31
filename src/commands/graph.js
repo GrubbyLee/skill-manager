@@ -572,7 +572,7 @@ function renderHtml(graph, lang = 'zh-CN') {
     const muted = n.type === 'skill' && !n.usageCount ? ' muted' : '';
     const degree = degrees.get(n.id) || 0;
     const important = isImportantNode(n, degree);
-    return `<g class="node node-${n.type}${muted}" data-type="${n.type}" data-id="${escapeHtml(n.id)}" data-x="${p.x}" data-y="${p.y}" data-initial-x="${p.x}" data-initial-y="${p.y}" data-degree="${degree}" data-usage="${n.usageCount || 0}" data-important="${important}" data-search="${escapeHtml(nodeSearchText(n))}" transform="translate(${p.x},${p.y})">
+    return `<g class="node node-${n.type}${muted}" data-type="${n.type}" data-id="${escapeHtml(n.id)}" data-x="${p.x}" data-y="${p.y}" data-initial-x="${p.x}" data-initial-y="${p.y}" data-degree="${degree}" data-usage="${n.usageCount || 0}" data-rank="${nodeRank(n, degree)}" data-important="${important}" data-search="${escapeHtml(nodeSearchText(n))}" transform="translate(${p.x},${p.y})">
       <circle r="${radius}" fill="${color}" stroke="${nodeStroke(n)}" stroke-width="${n.duplicateEntity ? 3 : 1.5}"></circle>
       <text y="${radius + 13}" text-anchor="middle">${escapeHtml(shortLabel(n.label, n.type === 'skill' ? 22 : 18))}</text>
       <title>${escapeHtml(nodeTitle(n, lang))}</title>
@@ -586,6 +586,12 @@ function renderHtml(graph, lang = 'zh-CN') {
     return `<label class="edge-option"><input type="checkbox" data-edge="${type}"${checked}> <span class="swatch" style="border-color:${EDGE_COLORS[type]}"></span><span class="edge-help" tabindex="0" data-help="${escapeHtml(help)}">${label} (${count})</span></label>`;
   }).join('');
   const visibleText = JSON.stringify(tr(lang, 'graph.html.visible', { nodes: '__NODES__', edges: '__EDGES__' }));
+  const defaultNodeLimit = graph.stats.skills > 160 ? 120 : 0;
+  const nodeLimitOptions = [60, 100, 120, 160, 0].map((n) => {
+    const selected = n === defaultNodeLimit ? ' selected' : '';
+    const label = n ? tr(lang, 'graph.html.topN', { n }) : tr(lang, 'graph.html.allNodes');
+    return `<option value="${n}"${selected}>${escapeHtml(label)}</option>`;
+  }).join('');
   return `<!doctype html>
 <html lang="${lang === 'en' ? 'en' : 'zh-CN'}">
 <head>
@@ -613,6 +619,8 @@ function renderHtml(graph, lang = 'zh-CN') {
   .edge-help::after { content:attr(data-help); position:absolute; left:0; top:calc(100% + 8px); width:250px; box-sizing:border-box; padding:10px 12px; border:1px solid #334155; border-radius:8px; background:#020617; color:#e5e7eb; box-shadow:0 12px 28px rgba(0,0,0,.35); font-size:12px; line-height:1.55; white-space:normal; visibility:hidden; opacity:0; transform:translateY(-3px); transition:opacity .12s, transform .12s; z-index:5; pointer-events:none; }
   .edge-help:hover::after, .edge-help:focus::after { visibility:visible; opacity:1; transform:translateY(0); }
   input[type="search"] { width:100%; box-sizing:border-box; margin:8px 0 16px; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#020617; color:var(--text); }
+  select { width:100%; box-sizing:border-box; margin:6px 0 12px; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#020617; color:var(--text); }
+  .control-label { display:block; margin:0 0 2px; color:#cbd5e1; font-size:13px; }
   .toggles { display:grid; gap:8px; margin:12px 0 16px; }
   .toggle { display:flex; align-items:center; gap:8px; }
   .toolbar { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 14px; }
@@ -646,6 +654,8 @@ function renderHtml(graph, lang = 'zh-CN') {
       <div class="stat"><b>${graph.stats.edges}</b><span>${escapeHtml(tr(lang, 'graph.html.relations'))}</span></div>
     </div>
     <div id="visible-count" class="meta"></div>
+    <label class="control-label" for="node-limit">${escapeHtml(tr(lang, 'graph.html.nodeLimit'))}</label>
+    <select id="node-limit">${nodeLimitOptions}</select>
     <div class="toolbar">
       <button id="zoom-in" type="button">${escapeHtml(tr(lang, 'graph.html.zoomIn'))}</button>
       <button id="zoom-out" type="button">${escapeHtml(tr(lang, 'graph.html.zoomOut'))}</button>
@@ -674,6 +684,7 @@ const nodes = [...document.querySelectorAll('.node')];
 const edges = [...document.querySelectorAll('.edge')];
 const edgeChecks = [...document.querySelectorAll('[data-edge]')];
 const visibleCount = document.querySelector('#visible-count');
+const nodeLimit = document.querySelector('#node-limit');
 const onlyImportant = document.querySelector('#only-important');
 const hideIdle = document.querySelector('#hide-idle');
 const showLabels = document.querySelector('#show-labels');
@@ -727,9 +738,11 @@ function fitVisible() {
 function applyFilters() {
   const enabledTypes = new Set(edgeChecks.filter(cb => cb.checked).map(cb => cb.dataset.edge));
   const term = q.value.trim().toLowerCase();
+  const limit = Number(nodeLimit.value || 0);
   const relationNodeIds = new Set();
   const matchedNodeIds = new Set();
   const focusedNodeIds = new Set();
+  const allowedNodeIds = new Set();
 
   for (const edge of edges) {
     if (!enabledTypes.has(edge.dataset.type)) continue;
@@ -754,19 +767,36 @@ function applyFilters() {
     const matchesSearch = !term || focusedNodeIds.has(node.dataset.id);
     const matchesImportant = !onlyImportant.checked || node.dataset.important === 'true';
     const matchesIdle = !(hideIdle.checked && node.dataset.type === 'skill' && Number(node.dataset.usage) === 0);
-    node.classList.toggle('hidden', !matchesRelation || !matchesSearch || !matchesImportant || !matchesIdle);
+    if (matchesRelation && matchesSearch && matchesImportant && matchesIdle) allowedNodeIds.add(node.dataset.id);
+  }
+
+  if (!term && limit > 0) {
+    const keptSkills = nodes
+      .filter(node => allowedNodeIds.has(node.dataset.id) && node.dataset.type === 'skill')
+      .sort((a, b) => Number(b.dataset.rank) - Number(a.dataset.rank) || a.dataset.id.localeCompare(b.dataset.id))
+      .slice(0, limit);
+    const keptSkillIds = new Set(keptSkills.map(node => node.dataset.id));
+    for (const node of nodes) {
+      if (node.dataset.type === 'skill' && !keptSkillIds.has(node.dataset.id)) allowedNodeIds.delete(node.dataset.id);
+    }
   }
 
   let visibleEdges = 0;
+  const connectedNodeIds = new Set();
   for (const edge of edges) {
-    const source = nodeById.get(edge.dataset.source);
-    const target = nodeById.get(edge.dataset.target);
     const show = enabledTypes.has(edge.dataset.type)
-      && source && target
-      && !source.classList.contains('hidden')
-      && !target.classList.contains('hidden');
+      && allowedNodeIds.has(edge.dataset.source)
+      && allowedNodeIds.has(edge.dataset.target);
     edge.classList.toggle('hidden', !show);
-    if (show) visibleEdges++;
+    if (show) {
+      visibleEdges++;
+      connectedNodeIds.add(edge.dataset.source);
+      connectedNodeIds.add(edge.dataset.target);
+    }
+  }
+
+  for (const node of nodes) {
+    node.classList.toggle('hidden', !allowedNodeIds.has(node.dataset.id) || !connectedNodeIds.has(node.dataset.id));
   }
 
   const visibleNodes = nodes.filter(n => !n.classList.contains('hidden')).length;
@@ -774,6 +804,7 @@ function applyFilters() {
 }
 
 edgeChecks.forEach(cb => cb.addEventListener('change', applyFilters));
+nodeLimit.addEventListener('change', () => { applyFilters(); fitVisible(); });
 onlyImportant.addEventListener('change', applyFilters);
 hideIdle.addEventListener('change', applyFilters);
 showLabels.addEventListener('change', () => svg.classList.toggle('labels-off', !showLabels.checked));
@@ -1118,6 +1149,14 @@ function graphDegrees(edges) {
 function isImportantNode(n, degree) {
   if (n.type !== 'skill') return true;
   return Boolean(n.duplicateEntity || n.usageCount > 0 || degree >= 3);
+}
+
+function nodeRank(n, degree) {
+  const typeBoost = n.type === 'skill' ? 0 : 1000;
+  const duplicateBoost = n.duplicateEntity ? 500 : 0;
+  const usageBoost = Math.min(800, (n.usageCount || 0) * 35);
+  const degreeBoost = Math.min(500, degree * 18);
+  return Math.round(typeBoost + duplicateBoost + usageBoost + degreeBoost);
 }
 
 function nodeSearchText(n) {

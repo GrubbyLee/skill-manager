@@ -160,7 +160,9 @@ skm audit --history
 skm audit --json
 ```
 
-`audit` reads session logs to reconstruct real skill and MCP usage. It also shows static security findings recorded by `scan`, including suspicious secret access/exfiltration wording, destructive commands, remote script execution, encoded PowerShell, privileged commands, MCP command-line secrets, plain HTTP endpoints, shell evaluation, dynamic package runners, over-privileged containers, and trust-without-confirmation settings.
+`audit` reads session logs to reconstruct real skill and MCP usage. Claude Code and Codex provide fuller observable usage signals; Cursor and Gemini currently focus on scanning, classification, duplicate detection, static safety checks, and report visibility. skm does not read sensitive editor caches or invent usage counts when a tool does not expose a stable log signal.
+
+It also shows static security findings recorded by `scan`, including suspicious secret access/exfiltration wording, destructive commands, remote script execution, encoded PowerShell, privileged commands, MCP command-line secrets, plain HTTP endpoints, shell evaluation, dynamic package runners, over-privileged containers, and trust-without-confirmation settings.
 
 The security audit only reads `SKILL.md`, directory metadata, and non-`env` MCP config fields. It never executes skills or MCP servers, and it redacts suspicious command evidence before display. Parsed usage results are cached in `~/.skill-manager/usage-cache.json`.
 

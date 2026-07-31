@@ -124,16 +124,19 @@ test('知识图谱 HTML：支持重点节点、闲置隐藏、标签开关与搜
   assert.match(html, /id="only-important"/);
   assert.match(html, /id="hide-idle"/);
   assert.match(html, /id="show-labels"/);
+  assert.match(html, /id="node-limit"/);
   assert.match(html, /id="reset-layout"/);
   assert.match(html, /id="zoom-in"/);
   assert.match(html, /id="zoom-out"/);
   assert.match(html, /id="fit-view"/);
+  assert.match(html, /data-rank="/);
   assert.match(html, /data-important="/);
   assert.match(html, /data-search="/);
+  assert.match(html, /allowedNodeIds/);
   assert.match(html, /focusedNodeIds/);
   assert.match(html, /function fitVisible/);
   assert.match(html, /function zoom/);
-  assert.match(html, /搜索会显示匹配节点及其一跳关系/);
+  assert.match(html, /搜索会显示匹配节点及其一跳关系，并临时放开节点上限/);
   assert.match(html, /viewBox="0 0 \d+ \d+"/);
 });
 
@@ -154,6 +157,7 @@ test('知识图谱 HTML / Mermaid：支持英文展示文案', () => {
   assert.match(html, /<html lang="en">/);
   assert.match(html, /skm Skill Knowledge Graph/);
   assert.match(html, /Relationship Filters/);
+  assert.match(html, /Node limit/);
   assert.match(html, /Showing __NODES__ node\(s\) \/ __EDGES__ relationship\(s\)/);
   assert.match(html, /Same family: directory name prefixes match/);
   assert.match(html, /shared I\/O format/);
