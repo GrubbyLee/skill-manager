@@ -15,13 +15,14 @@ skm list
 skm search
 skm recommend
 skm ask
+skm outdated
 skm graph
 skm dupes
 skm audit
 skm sessions
 ```
 
-其中 `scan`、`audit`、`risks`、`sessions` 可能更新 `~/.skill-manager` 下的 skm 自身数据，例如 catalog、usage cache、audit history、sessions index。这些不是 AIDE 数据，不会改变 Claude Code 或 Codex 的行为。
+其中 `scan`、`audit`、`risks`、`sessions`、`outdated --online` 可能更新 `~/.skill-manager` 下的 skm 自身数据，例如 catalog、usage cache、audit history、sessions index、update cache。这些不是 AIDE 数据，不会改变 Claude Code 或 Codex 的行为。`outdated --online` 只读访问 GitHub/Gitee 或 git remote，不会自动更新 skill。
 
 显式运行 `skm setup` 或 `node scripts/install.mjs` 是安装阶段的例外：它们会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 与 `~/.codex/skills/`。如果目标目录已有不同内容，会先备份旧目录再替换。
 
@@ -66,6 +67,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 |---|---|
 | `~/.skill-manager/catalog.json` | 扫描后的 skill / MCP 目录 |
 | `~/.skill-manager/usage-cache.json` | 使用统计增量缓存 |
+| `~/.skill-manager/update-cache.json` | 上游版本检查缓存 |
 | `~/.skill-manager/audit-history/` | 审计快照 |
 | `~/.skill-manager/backups/` | MCP 配置修改前备份 |
 | `~/.skill-manager/rules.json` | 用户自定义分类规则 |

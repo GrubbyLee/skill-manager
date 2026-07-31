@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- 新增 `skm outdated`，默认离线检查 skill 上游版本线索；显式 `--online` 时只读比对 GitHub/Gitee `SKILL.md` 或 git remote commit，并缓存结果 24 小时。
+- 补齐 `skill-navigator` 独立发布材料：中英文 README、skill hub 元数据、更新策略说明，并在主 README 增加 skill hub 入口。
 - 新增独立品牌 Logo：主 Logo、方形标识与 PNG 兜底图，并接入 README、中文 README、GitHub Pages 首页和产品演示 PPT。
 - HTML 知识图谱新增“节点上限”控件，大图可优先显示高信号节点，搜索时自动放开上限避免隐藏精确匹配。
 - README 与详细文档补清 Cursor / Gemini 的保守扫描边界：当前不读取敏感编辑器缓存，也不推断真实使用次数。

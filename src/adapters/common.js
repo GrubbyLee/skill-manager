@@ -1,8 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import os from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { parseFrontmatter, fallbackDescription } from '../frontmatter.js';
 import { auditSkillSecurity } from '../securityAudit.js';
+
+const gitCache = new Map();
 
 // 扫描一个 skills 根目录：每个子目录一个 skill，以 SKILL.md 为准。
 // 以 . 或 _ 开头的目录视为已归档/隐藏，跳过但计数。
@@ -50,11 +54,80 @@ export function scanSkillDir(baseDir, { tool, scope, source = null }) {
       totalBytes: stats.totalBytes,
       // 该 skill 常驻上下文的开销 ≈ name + description（正文按需加载）
       descTokens: estimateTokens(`${data.name || ent.name} ${description}`),
+      upstream: collectUpstreamMetadata(data, dir),
     };
     skill.securityFindings = auditSkillSecurity(text, skill);
     skills.push(skill);
   }
   return { skills, warnings, archived };
+}
+
+function collectUpstreamMetadata(data, dir) {
+  const version = cleanMeta(data.version);
+  const source = cleanMeta(data.source);
+  const repository = cleanMeta(data.repository || data.repo);
+  const homepage = cleanMeta(data.homepage);
+  const git = inspectGit(dir);
+  const urls = uniqueUrls([source, repository, homepage, git?.remote]);
+  return {
+    version,
+    source,
+    repository,
+    homepage,
+    git,
+    urls,
+    trackable: Boolean(git?.remote || source || repository || homepage),
+  };
+}
+
+function cleanMeta(value) {
+  const text = String(value || '').trim();
+  return text || null;
+}
+
+function uniqueUrls(values) {
+  return [...new Set(values.filter((v) => /^https?:\/\/|^(git@|ssh:\/\/)/i.test(v)))];
+}
+
+function inspectGit(dir) {
+  const gitRoot = findGitRoot(safeRealPath(dir));
+  if (!gitRoot) return null;
+  if (gitCache.has(gitRoot)) return gitCache.get(gitRoot);
+
+  const head = git(['rev-parse', 'HEAD'], gitRoot);
+  const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], gitRoot);
+  const upstreamRef = git(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], gitRoot);
+  const remote = git(['config', '--get', 'remote.origin.url'], gitRoot);
+  const result = head ? {
+    root: gitRoot,
+    head,
+    branch: branch && branch !== 'HEAD' ? branch : null,
+    upstreamRef: upstreamRef || null,
+    remote: remote || null,
+  } : null;
+  gitCache.set(gitRoot, result);
+  return result;
+}
+
+function findGitRoot(dir) {
+  const home = os.homedir();
+  let current = dir;
+  for (let i = 0; i < 12; i++) {
+    if (fs.existsSync(path.join(current, '.git'))) return current;
+    const parent = path.dirname(current);
+    if (parent === current || current === home) return null;
+    current = parent;
+  }
+  return null;
+}
+
+function git(args, cwd) {
+  try {
+    const r = spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 2000, windowsHide: true });
+    return r.status === 0 ? r.stdout.trim() || null : null;
+  } catch {
+    return null;
+  }
 }
 
 function isDir(p) {

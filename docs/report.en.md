@@ -33,7 +33,7 @@ Before sharing a report, use:
 skm report --format html --output skm-report.html --anonymize
 ```
 
-Anonymization redacts paths, real paths, config file locations, scan directories, workspaces, and MCP `command` values. It keeps categories, counts, relationships, risk levels, and token estimates so others can still reason about the report.
+Anonymization redacts paths, real paths, config file locations, scan directories, workspaces, MCP `command` values, and upstream `source` / `repository` / `homepage` / git remote values. It keeps categories, counts, relationships, risk levels, and token estimates so others can still reason about the report.
 
 ## MCP Schema Estimate
 

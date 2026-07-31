@@ -62,6 +62,7 @@ skm doctor
 skm scan
 skm
 skm risks
+skm outdated
 skm dupes
 skm audit
 skm list --mcp
@@ -80,6 +81,8 @@ Start with read-only commands. Use dry-run before cleanup.
 | `skm risks` | Risk report | `--json` |
 | `skm report` | One-page overview report | `--format html`, `--output`, `--anonymize`, `--json` |
 | `skm scan` | Scan skills and MCP servers | `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
+| `skm outdated` | Check upstream freshness metadata | `--online`, `--refresh`, `--json` |
+| `skm sources` | Manage local upstream source mappings | `missing`, `add`, `list`, `remove`, `check`, `wizard` |
 | `skm setup` | Install the bridge skill | `--dry-run` |
 | `skm list` | List skills | `--category`, `--tool claude\|codex\|cursor\|gemini`, `--scope`, `--raw`, `--json` |
 | `skm list --mcp` | List MCP servers | `--tool`, `--json` |
@@ -105,9 +108,9 @@ skm scan --json
 skm scan --export json --output skm-scan.json --anonymize
 ```
 
-Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, context estimates, and a static security summary. Claude Code, Codex, Cursor, and Gemini are scanned into the same catalog; Cursor and Gemini use conservative skill-directory and MCP-config adapters. skm does not read sensitive editor caches or launch external tools.
+Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, context estimates, upstream version/source/git metadata, and a static security summary. Claude Code, Codex, Cursor, and Gemini are scanned into the same catalog; Cursor and Gemini use conservative skill-directory and MCP-config adapters. skm does not read sensitive editor caches or launch external tools.
 
-Use `--anonymize` before sharing output. It redacts paths, real paths, config file locations, scan directories, workspaces, and MCP commands while keeping stable JSON field names.
+Use `--anonymize` before sharing output. It redacts paths, real paths, config file locations, scan directories, workspaces, MCP commands, and upstream `source` / `repository` / `homepage` / git remote values while keeping stable JSON field names.
 
 ## status
 
@@ -130,6 +133,34 @@ skm report --json
 ```
 
 The HTML report is a single local file covering health, risks, top-used skills, context cost, estimated MCP schema cost, session logs, graph summary, and next commands. Use `--anonymize` before sharing a report.
+
+## outdated
+
+```bash
+skm outdated
+skm outdated --online
+skm outdated --online --refresh
+skm outdated --json
+```
+
+`outdated` checks whether skills have enough upstream metadata to judge freshness. Offline mode only reads the local catalog. Online mode is explicit and read-only: it compares git remote commits when a skill lives inside a git checkout, or fetches a remote `SKILL.md` when frontmatter contains a GitHub/Gitee `source` URL. Direct `source` URLs should point to a skill directory or `SKILL.md`; bare GitHub/Gitee repository URLs are only conservatively probed for a root `SKILL.md` on `main` / `master`. Results are cached in `~/.skill-manager/update-cache.json` for 24 hours.
+
+It never updates skills automatically. Treat `outdated` as a prompt to review upstream diffs or release notes before replacing local files.
+
+## sources
+
+```bash
+skm sources missing
+skm sources wizard
+skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
+skm sources list
+skm sources check baoyu-image-gen
+skm sources remove baoyu-image-gen
+```
+
+`sources` lets users fill missing upstream URLs when installed skills do not declare `source` / `repository` metadata. Records are stored in `~/.skill-manager/sources.json` and are merged into future scans and `outdated` checks. This does not edit installed skill files.
+
+Use `sources wizard` for the fastest manual workflow: it walks through skills whose freshness is unknown, accepts an upstream skill directory or `SKILL.md` URL, and persists each answer immediately. Use `sources missing --json` if you want to script or batch-edit the missing list.
 
 ## recommend / ask
 
@@ -164,7 +195,7 @@ skm audit --json
 
 It also shows static security findings recorded by `scan`, including suspicious secret access/exfiltration wording, destructive commands, remote script execution, encoded PowerShell, privileged commands, MCP command-line secrets, plain HTTP endpoints, shell evaluation, dynamic package runners, over-privileged containers, and trust-without-confirmation settings.
 
-The security audit only reads `SKILL.md`, directory metadata, and non-`env` MCP config fields. It never executes skills or MCP servers, and it redacts suspicious command evidence before display. Parsed usage results are cached in `~/.skill-manager/usage-cache.json`.
+The security audit only reads `SKILL.md`, directory metadata, and non-`env` MCP config fields. It never executes skills or MCP servers, and it redacts suspicious command evidence before display. `audit` also reports offline upstream metadata coverage, so you can see how many skills can be checked by `skm outdated --online`. Parsed usage results are cached in `~/.skill-manager/usage-cache.json`.
 
 ## sessions
 

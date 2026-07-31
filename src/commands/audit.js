@@ -59,6 +59,7 @@ export function runAudit({ cwd, json = false, history = false, lang = 'zh-CN' })
       staleOver90d: stale.map((r) => r.m.dirName),
       mcpUsage: usage.mcp,
       security,
+      updates: summarizeUpdateMetadata(merged),
     }, null, 2));
     return;
   }
@@ -129,6 +130,11 @@ export function runAudit({ cwd, json = false, history = false, lang = 'zh-CN' })
   }
   console.log(paint.gray(tr(lang, 'audit.securityNote')));
 
+  console.log('\n' + paint.bold(tr(lang, 'audit.updateTitle')));
+  const updateSummary = summarizeUpdateMetadata(merged);
+  console.log(tr(lang, 'audit.updateSummary', updateSummary));
+  if (updateSummary.untracked > 0) console.log(paint.gray(tr(lang, 'audit.updateHint')));
+
   // 建议与 status 仪表盘共用同一生成逻辑，保证命令与口径一致
   const { tips } = buildCleanupTips({ merged, usageOf, idleMcp });
   console.log('\n' + paint.bold(tr(lang, 'audit.advice')));
@@ -138,6 +144,30 @@ export function runAudit({ cwd, json = false, history = false, lang = 'zh-CN' })
     console.log(`  ${++n}. ${localized.text}${lang === 'en' ? ': ' : '：'}${paint.cyan(localized.command)}${localized.note ? paint.gray(localized.note) : ''}`);
   }
   console.log(`  ${++n}. ${tr(lang, 'audit.dupesTip')}${lang === 'en' ? ': ' : '：'}${paint.cyan('skm dupes')}`);
+}
+
+function summarizeUpdateMetadata(merged) {
+  let trackable = 0;
+  let versionOnly = 0;
+  for (const skill of merged) {
+    const upstream = chooseUpstream(skill.entries || [skill]);
+    if (upstream?.git?.remote || upstream?.source || upstream?.repository || upstream?.homepage) trackable++;
+    else if (upstream?.version) versionOnly++;
+  }
+  return {
+    total: merged.length,
+    trackable,
+    versionOnly,
+    untracked: Math.max(0, merged.length - trackable - versionOnly),
+  };
+}
+
+function chooseUpstream(entries) {
+  for (const entry of entries) {
+    const upstream = entry.upstream || {};
+    if (upstream.git?.remote || upstream.source || upstream.repository || upstream.homepage) return upstream;
+  }
+  return entries[0]?.upstream || {};
 }
 
 function archiveSnapshot(snapshot, lang = 'zh-CN') {

@@ -33,7 +33,7 @@ HTML 报告是零依赖单文件，可直接用浏览器打开。
 skm report --format html --output skm-report.html --anonymize
 ```
 
-脱敏会处理路径、真实路径、配置文件位置、扫描目录、工作区和 MCP `command`。报告仍保留分类、数量、关系、风险级别和 token 估算，便于他人判断问题。
+脱敏会处理路径、真实路径、配置文件位置、扫描目录、工作区、MCP `command` 和上游 `source` / `repository` / `homepage` / git remote。报告仍保留分类、数量、关系、风险级别和 token 估算，便于他人判断问题。
 
 ## MCP schema 估算
 

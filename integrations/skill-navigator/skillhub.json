@@ -1,0 +1,51 @@
+{
+  "name": "skill-navigator",
+  "title": "skill-navigator",
+  "version": "0.1.4",
+  "description": "A bridge skill for Claude Code and Codex that lets agents query the local skm CLI to discover, recommend, audit, deduplicate, and visualize installed Agent Skills and MCP servers.",
+  "descriptionZh": "skill-manager 附属桥接 skill，让 Claude Code / Codex 调用本机 skm，基于真实扫描结果推荐、审计、去重并可视化已安装的 skill 与 MCP。",
+  "homepage": "https://github.com/GrubbyLee/skill-manager",
+  "source": "https://github.com/GrubbyLee/skill-manager/tree/main/integrations/skill-navigator",
+  "repository": "https://github.com/GrubbyLee/skill-manager",
+  "license": "MIT",
+  "package": {
+    "name": "aide-skill-manager",
+    "manager": "npm",
+    "install": "npm i -g aide-skill-manager"
+  },
+  "setup": [
+    "npm i -g aide-skill-manager",
+    "skm setup",
+    "skm scan"
+  ],
+  "entrypoint": "SKILL.md",
+  "categories": [
+    "agent-tools",
+    "skill-management",
+    "mcp",
+    "developer-tools"
+  ],
+  "tags": [
+    "claude-code",
+    "codex-cli",
+    "agent-skills",
+    "mcp",
+    "skill-recommendation",
+    "knowledge-graph",
+    "audit",
+    "outdated",
+    "zero-dependencies"
+  ],
+  "compatibility": [
+    "Claude Code",
+    "Codex CLI"
+  ],
+  "scans": [
+    "Claude Code",
+    "Codex CLI",
+    "Cursor",
+    "Gemini",
+    "MCP"
+  ],
+  "updatePolicy": "GitHub is the source of truth. Prefer hub listings that index the source URL; otherwise update hub mirrors manually after releases."
+}

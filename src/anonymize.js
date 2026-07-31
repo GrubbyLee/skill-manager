@@ -2,11 +2,13 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 
 const REDACTED = '<redacted>';
+const URL_KEYS = new Set(['source', 'repository', 'homepage', 'remote', 'sourceUrl', 'url']);
 
 export function anonymizeCatalog(catalog) {
   return anonymizeValue(catalog, {
     pathMap: new Map(),
     workspaceMap: new Map(),
+    urlMap: new Map(),
   });
 }
 
@@ -14,11 +16,15 @@ export function anonymizeReportData(data) {
   return anonymizeValue(data, {
     pathMap: new Map(),
     workspaceMap: new Map(),
+    urlMap: new Map(),
   });
 }
 
 function anonymizeValue(value, state, key = '') {
-  if (Array.isArray(value)) return value.map((item) => anonymizeValue(item, state, key));
+  if (Array.isArray(value)) {
+    if (key === 'urls') return value.map((item) => anonymizeUrl(item, state.urlMap));
+    return value.map((item) => anonymizeValue(item, state, key));
+  }
   if (!value || typeof value !== 'object') return anonymizeScalar(key, value, state);
 
   const out = {};
@@ -33,8 +39,20 @@ function anonymizeScalar(key, value, state) {
   if (['path', 'realPath', 'configFile', 'scanCwd'].includes(key)) return anonymizePath(value, state.pathMap, 'path');
   if (key === 'workspace') return value ? anonymizePath(value, state.workspaceMap, 'workspace') : value;
   if (key === 'command') return value ? REDACTED : value;
+  if (URL_KEYS.has(key)) return anonymizeUrl(value, state.urlMap);
   if (looksLikeHomePath(value)) return anonymizePath(value, state.pathMap, 'path');
   return anonymizeEmbeddedPaths(value, state);
+}
+
+function anonymizeUrl(value, map) {
+  if (!value || typeof value !== 'string') return value;
+  if (!looksLikeUrl(value)) return value;
+  if (!map.has(value)) map.set(value, `url-${hash(value).slice(0, 8)}`);
+  return map.get(value);
+}
+
+function looksLikeUrl(value) {
+  return /^(https?:\/\/|git@|ssh:\/\/)/i.test(value);
 }
 
 function anonymizePath(value, map, prefix) {

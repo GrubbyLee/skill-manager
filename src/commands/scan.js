@@ -9,6 +9,7 @@ import { paint, paintErr } from '../utils.js';
 import { tr } from '../i18n.js';
 import { anonymizeCatalog } from '../anonymize.js';
 import { collectSecurityReport, formatSecuritySummary } from '../securityAudit.js';
+import { applySourcesToSkills, loadSources } from '../sources.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -23,7 +24,8 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
   const gemini = scanGemini({ cwd });
   const ruleSet = loadRules();
 
-  const skills = [...claude.skills, ...codex.skills, ...cursor.skills, ...gemini.skills].map((s) => ({
+  const sourceMap = loadSources();
+  const skills = applySourcesToSkills([...claude.skills, ...codex.skills, ...cursor.skills, ...gemini.skills], sourceMap).map((s) => ({
     ...s,
     category: classify(s, ruleSet),
   }));
@@ -155,5 +157,6 @@ export function ensureCatalog(cwd, lang = 'zh-CN') {
 
 function isCatalogOutdated(catalog) {
   if (!catalog.security || !Array.isArray(catalog.security.findings)) return true;
+  if ((catalog.skills || []).some((skill) => !skill.upstream)) return true;
   return (catalog.skills || []).some((skill) => !Array.isArray(skill.securityFindings));
 }

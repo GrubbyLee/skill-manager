@@ -105,3 +105,29 @@ test('匿名导出：warning 字符串内嵌路径也会脱敏', () => {
   assert.doesNotMatch(text, /\/home\/alice|C:\\Users\\alice|private-skill/);
   assert.match(text, /path-[0-9a-f]{8}/);
 });
+
+test('匿名导出：上游仓库与 git remote 地址会脱敏', () => {
+  const safe = anonymizeCatalog({
+    scannedAt: '2026-07-20T00:00:00Z',
+    skills: [{
+      dirName: 'private-skill',
+      upstream: {
+        source: 'https://github.com/alice/private-skills/tree/main/private-skill',
+        repository: 'https://github.com/alice/private-skills',
+        homepage: 'https://example.com/private-skills',
+        urls: [
+          'https://github.com/alice/private-skills',
+          'git@github.com:alice/private-skills.git',
+        ],
+        git: {
+          root: '/home/alice/.codex/skills/private-skill',
+          remote: 'git@github.com:alice/private-skills.git',
+        },
+      },
+    }],
+  });
+  const text = JSON.stringify(safe);
+  assert.doesNotMatch(text, /alice|private-skills|github\.com|example\.com|\/home\/alice/);
+  assert.match(text, /url-[0-9a-f]{8}/);
+  assert.match(text, /path-[0-9a-f]{8}/);
+});

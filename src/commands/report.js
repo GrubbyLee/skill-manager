@@ -119,6 +119,7 @@ export function buildReportData({ catalog, merged = mergeByDirName(catalog.skill
       refresh: 'skm scan',
       recommend: 'skm ask "what you want to do"',
       risks: 'skm risks',
+      outdated: 'skm outdated',
       audit: 'skm audit',
       graph: 'skm graph --format html --output skill-graph.html',
       cleanupPlan: 'skm sessions --clean --days 30 --keep 3 --dry-run',
@@ -225,7 +226,7 @@ export function renderReportHtml(data, lang = 'zh-CN') {
       <h2>${escapeHtml(labels.recommend)}</h2>
       <p>${escapeHtml(labels.recommendHint)}</p>
       <p><b>${escapeHtml(labels.command)}:</b> <code>${escapeHtml(data.commands.recommend)}</code></p>
-      <p><code>${escapeHtml(data.commands.risks)}</code> <code>${escapeHtml(data.commands.audit)}</code> <code>${escapeHtml(data.commands.cleanupPlan)}</code></p>
+      <p><code>${escapeHtml(data.commands.risks)}</code> <code>${escapeHtml(data.commands.outdated)}</code> <code>${escapeHtml(data.commands.audit)}</code> <code>${escapeHtml(data.commands.cleanupPlan)}</code></p>
     </article>
 
     <article class="card wide">

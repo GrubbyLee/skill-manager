@@ -73,7 +73,7 @@ skm recommend "convert a web page to markdown" --lang en
 skm graph --format html --output skill-graph.html --lang en
 ```
 
-当前已覆盖 `help`、参数错误、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
+当前已覆盖 `help`、参数错误、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`outdated`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
 
 ## 推荐排查流程
 
@@ -82,6 +82,7 @@ skm doctor
 skm scan
 skm
 skm risks
+skm outdated
 skm report --format html --output skm-report.html
 skm dupes
 skm audit
@@ -101,6 +102,8 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm risks` | 风险报告 | `--json` |
 | `skm report` | 一页式总览报告 | `--format html`、`--output`、`--anonymize`、`--json` |
 | `skm scan` | 扫描 skill / MCP | `--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
+| `skm outdated` | 检查 skill 上游新旧 | `--online`、`--refresh`、`--json` |
+| `skm sources` | 管理本机补充的上游地址 | `missing`、`add`、`list`、`remove`、`check`、`wizard` |
 | `skm setup` | 安装桥接 skill | `--dry-run` |
 | `skm list` | 列出 skill | `--category`、`--tool claude\|codex\|cursor\|gemini`、`--scope`、`--raw`、`--json` |
 | `skm list --mcp` | 列出 MCP | `--tool`、`--json` |
@@ -138,12 +141,13 @@ skm scan --export json --output skm-scan.json --anonymize
 - 去重后 skill 总数
 - 两侧同名安装数量
 - 常驻上下文开销估算
+- 上游版本线索：`version`、`source`、`repository`、git remote / HEAD
 - 静态安全审计摘要（高 / 中 / 低 / 信息）
 - 分类分布
 
 已归档目录指名称以 `_` 或 `.` 开头、扫描时未计入的目录。
 
-`--anonymize` 会脱敏路径、真实路径、配置文件位置、扫描目录、工作区和 MCP `command`，适合把扫描结果发到 Issue、Discussions 或社区求助。JSON 字段名保持英文且稳定。
+`--anonymize` 会脱敏路径、真实路径、配置文件位置、扫描目录、工作区、MCP `command` 和上游 `source` / `repository` / `homepage` / git remote，适合把扫描结果发到 Issue、Discussions 或社区求助。JSON 字段名保持英文且稳定。
 
 ## status
 
@@ -179,6 +183,34 @@ skm report --json
 ```
 
 `report` 会生成一页式总览，包含健康分、风险、使用频率、上下文开销、MCP schema 开销估算、会话日志、知识图谱摘要和下一步命令。HTML 报告是零依赖单文件，可直接用浏览器打开。对外分享前建议使用 `--anonymize`。详细说明见 [report.md](report.md)。
+
+## outdated
+
+```bash
+skm outdated
+skm outdated --online
+skm outdated --online --refresh
+skm outdated --json
+```
+
+`outdated` 用于检查 skill 是否具备上游版本线索，以及是否可能落后。默认模式只读取本机 catalog，不联网。显式加 `--online` 后，才会只读访问上游：如果 skill 位于 git checkout 中，会比对 git remote 的最新 commit；如果 frontmatter 写了 GitHub/Gitee 的 `source` URL，会拉取远端 `SKILL.md` 并比对 `version` 或内容 hash。直接 `source` URL 建议指向 skill 目录或 `SKILL.md`；裸 GitHub/Gitee 仓库 URL 只会保守探测仓库根目录 `main` / `master` 的 `SKILL.md`。结果缓存到 `~/.skill-manager/update-cache.json`，有效期 24 小时。
+
+本命令只检查，不自动更新。看到落后结果后，应先查看上游 diff / release notes，再决定是否替换本地 skill。
+
+## sources
+
+```bash
+skm sources missing
+skm sources wizard
+skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
+skm sources list
+skm sources check baoyu-image-gen
+skm sources remove baoyu-image-gen
+```
+
+`sources` 用于补充那些没有声明 `source` / `repository` 的已安装 skill 的上游地址。记录会保存到 `~/.skill-manager/sources.json`，后续 `scan` 和 `outdated` 会自动合并这些本地来源；它不会修改已安装的 skill 文件。
+
+最便捷的方式是 `sources wizard`：它会逐个展示无法判断版本的 skill，输入上游 skill 目录或 `SKILL.md` URL 后立即保存；回车或 `s` 跳过，`q` 退出。需要脚本化处理时，可用 `sources missing --json` 导出待补充清单。
 
 ## list 与 search
 
@@ -254,7 +286,7 @@ skm audit --json
 - MCP 启动命令中疑似携带 token/API key/password
 - MCP 明文 HTTP、shell 求值、动态包运行器、过高容器权限或免确认信任配置
 
-安全审计只读取 `SKILL.md`、目录元数据和 MCP 非 `env` 配置字段；不会执行 skill/MCP，也不会输出 env 值。解析结果会写入 `~/.skill-manager/usage-cache.json` 做增量缓存；每次审计还会归档快照到 `~/.skill-manager/audit-history/`。
+安全审计只读取 `SKILL.md`、目录元数据和 MCP 非 `env` 配置字段；不会执行 skill/MCP，也不会输出 env 值。`audit` 还会离线统计上游版本线索覆盖率，告诉你有多少 skill 可以通过 `skm outdated --online` 继续检查。解析结果会写入 `~/.skill-manager/usage-cache.json` 做增量缓存；每次审计还会归档快照到 `~/.skill-manager/audit-history/`。
 
 ## sessions
 

@@ -31,6 +31,7 @@ npm i -g aide-skill-manager
 skm scan
 skm
 skm ask "convert a web page to Markdown"
+skm outdated
 skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
@@ -67,10 +68,12 @@ SKM_LANG=zh-CN skm doctor
 | Which skill should I use for this task? | `skm ask "task"` | Best match, reasons, alternatives |
 | Which skills are duplicated? | `skm dupes` | Same name, same content, same category, text similarity |
 | Which skills were never really used? | `skm audit` | Real usage frequency from Claude Code / Codex sessions, plus static skill/MCP security findings |
+| Are GitHub/Gitee skills still current? | `skm outdated --online` | Version / commit freshness check; read-only and cached |
+| Too many skills show unknown freshness? | `skm sources wizard` | Add missing upstream URLs into skm's local source map |
 | How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
 | What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
 | Can I share one local overview? | `skm report --format html` | Single-file overview with health, risks, usage, sessions, graph summary |
-| Can I share scan/report output safely? | `skm scan --export json --output scan.json --anonymize` | Redacted paths, config locations, workspaces, and MCP commands |
+| Can I share scan/report output safely? | `skm scan --export json --output scan.json --anonymize` | Redacted paths, config locations, workspaces, MCP commands, and upstream URLs |
 | Where did my session logs grow? | `skm sessions` | Workspace-level session log size and dry-run cleanup plan |
 | Can my AIDE call `skm` directly? | `skm setup`, then ask in AIDE | The `skill-navigator` bridge skill calls local `skm` for you |
 
@@ -83,6 +86,8 @@ SKM_LANG=zh-CN skm doctor
 | `skm risks` | Risk report without changing AIDE data |
 | `skm report` | One-page overview report |
 | `skm scan` | Scan skills and MCP servers, rebuild catalog |
+| `skm outdated` | Check upstream version metadata; `--online` compares GitHub/Gitee or git remote |
+| `skm sources` | Manage local upstream URLs for skills that lack source metadata |
 | `skm setup` | Install the optional `skill-navigator` bridge skill |
 | `skm list` / `skm list --mcp` | List skills or MCP servers |
 | `skm search <keyword>` | Search by name, category, and description |
@@ -99,6 +104,8 @@ Detailed command manual: [docs/usage.en.md](docs/usage.en.md).
 
 Bundled bridge skill: `skm setup` installs `skill-navigator` for Claude Code and Codex to call local `skm`; `skill-navigator` is not a CLI command.
 
+Standalone bridge skill docs for skill hubs: [integrations/skill-navigator/README.md](integrations/skill-navigator/README.md).
+
 ## Features
 
 - Scans Claude Code, Codex CLI, Cursor, and Gemini skills, plus common MCP config files where available
@@ -107,6 +114,7 @@ Bundled bridge skill: `skm setup` installs `skill-navigator` for Claude Code and
 - Recommends skills from natural-language task descriptions, with local usage preference boosts after relevance matching
 - Audits real usage from observable session logs; Claude Code and Codex signals are more complete, while Cursor and Gemini currently focus on scanning and static safety checks
 - Adds static, read-only security audit for suspicious skill instructions and MCP launch configuration
+- Checks whether GitHub/Gitee-sourced skills appear current, without updating them automatically
 - Finds zombie skills, idle Claude-side MCP servers, and high estimated MCP schema context cost
 - Exports JSON, Mermaid, and single-file HTML knowledge graphs with richer relationship summaries
 - Exports single-file HTML overview reports, with optional anonymized output for sharing
@@ -177,6 +185,10 @@ skm scan
 skm scan --export json --output skm-scan.json --anonymize
 skm
 skm risks
+skm outdated
+skm outdated --online
+skm sources missing
+skm sources wizard
 skm report --format html --output skm-report.html
 skm report --format html --output skm-report.html --anonymize
 skm dupes
@@ -186,13 +198,13 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Refresh facts first, then inspect health, risks, duplicates, usage, MCP servers, and session logs. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
+Start with read-only commands. Refresh facts first, then inspect health, risks, upstream freshness, duplicates, usage, MCP servers, and session logs. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
 
 ## Safety Boundaries
 
 Most commands are read-only for Claude Code, Codex, Cursor, and Gemini data. Some commands may update skm's own cache under `~/.skill-manager`, but they do not modify your AIDE configs, skills, MCP servers, or session logs. The explicit `skm setup` command and source install script are exceptions: they install the bundled bridge skill into supported user skill directories.
 
-The security audit is static and conservative: it reads `SKILL.md`, directory metadata, and non-`env` MCP config fields only. It never executes a skill or MCP server, and suspicious command evidence is redacted before display. Usage auditing depends on observable AIDE session logs: Claude Code and Codex provide fuller skill usage signals, while Cursor and Gemini are scanned conservatively without reading sensitive editor caches or inventing usage counts.
+The security audit is static and conservative: it reads `SKILL.md`, directory metadata, and non-`env` MCP config fields only. It never executes a skill or MCP server, and suspicious command evidence is redacted before display. Upstream freshness checks are also read-only: `scan` records local `version` / `source` / git metadata, while `outdated --online` explicitly checks GitHub/Gitee or git remote and caches results for 24 hours. Direct `source` URLs should point to a skill directory or `SKILL.md`; bare repository URLs are only checkable when a root `SKILL.md` exists on `main` or `master`. `skm sources` writes only skm's own source map under `~/.skill-manager/sources.json`; it does not edit installed skill files. Usage auditing depends on observable AIDE session logs: Claude Code and Codex provide fuller skill usage signals, while Cursor and Gemini are scanned conservatively without reading sensitive editor caches or inventing usage counts.
 
 Inside the CLI, only four actions can modify AIDE files:
 
@@ -215,6 +227,8 @@ More details: [docs/safety.md](docs/safety.md).
 ```
 
 This thin skill is the bridge between your AIDE coding assistant and `skill-manager`: when you ask "which skill should I use for this task?", the assistant should call the local `skm` command instead of manually scanning directories. Re-run `skm setup` after upgrading to refresh the bridge skill.
+
+The publishable skill directory is [integrations/skill-navigator](integrations/skill-navigator). When submitting it to a skill hub, use the GitHub source URL as the source of truth so future updates follow repository releases whenever the hub supports indexing.
 
 ## Documentation
 
@@ -242,7 +256,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-`skm help`, argument validation, `doctor`, `scan`, `setup`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
+`skm help`, argument validation, `doctor`, `scan`, `setup`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `outdated`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
 
 Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. JSON field names stay stable.
 

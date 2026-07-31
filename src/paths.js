@@ -7,6 +7,8 @@ export const HOME = os.homedir();
 export const DATA_DIR = path.join(HOME, '.skill-manager');
 export const CATALOG_PATH = path.join(DATA_DIR, 'catalog.json');
 export const RULES_PATH = path.join(DATA_DIR, 'rules.json');
+export const UPDATE_CACHE_PATH = path.join(DATA_DIR, 'update-cache.json');
+export const SOURCES_PATH = path.join(DATA_DIR, 'sources.json');
 
 // 各 AIDE 的扫描目标
 export const CLAUDE_SKILLS_DIR = path.join(HOME, '.claude', 'skills');

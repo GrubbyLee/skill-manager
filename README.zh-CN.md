@@ -29,6 +29,7 @@ npm i -g aide-skill-manager
 skm scan
 skm
 skm ask "我要把网页转成 Markdown"
+skm outdated
 skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
@@ -73,10 +74,12 @@ SKM_LANG=zh-CN skm doctor
 | 做某件事该用哪个 skill？ | `skm ask "任务"` | 首选 skill、理由、备选 |
 | 哪些 skill 重复了？ | `skm dupes` | 同名、同内容、同类多实现、文本相似 |
 | 哪些从未真正用过？ | `skm audit` | 使用频率、僵尸 skill、MCP 调用记录、静态安全发现 |
+| 来自 GitHub/Gitee 的 skill 是否最新？ | `skm outdated --online` | 版本 / commit 新旧检查；只读并缓存 |
+| 太多 skill 显示无法判断版本？ | `skm sources wizard` | 把缺失的上游地址补到 skm 本地来源表 |
 | skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
 | 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
 | 能否导出一页总览？ | `skm report --format html` | 健康、风险、使用、会话、图谱摘要汇总 |
-| 能否安全分享扫描/报告结果？ | `skm scan --export json --output scan.json --anonymize` | 脱敏路径、配置位置、工作区和 MCP 命令 |
+| 能否安全分享扫描/报告结果？ | `skm scan --export json --output scan.json --anonymize` | 脱敏路径、配置位置、工作区、MCP 命令和上游 URL |
 | 会话日志太大怎么办？ | `skm sessions` | 按工作区统计日志体积，支持 dry-run 清理计划 |
 | 能让编程助手直接调用 skm 吗？ | `skm setup` 后在 AIDE 内提问 | `skill-navigator` 桥接 skill 会代你调用本机 `skm` |
 
@@ -89,6 +92,8 @@ SKM_LANG=zh-CN skm doctor
 | `skm risks` | 风险报告，不修改 AIDE 数据 |
 | `skm report` | 一页式总览报告 |
 | `skm scan` | 扫描 skill / MCP，重建目录 |
+| `skm outdated` | 检查上游版本线索；`--online` 比对 GitHub/Gitee 或 git remote |
+| `skm sources` | 管理缺少来源 metadata 的 skill 上游地址 |
 | `skm setup` | 安装可选的 `skill-navigator` 桥接 skill |
 | `skm list` / `skm list --mcp` | 列出 skill 或 MCP |
 | `skm search <关键词>` | 按名称、分类、描述搜索 |
@@ -105,6 +110,8 @@ SKM_LANG=zh-CN skm doctor
 
 附属桥接 skill：运行 `skm setup` 会安装 `skill-navigator`，供 Claude Code / Codex 调用本机 `skm`；它不是 CLI 命令。
 
+面向 skill hub 的独立桥接 skill 说明：[integrations/skill-navigator/README.zh-CN.md](integrations/skill-navigator/README.zh-CN.md)。
+
 ## 项目特性
 
 - 多工具覆盖：统一扫描 Claude Code、Codex CLI、Cursor、Gemini 的 skill，并尽量读取常见 MCP 配置
@@ -112,6 +119,7 @@ SKM_LANG=zh-CN skm doctor
 - 四级重复检测：同名、同内容、同类多实现、文本高度相似
 - 真实使用审计：解析可观测会话日志，只统计真正读取或调用过的 skill / MCP；Claude Code / Codex 信号更完整，Cursor / Gemini 暂以扫描和静态安全审计为主
 - 静态安全审计：识别疑似外发密钥、破坏性命令、提示词注入、MCP 命令携带密钥等信号
+- 上游版本检查：识别来自 GitHub/Gitee 或 git remote 的 skill 是否可能落后，但不自动更新
 - 推荐增强：自然语言推荐会在相关候选内学习你的常用分类和套件偏好
 - MCP 开销估算：标记高 schema 上下文开销的 MCP server
 - 知识图谱：导出 JSON、Mermaid 或单文件 HTML，包含更丰富的关系和摘要
@@ -185,6 +193,10 @@ skm scan
 skm scan --export json --output skm-scan.json --anonymize
 skm
 skm risks
+skm outdated
+skm outdated --online
+skm sources missing
+skm sources wizard
 skm report --format html --output skm-report.html
 skm report --format html --output skm-report.html --anonymize
 skm dupes
@@ -194,13 +206,13 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-排查时先刷新事实，再看整体健康、风险、重复与使用频率。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+排查时先刷新事实，再看整体健康、风险、上游版本、重复与使用频率。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
 
 ## 安全边界
 
 默认命令以只读为主。`status`、`audit`、`risks`、`sessions` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存和审计归档，但不会改 Claude Code、Codex、Cursor、Gemini 的配置、skill、MCP 或会话日志。显式运行 `skm setup` 或源码安装脚本是例外：它们会把附属桥接 skill 安装到支持的用户 skill 目录。
 
-安全审计是静态、保守的：只读取 `SKILL.md`、目录元数据和 MCP 的非 `env` 配置字段，不执行 skill/MCP，不输出 env 值；疑似命令证据会先脱敏再展示。使用频率审计依赖 AIDE 会话日志是否可解析：Claude Code / Codex 的 skill 使用信号更完整，Cursor / Gemini 当前不读取敏感编辑器缓存，因此不会为了凑数字推断真实使用次数。
+安全审计是静态、保守的：只读取 `SKILL.md`、目录元数据和 MCP 的非 `env` 配置字段，不执行 skill/MCP，不输出 env 值；疑似命令证据会先脱敏再展示。上游版本检查同样只读：`scan` 只记录本地 `version` / `source` / git metadata，`outdated --online` 才显式访问 GitHub/Gitee 或 git remote，结果缓存 24 小时。直接 `source` URL 建议指向 skill 目录或 `SKILL.md`；裸仓库 URL 只有在 `main` 或 `master` 根目录存在 `SKILL.md` 时才能直接检查。`skm sources` 只写入 skm 自己的 `~/.skill-manager/sources.json`，不会修改已安装的 skill 文件。使用频率审计依赖 AIDE 会话日志是否可解析：Claude Code / Codex 的 skill 使用信号更完整，Cursor / Gemini 当前不读取敏感编辑器缓存，因此不会为了凑数字推断真实使用次数。
 
 CLI 内只有四类动作会修改 AIDE 文件：
 
@@ -223,6 +235,8 @@ CLI 内只有四类动作会修改 AIDE 文件：
 ```
 
 这个薄入口 skill 是 Claude Code / Codex 与本项目之间的桥梁：之后你可以直接在对话里问“我要做 XX 该用哪个 skill”，编程助手应通过本机 `skm` 命令读取清单、审计和推荐结果，而不是手动扫描目录。升级后重新运行 `skm setup` 即可刷新桥接 skill。
+
+可发布到 skill hub 的独立目录是 [integrations/skill-navigator](integrations/skill-navigator)。提交平台时建议填写 GitHub 源码 URL 作为唯一真源；如果平台支持索引 GitHub，后续更新会跟随仓库发布，无法自动索引的平台再按发布台账手动更新。
 
 ## 文档
 
@@ -249,7 +263,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-`skm help`、参数校验、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
+`skm help`、参数校验、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`outdated`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
 
 可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。JSON 字段名保持稳定。
 

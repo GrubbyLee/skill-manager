@@ -15,6 +15,8 @@ import { runDoctor } from '../src/commands/doctor.js';
 import { runRisks } from '../src/commands/risks.js';
 import { runReport } from '../src/commands/report.js';
 import { runSetup } from '../src/commands/setup.js';
+import { runOutdated } from '../src/commands/outdated.js';
+import { runSources } from '../src/commands/sources.js';
 import { detectLang, langFromArgv, tr } from '../src/i18n.js';
 
 const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
@@ -30,6 +32,8 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、MCP schema 估算、日志体积
   report          生成一页式总览报告（summary/json/html），汇总健康、风险、审计、会话与图谱概览
   scan            扫描 Claude Code、Codex、Cursor、Gemini，生成 ~/.skill-manager/catalog.json
+  outdated        检查 skill 上游版本线索；--online 才访问 GitHub/Gitee 或 git remote
+  sources         管理本机补充的 skill 上游地址（list/missing/add/remove/check/wizard）
   setup           显式安装 skill-navigator 桥接 skill（npm 安装后可选）
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）
@@ -62,6 +66,15 @@ scan 选项：
 setup 选项：
   --dry-run               只显示将写入的桥接 skill 目录，不实际安装
 
+outdated 选项：
+  --online                联网上游检查（只读；结果缓存 24 小时）
+  --refresh               忽略更新检查缓存，重新请求上游
+
+sources 选项：
+  skm sources missing      列出缺少上游地址、无法判断版本的 skill
+  skm sources add <skill> --source <url>   为某个 skill 补充上游地址
+  skm sources wizard       交互式逐个补充上游地址
+
 recommend 选项：
   --top <N>               推荐数量（默认 3）
   --tool <claude|codex|cursor|gemini>   只推荐某个工具可用的 skill
@@ -87,6 +100,9 @@ sessions 选项：
 
 示例：
   skm scan
+  skm outdated --online
+  skm sources missing
+  skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
   skm doctor
   skm risks
   skm report --format html --output skm-report.html
@@ -115,6 +131,8 @@ Commands:
   risks             Risk report: duplicates, idle MCP, context cost, MCP schema estimate, log size
   report            One-page overview report (summary/json/html): health, risks, usage, sessions, graph summary
   scan              Scan Claude Code, Codex, Cursor, and Gemini, write ~/.skill-manager/catalog.json
+  outdated          Check skill upstream freshness; --online accesses GitHub/Gitee or git remotes
+  sources           Manage local skill upstream sources (list/missing/add/remove/check/wizard)
   setup             Explicitly install the skill-navigator bridge skill after npm install
   list              List all skills by category
   search <text>     Search skills by name, category, and description
@@ -147,6 +165,15 @@ scan options:
 setup options:
   --dry-run               Show bridge skill targets without installing
 
+outdated options:
+  --online                Check upstream online (read-only; cached for 24 hours)
+  --refresh               Ignore update-check cache and request upstream again
+
+sources options:
+  skm sources missing      List skills whose freshness cannot be checked
+  skm sources add <skill> --source <url>   Add an upstream URL for one skill
+  skm sources wizard       Fill missing upstream URLs interactively
+
 recommend options:
   --top <N>               Number of recommendations (default 3)
   --tool <claude|codex|cursor|gemini>   Recommend skills available to one tool
@@ -172,6 +199,9 @@ sessions options:
 
 Examples:
   skm scan
+  skm outdated --online
+  skm sources missing
+  skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
   skm setup
   skm doctor
   skm risks
@@ -205,12 +235,18 @@ try {
       history: { type: 'boolean', default: false },
       why: { type: 'boolean', default: false },
       anonymize: { type: 'boolean', default: false },
+      online: { type: 'boolean', default: false },
+      refresh: { type: 'boolean', default: false },
       keep: { type: 'string' },
       days: { type: 'string' },
       top: { type: 'string' },
       format: { type: 'string' },
       output: { type: 'string' },
       export: { type: 'string' },
+      source: { type: 'string' },
+      repository: { type: 'string' },
+      homepage: { type: 'string' },
+      version: { type: 'string' },
       tool: { type: 'string' },
       advisor: { type: 'string' },
       lang: { type: 'string' },
@@ -273,6 +309,8 @@ async function main() {
   else if (cmd === 'risks') runRisks(ctx);
   else if (cmd === 'report') runReport(ctx);
   else if (cmd === 'scan') runScan(ctx);
+  else if (cmd === 'outdated') await runOutdated(ctx);
+  else if (cmd === 'sources') await runSources(ctx, positionals.slice(1));
   else if (cmd === 'setup') runSetup(ctx);
   else if (cmd === 'list') runList(ctx);
   else if (cmd === 'search') runSearch({ ...ctx, keywords: positionals.slice(1) });

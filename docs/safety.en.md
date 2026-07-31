@@ -16,13 +16,14 @@ skm list
 skm search
 skm recommend
 skm ask
+skm outdated
 skm graph
 skm dupes
 skm audit
 skm sessions
 ```
 
-Some commands update skm's own files under `~/.skill-manager`, such as catalog, usage cache, audit history, and session index. These files do not change Claude Code or Codex behavior.
+Some commands update skm's own files under `~/.skill-manager`, such as catalog, usage cache, audit history, session index, and update cache. These files do not change Claude Code or Codex behavior. `skm outdated --online` only reads GitHub/Gitee or git remotes and never updates skills automatically.
 
 Explicitly running `skm setup` or `node scripts/install.mjs` is the install-time exception: it installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`. If a target directory already exists with different content, skm backs it up before replacing it.
 
@@ -65,6 +66,7 @@ Before deletion, skm aggregates usage stats into cache. This preserves cumulativ
 |---|---|
 | `~/.skill-manager/catalog.json` | Skill and MCP catalog |
 | `~/.skill-manager/usage-cache.json` | Incremental usage cache |
+| `~/.skill-manager/update-cache.json` | Upstream freshness check cache |
 | `~/.skill-manager/audit-history/` | Audit snapshots |
 | `~/.skill-manager/backups/` | MCP config backups |
 | `~/.skill-manager/rules.json` | User classification rules |
