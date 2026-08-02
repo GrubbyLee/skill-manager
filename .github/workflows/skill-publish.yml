@@ -40,10 +40,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 安装 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -57,13 +57,13 @@ jobs:
         run: npm test
 
       - name: 生成 skill 发布包
-        run: node scripts/prepare-skill-release.mjs --archive
+        run: node scripts/prepare-skill-release.mjs --output skill-release --archive
 
       - name: 上传发布包
         uses: actions/upload-artifact@v4
         with:
           name: skill-navigator-release
-          path: .skill-release/
+          path: skill-release/
 
   publish-clawhub:
     name: 发布到 ClawHub
@@ -75,10 +75,10 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 安装 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -124,10 +124,10 @@ jobs:
       SKILLHUB_REGISTRY: ${{ inputs.skillhub_registry }}
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 安装 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '24'
 
@@ -163,11 +163,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: skill-navigator-release
-          path: .skill-release
+          path: skill-release
 
       - name: 输出后续处理入口
         run: |
-          cat .skill-release/release-summary.md
+          cat skill-release/release-summary.md
           echo
           echo "半自动平台入口："
           echo "- skills-hub.ai: https://skills-hub.ai/publish"
