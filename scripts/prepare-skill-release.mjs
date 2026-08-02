@@ -135,9 +135,10 @@ function main() {
   const errors = [];
   const warnings = [];
 
-  for (const key of ['name', 'version', 'description', 'homepage', 'source']) {
+  for (const key of ['name', 'version', 'description', 'category', 'homepage', 'source']) {
     if (!skill[key]) errors.push(`SKILL.md 缺少 ${key}`);
   }
+  if (!Array.isArray(skill.platforms) || skill.platforms.length === 0) errors.push('SKILL.md 缺少 platforms 列表');
   if (skill.name !== hub.name) errors.push(`SKILL.md name 与 skillhub.json name 不一致：${skill.name} / ${hub.name}`);
   if (skill.version !== hub.version) errors.push(`SKILL.md version 与 skillhub.json version 不一致：${skill.version} / ${hub.version}`);
   if (skill.version !== packageJson.version) errors.push(`skill 版本与 package.json 不一致：${skill.version} / ${packageJson.version}`);
