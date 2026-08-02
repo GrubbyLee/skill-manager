@@ -1,7 +1,7 @@
 {
   "name": "skill-navigator",
   "title": "skill-navigator",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A bridge skill that recommends which already-installed local Agent Skill should handle a user's task, based on the real local skm catalog.",
   "descriptionZh": "skill-manager 附属桥接 skill，基于本机 skm 真实目录推荐用户当前任务应该使用哪款已安装 skill。",
   "homepage": "https://github.com/GrubbyLee/skill-manager",

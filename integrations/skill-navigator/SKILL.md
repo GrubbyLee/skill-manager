@@ -1,6 +1,6 @@
 ---
 name: skill-navigator
-version: 0.1.4
+version: 0.1.5
 description: Use when users ask which already-installed local Agent Skill should handle a task. It calls local skm recommendations from the real installed skill catalog; it does not perform the task itself. 当用户询问“做某件事应该用哪款已安装 skill”时使用。它通过本机 skm 基于真实已安装 skill 清单做推荐，本身不执行具体任务。
 category: meta
 homepage: https://github.com/GrubbyLee/skill-manager
