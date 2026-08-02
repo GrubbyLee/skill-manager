@@ -26,12 +26,12 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
 用法：skm <命令> [选项]
 
 命令：
-  （无命令）      健康体检概览：总量 / 僵尸率 / 重复 / 会话体积 / 健康分 + 建议
+  （无命令）      治理总览：按清单、风险、使用、版本、重复、图谱、会话、推荐分域展示摘要与建议
   status          同上（显式写法）
   doctor          只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI
   risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、MCP schema 估算、日志体积
   report          生成一页式总览报告（summary/json/html），汇总健康、风险、审计、会话与图谱概览
-  scan            扫描 Claude Code、Codex、Cursor、Gemini，生成 ~/.skill-manager/catalog.json
+  scan            扫描 Claude Code、Codex、Cursor、Gemini，生成 catalog 后展示同一份治理总览
   outdated        检查 skill 上游版本线索；--online 才访问 GitHub/Gitee 或 git remote
   sources         管理本机补充的 skill 上游地址（list/missing/add/remove/check/wizard）
   setup           显式安装 skill-navigator 桥接 skill（npm 安装后可选）
@@ -100,6 +100,7 @@ sessions 选项：
 
 示例：
   skm scan
+  skm
   skm outdated --online
   skm sources missing
   skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
@@ -125,12 +126,12 @@ const HELP_EN = `skm — AIDE skill / MCP inventory and governance CLI
 Usage: skm <command> [options]
 
 Commands:
-  (no command)      Health overview: totals / zombie rate / duplicates / session size / score + suggestions
+  (no command)      Governance overview grouped by inventory, risks, usage, versions, duplicates, graph, sessions, and recommendations
   status            Same as above
   doctor            Read-only diagnostics: Node, directories, catalog, advisor CLI, macOS/Windows CI
   risks             Risk report: duplicates, idle MCP, context cost, MCP schema estimate, log size
   report            One-page overview report (summary/json/html): health, risks, usage, sessions, graph summary
-  scan              Scan Claude Code, Codex, Cursor, and Gemini, write ~/.skill-manager/catalog.json
+  scan              Scan Claude Code, Codex, Cursor, and Gemini, write the catalog, then show the same governance overview
   outdated          Check skill upstream freshness; --online accesses GitHub/Gitee or git remotes
   sources           Manage local skill upstream sources (list/missing/add/remove/check/wizard)
   setup             Explicitly install the skill-navigator bridge skill after npm install
@@ -199,6 +200,7 @@ sessions options:
 
 Examples:
   skm scan
+  skm
   skm outdated --online
   skm sources missing
   skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen

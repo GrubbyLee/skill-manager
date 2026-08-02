@@ -10,6 +10,9 @@ import { tr } from '../i18n.js';
 import { anonymizeCatalog } from '../anonymize.js';
 import { collectSecurityReport, formatSecuritySummary } from '../securityAudit.js';
 import { applySourcesToSkills, loadSources } from '../sources.js';
+import { scanUsage } from '../usage.js';
+import { buildSessionIndex } from '../sessionsIndex.js';
+import { buildOverview, renderOverview } from '../overview.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -136,6 +139,13 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, la
     if (verbose) for (const w of warnings) print(pal.yellow(`    - ${w}`));
   }
   print(`\n${tr(lang, 'scan.catalogWritten', { file: CATALOG_REL })}`);
+
+  if (!silent) {
+    print(`\n${tr(lang, 'scan.overviewAfterScan')}`);
+    const usage = scanUsage({ log: (msg) => console.error(msg), lang });
+    const sessions = buildSessionIndex();
+    print(renderOverview(buildOverview({ catalog, usage, sessions, lang }), lang));
+  }
 }
 
 function writeTextFile(file, text) {

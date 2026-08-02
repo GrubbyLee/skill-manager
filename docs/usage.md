@@ -97,11 +97,11 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 | 命令 | 用途 | 常用选项 |
 |---|---|---|
-| `skm` / `skm status` | 一屏健康体检 | `--json` |
+| `skm` / `skm status` | 一屏治理总览 | `--json` |
 | `skm doctor` | 环境诊断 | `--json` |
 | `skm risks` | 风险报告 | `--json` |
 | `skm report` | 一页式总览报告 | `--format html`、`--output`、`--anonymize`、`--json` |
-| `skm scan` | 扫描 skill / MCP | `--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
+| `skm scan` | 扫描 skill / MCP 并展示治理总览 | `--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
 | `skm outdated` | 检查 skill 上游新旧 | `--online`、`--refresh`、`--json` |
 | `skm sources` | 管理本机补充的上游地址 | `missing`、`add`、`list`、`remove`、`check`、`wizard` |
 | `skm setup` | 安装桥接 skill | `--dry-run` |
@@ -123,7 +123,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 ## scan
 
-扫描 Claude Code、Codex、Cursor、Gemini 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`。Cursor 与 Gemini 采用保守适配：扫描常见 skill 目录和 MCP 配置文件，不读取敏感编辑器缓存，不启动外部工具。
+扫描 Claude Code、Codex、Cursor、Gemini 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`，然后展示和裸命令 `skm` 相同的治理总览。Cursor 与 Gemini 采用保守适配：扫描常见 skill 目录和 MCP 配置文件，不读取敏感编辑器缓存，不启动外部工具。
 
 ```bash
 skm scan
@@ -151,14 +151,14 @@ skm scan --export json --output skm-scan.json --anonymize
 
 ## status
 
-裸命令 `skm` 等价于 `skm status`，用于查看健康体检。
+裸命令 `skm` 等价于 `skm status`，用于查看治理总览。
 
 ```bash
 skm
 skm status --json
 ```
 
-健康分为 0-100 的启发式评分，会综合僵尸率、实体双份、闲置 MCP、会话日志体积。它用于清理前后自我对比，不代表绝对质量。
+治理总览按基础子命令分域展示：清单 `scan/list`、风险 `risks`、使用 `audit`、版本 `outdated/sources`、重复 `dupes`、图谱 `graph`、会话 `sessions`、推荐 `ask/recommend`。每一行都包含概括、当前问题和建议操作。健康分为 0-100 的启发式评分，会综合僵尸率、实体双份、闲置 MCP、会话日志体积；它用于清理前后自我对比，不代表绝对质量。
 
 ## doctor 与 risks
 

@@ -69,8 +69,8 @@ SKM_LANG=zh-CN skm doctor
 
 | 你遇到的问题 | 运行 | skm 给你的答案 |
 |---|---|---|
-| 我到底装了多少 skill / MCP？ | `skm scan` | Claude Code / Codex / Cursor / Gemini 数量、分类、上下文估算、静态安全摘要 |
-| 这台机器状态健康吗？ | `skm` | 健康分、僵尸率、重复安装、闲置 MCP、日志体积 |
+| 我到底装了多少 skill / MCP？ | `skm scan` | 刷新目录，并在扫描事实后展示治理总览 |
+| 这台机器状态健康吗？ | `skm` | 按清单、风险、使用、版本、重复、图谱、会话、推荐分域展示问题与下一步 |
 | 做某件事该用哪个 skill？ | `skm ask "任务"` | 首选 skill、理由、备选 |
 | 哪些 skill 重复了？ | `skm dupes` | 同名、同内容、同类多实现、文本相似 |
 | 哪些从未真正用过？ | `skm audit` | 使用频率、僵尸 skill、MCP 调用记录、静态安全发现 |
@@ -87,11 +87,11 @@ SKM_LANG=zh-CN skm doctor
 
 | 命令 | 用途 |
 |---|---|
-| `skm` / `skm status` | 一屏健康体检 |
+| `skm` / `skm status` | 一屏治理总览，按基础子命令分域给出摘要和建议 |
 | `skm doctor` | 只读环境诊断 |
 | `skm risks` | 风险报告，不修改 AIDE 数据 |
 | `skm report` | 一页式总览报告 |
-| `skm scan` | 扫描 skill / MCP，重建目录 |
+| `skm scan` | 扫描 skill / MCP，重建目录，然后展示同一份治理总览 |
 | `skm outdated` | 检查上游版本线索；`--online` 比对 GitHub/Gitee 或 git remote |
 | `skm sources` | 管理缺少来源 metadata 的 skill 上游地址 |
 | `skm setup` | 安装可选的 `skill-navigator` 桥接 skill |
@@ -190,8 +190,8 @@ skm report --format html --output skm-report.html --anonymize
 ```bash
 skm doctor
 skm scan
-skm scan --export json --output skm-scan.json --anonymize
 skm
+skm scan --export json --output skm-scan.json --anonymize
 skm risks
 skm outdated
 skm outdated --online
@@ -206,7 +206,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-排查时先刷新事实，再看整体健康、风险、上游版本、重复与使用频率。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+排查时先用 `skm scan` 刷新事实；扫描结束后会直接显示治理总览。之后单独运行 `skm` 不会强制重扫，而是基于已有 catalog、使用统计和会话索引，按基础子命令分域提示问题在哪里、下一步该运行什么。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
 
 ## 安全边界
 

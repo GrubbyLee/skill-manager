@@ -63,8 +63,8 @@ SKM_LANG=zh-CN skm doctor
 
 | Question | Command | What you get |
 |---|---|---|
-| How many skills and MCP servers are installed? | `skm scan` | Claude Code / Codex / Cursor / Gemini counts, categories, install sources, context estimate, static security summary |
-| Is my local AIDE setup healthy? | `skm` | Health score, zombie skills, duplicate installs, idle MCP, session size |
+| How many skills and MCP servers are installed? | `skm scan` | Refresh the catalog, then show the governance overview |
+| Is my local AIDE setup healthy? | `skm` | Findings and next steps grouped by inventory, risks, usage, versions, duplicates, graph, sessions, and recommendations |
 | Which skill should I use for this task? | `skm ask "task"` | Best match, reasons, alternatives |
 | Which skills are duplicated? | `skm dupes` | Same name, same content, same category, text similarity |
 | Which skills were never really used? | `skm audit` | Real usage frequency from Claude Code / Codex sessions, plus static skill/MCP security findings |
@@ -81,11 +81,11 @@ SKM_LANG=zh-CN skm doctor
 
 | Command | Purpose |
 |---|---|
-| `skm` / `skm status` | One-screen health overview |
+| `skm` / `skm status` | One-screen governance overview grouped by base subcommands |
 | `skm doctor` | Read-only environment diagnostics |
 | `skm risks` | Risk report without changing AIDE data |
 | `skm report` | One-page overview report |
-| `skm scan` | Scan skills and MCP servers, rebuild catalog |
+| `skm scan` | Scan skills and MCP servers, rebuild the catalog, then show the same governance overview |
 | `skm outdated` | Check upstream version metadata; `--online` compares GitHub/Gitee or git remote |
 | `skm sources` | Manage local upstream URLs for skills that lack source metadata |
 | `skm setup` | Install the optional `skill-navigator` bridge skill |
@@ -182,8 +182,8 @@ The report puts health score, risks, usage, context cost, estimated MCP schema c
 ```bash
 skm doctor
 skm scan
-skm scan --export json --output skm-scan.json --anonymize
 skm
+skm scan --export json --output skm-scan.json --anonymize
 skm risks
 skm outdated
 skm outdated --online
@@ -198,7 +198,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Refresh facts first, then inspect health, risks, upstream freshness, duplicates, usage, MCP servers, and session logs. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
+Start with read-only commands. Run `skm scan` to refresh facts; after scanning, skm prints the governance overview automatically. Later, plain `skm` does not force a rescan: it uses the existing catalog plus usage/session indexes to show which domain has findings and which subcommand to run next. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
 
 ## Safety Boundaries
 

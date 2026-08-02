@@ -76,11 +76,11 @@ Start with read-only commands. Use dry-run before cleanup.
 
 | Command | Purpose | Common options |
 |---|---|---|
-| `skm` / `skm status` | One-screen health check | `--json` |
+| `skm` / `skm status` | One-screen governance overview | `--json` |
 | `skm doctor` | Environment diagnostics | `--json` |
 | `skm risks` | Risk report | `--json` |
 | `skm report` | One-page overview report | `--format html`, `--output`, `--anonymize`, `--json` |
-| `skm scan` | Scan skills and MCP servers | `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
+| `skm scan` | Scan skills/MCP servers and show the governance overview | `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
 | `skm outdated` | Check upstream freshness metadata | `--online`, `--refresh`, `--json` |
 | `skm sources` | Manage local upstream source mappings | `missing`, `add`, `list`, `remove`, `check`, `wizard` |
 | `skm setup` | Install the bridge skill | `--dry-run` |
@@ -108,7 +108,7 @@ skm scan --json
 skm scan --export json --output skm-scan.json --anonymize
 ```
 
-Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, context estimates, upstream version/source/git metadata, and a static security summary. Claude Code, Codex, Cursor, and Gemini are scanned into the same catalog; Cursor and Gemini use conservative skill-directory and MCP-config adapters. skm does not read sensitive editor caches or launch external tools.
+Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, context estimates, upstream version/source/git metadata, and a static security summary, then prints the same governance overview as plain `skm`. Claude Code, Codex, Cursor, and Gemini are scanned into the same catalog; Cursor and Gemini use conservative skill-directory and MCP-config adapters. skm does not read sensitive editor caches or launch external tools.
 
 Use `--anonymize` before sharing output. It redacts paths, real paths, config file locations, scan directories, workspaces, MCP commands, and upstream `source` / `repository` / `homepage` / git remote values while keeping stable JSON field names.
 
@@ -121,7 +121,7 @@ skm
 skm status --json
 ```
 
-The health score is heuristic. It is useful for comparing your own setup before and after cleanup.
+The overview is grouped by base subcommands: inventory `scan/list`, risks `risks`, usage `audit`, versions `outdated/sources`, duplicates `dupes`, graph `graph`, sessions `sessions`, and recommendation `ask/recommend`. Each row gives a summary, current finding, and next command. The health score is heuristic and useful for comparing your own setup before and after cleanup.
 
 ## report
 

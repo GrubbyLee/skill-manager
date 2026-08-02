@@ -7,7 +7,7 @@ import { findIdleMcp } from '../advice.js';
 import { ensureCatalog } from './scan.js';
 import { collectRisks } from './risks.js';
 import { buildKnowledgeGraph } from './graph.js';
-import { computeHealthScore } from './status.js';
+import { computeHealthScore } from '../health.js';
 import { renderTable, termWidth } from '../table.js';
 import { fmtAgoLang, tr } from '../i18n.js';
 import { fmtBytes, fmtDateTime, fmtDay, paint } from '../utils.js';
