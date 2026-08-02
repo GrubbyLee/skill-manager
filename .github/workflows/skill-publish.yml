@@ -11,21 +11,13 @@ on:
         options:
           - package-only
           - clawhub
-          - skillhub
+          - skills-hub
           - all
       dry_run:
-        description: '只预览，不真正发布'
+        description: 'ClawHub 只预览；skills-hub.ai 创建草稿'
         required: true
         type: boolean
         default: true
-      skillhub_namespace:
-        description: 'SkillHub namespace'
-        required: false
-        default: GrubbyLee
-      skillhub_registry:
-        description: 'SkillHub registry'
-        required: false
-        default: https://skill.xfyun.cn
 
 permissions:
   contents: read
@@ -112,16 +104,14 @@ jobs:
           fi
           clawhub "${args[@]}"
 
-  publish-skillhub:
-    name: 发布到 SkillHub
+  publish-skills-hub:
+    name: 发布到 skills-hub.ai
     needs: package
-    if: ${{ inputs.target == 'skillhub' || inputs.target == 'all' }}
+    if: ${{ inputs.target == 'skills-hub' || inputs.target == 'all' }}
     runs-on: ubuntu-latest
     env:
-      SKILLHUB_TOKEN: ${{ secrets.SKILLHUB_TOKEN }}
+      SKILLS_HUB_API_KEY: ${{ secrets.SKILLS_HUB_API_KEY }}
       DRY_RUN: ${{ inputs.dry_run }}
-      SKILLHUB_NAMESPACE: ${{ inputs.skillhub_namespace }}
-      SKILLHUB_REGISTRY: ${{ inputs.skillhub_registry }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
@@ -131,28 +121,28 @@ jobs:
         with:
           node-version: '24'
 
-      - name: 安装 SkillHub CLI
-        run: npm i -g @astron-team/skillhub@0.1.9
+      - name: 安装 skills-hub CLI
+        run: npm i -g @skills-hub-ai/cli@0.4.4 --registry=https://registry.npmjs.org
 
-      - name: 发布 skill-navigator 到 SkillHub
+      - name: 发布 skill-navigator 到 skills-hub.ai
         run: |
           set -euo pipefail
-          if [ -z "${SKILLHUB_TOKEN:-}" ]; then
-            echo "::error::SkillHub publish 和 dry-run 都需要配置 GitHub Secret：SKILLHUB_TOKEN"
+          if [ -z "${SKILLS_HUB_API_KEY:-}" ]; then
+            echo "::error::发布 skills-hub.ai 需要配置 GitHub Secret：SKILLS_HUB_API_KEY"
             exit 1
           fi
+          skills-hub login --api-key "$SKILLS_HUB_API_KEY"
           args=(
             publish
-            integrations/skill-navigator
-            --namespace "$SKILLHUB_NAMESPACE"
+            integrations/skill-navigator/SKILL.md
             --visibility public
-            --registry "$SKILLHUB_REGISTRY"
-            --token "$SKILLHUB_TOKEN"
+            --github-repo https://github.com/GrubbyLee/skill-manager
+            --tags claude-code,codex-cli,agent-skills,mcp,skill-management
           )
           if [ "$DRY_RUN" = "true" ]; then
-            args+=(--dry-run)
+            args+=(--draft)
           fi
-          skillhub "${args[@]}"
+          skills-hub "${args[@]}"
 
   manual-platforms:
     name: 生成半自动平台说明
@@ -170,10 +160,10 @@ jobs:
           cat skill-release/release-summary.md
           echo
           echo "半自动平台入口："
-          echo "- skills-hub.ai: https://skills-hub.ai/publish"
           echo "- claudeskills.info: https://claudeskills.info/submit/"
           echo "- mcpservers.org: https://mcpservers.org/submit"
-          echo "- SkillHub: https://skillhub.cn/"
+          echo "- skills-hub.ai: https://skills-hub.ai/publish"
+          echo "- SkillHub 国内平台: https://skillhub.cn/"
           echo "- skillhub.club: https://www.skillhub.club/app/skills"
           echo "- CowAgent Skill Hub: https://skills.cowagent.ai/submit"
           echo "- awesome-claude-skills: https://github.com/ComposioHQ/awesome-claude-skills"

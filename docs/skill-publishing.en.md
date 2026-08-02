@@ -27,28 +27,26 @@ Inputs:
 
 | Input | Description |
 |---|---|
-| `target` | `package-only`, `clawhub`, `skillhub`, or `all` |
-| `dry_run` | Defaults to `true`. Keep it enabled before real publishing |
-| `skillhub_namespace` | SkillHub namespace, default `GrubbyLee` |
-| `skillhub_registry` | SkillHub registry, default `https://skill.xfyun.cn` |
+| `target` | `package-only`, `clawhub`, `skills-hub`, or `all` |
+| `dry_run` | Defaults to `true`. ClawHub previews only; skills-hub.ai creates a draft |
 
 Repository secrets for real publishing:
 
 | Secret | Purpose |
 |---|---|
 | `CLAWHUB_TOKEN` | Headless ClawHub publishing |
-| `SKILLHUB_TOKEN` | SkillHub publishing; this CLI also requires authentication for dry-run |
+| `SKILLS_HUB_API_KEY` | skills-hub.ai API key publishing |
 
 ## Platform Strategy
 
 | Platform | Automation level | Handling |
 |---|---|---|
 | ClawHub | Automated | Workflow runs `clawhub skill publish` with `--dry-run` support |
-| SkillHub / skillhub.cn | Automated | Workflow runs `skillhub publish` with `--dry-run` support |
-| skills-hub.ai | Semi-automated | The CLI documents `skills-hub publish [path]`, but public docs only document GitHub interactive login; use the generated package until headless auth is documented |
+| skills-hub.ai | Automated | Workflow runs `skills-hub login --api-key` and `skills-hub publish`; `dry_run=true` creates a draft |
 | claudeskills.info | Indexed | Submit the GitHub source URL once, then rely on platform re-indexing |
 | mcpservers.org Agent Skills | Indexed | Submit the GitHub source URL once, then rely on platform re-indexing or dashboard edits |
 | skillhub.club | Indexed | Keep GitHub source and metadata valid so the platform can index the public repository |
+| China SkillHub platforms | Pending | Confirm the registry and token issuer before wiring automation, so they are not confused with skills-hub.ai |
 | CowAgent Skill Hub | Semi-automated | Upload `.skill-release/skill-navigator` or the zip file and wait for review |
 | awesome-claude-skills | Semi-automated | Use `.skill-release/awesome-pr-entry.md` in a PR |
 | awesome-openclaw-skills | Semi-automated | Publish to ClawHub first, then submit a PR following that repository's rules |
@@ -58,5 +56,6 @@ Repository secrets for real publishing:
 1. Run `package-only + dry_run=true`.
 2. Configure `CLAWHUB_TOKEN`, then run `target=clawhub + dry_run=true`.
 3. If the dry-run passes, run `target=clawhub + dry_run=false`.
-4. Configure `SKILLHUB_TOKEN` and namespace, then publish SkillHub with the same dry-run-first flow. SkillHub dry-run also requires the token.
-5. Use `.skill-release/release-summary.md` for indexed and manually reviewed platforms.
+4. Configure `SKILLS_HUB_API_KEY`, then run `target=skills-hub + dry_run=true` to create a draft.
+5. After reviewing the draft, run `target=skills-hub + dry_run=false` to publish publicly.
+6. Use `.skill-release/release-summary.md` for indexed and manually reviewed platforms.

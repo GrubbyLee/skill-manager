@@ -170,15 +170,15 @@ function main() {
 | 平台 | 自动化状态 | 命令 |
 |---|---|---|
 | ClawHub | 支持 CI token 与 dry-run | \`clawhub skill publish ${args.skillDir} --slug skill-navigator --name skill-navigator\` |
-| SkillHub | 支持 CI token、namespace 与 dry-run | \`skillhub publish ${args.skillDir} --namespace <namespace>\` |
+| skills-hub.ai | 支持 API key 登录；dry-run 时创建草稿 | \`skills-hub publish ${args.skillDir}/SKILL.md --visibility public\` |
 
 ## 半自动目标
 
 | 平台 | 处理方式 |
 |---|---|
-| skills-hub.ai | CLI 文档公开了 \`skills-hub publish [path]\`，但当前公开 README 只说明 GitHub 交互登录；CI 中先保留发布包与命令，待平台提供 headless token 后接入。 |
 | claudeskills.info | 首次提交 GitHub source URL，后续依赖平台索引 GitHub。 |
 | mcpservers.org Agent Skills | 首次提交 GitHub source URL，后续依赖平台索引或后台编辑。 |
+| SkillHub 国内平台 | 当前需确认对应 registry 与 token 来源后再接入。 |
 | CowAgent Skill Hub | 使用本目录中的 skill 文件夹或 zip 包人工上传。 |
 | awesome-claude-skills / awesome-openclaw-skills | 自动生成 PR 文案，实际 PR 需按对方仓库规范提交。 |
 
