@@ -6,9 +6,9 @@
 
 简体中文 | [English](README.md)
 
-`skill-navigator` 是 [skill-manager](https://github.com/GrubbyLee/skill-manager) 附属的桥接 skill。它让 Claude Code / Codex 可以调用本机 `skm`，回答“当前有哪些 skill / 该用哪个 skill / 哪些重复或闲置 / 能否生成知识图谱 / MCP 是否带来上下文开销”等问题。
+`skill-navigator` 是 [skill-manager](https://github.com/GrubbyLee/skill-manager) 附属的桥接 skill。它只回答一个问题：**用户要做某件事时，本机已安装的哪一款 Agent Skill 最适合处理？**
 
-它刻意保持很薄：不自己扫描目录，不凭记忆猜测，而是调用 `skm` 读取用户机器上的真实扫描目录、审计结果和推荐排序。
+它刻意保持很薄：不自己执行具体任务，不手动扫描目录，不凭记忆猜测，而是调用 `skm recommend` 基于用户机器上的真实已安装 skill 清单给出推荐。
 
 ## 安装
 
@@ -38,14 +38,9 @@ skm scan
 
 | 用户问题 | 应调用的命令 |
 |---|---|
-| 我装了哪些 skill？ | `skm list` |
 | 做某件事该用哪个 skill？ | `skm recommend "<任务>" --json` |
-| 哪些 skill 重复？ | `skm dupes` |
-| 哪些 skill 闲置或有风险？ | `skm audit` / `skm risks` |
-| 来自 GitHub/Gitee 的 skill 是否最新？ | `skm outdated`；明确需要联网检查时才用 `skm outdated --online` |
-| 能否画 skill 知识图谱？ | `skm graph --format html --output skill-graph.html` |
-| 为什么启动或上下文开销变重？ | `skm list --mcp` / `skm audit` |
-| 新装 skill 后目录是不是过期？ | `skm scan` |
+| 推荐结果看起来不完整 | `skm search "<关键词>" --json` |
+| 新装或删除 skill 后目录可能过期 | 先提示用户运行 `skm scan`，再重新执行 `skm recommend` |
 
 ## 对话示例
 
@@ -58,20 +53,12 @@ skm scan
 ```
 
 ```text
-哪些 skill 重复了，哪些从来没用过？
-```
-
-```text
-我从 GitHub 安装的 skill 现在还是最新的吗？
-```
-
-```text
-帮我生成本机 skill 的 HTML 知识图谱。
+我想把 Markdown 文章发布到微信公众号，应该用哪个已安装 skill？
 ```
 
 ## 安全边界
 
-大多数 `skm` 命令对 AIDE 数据只读。桥接 skill 默认应使用 `list`、`search`、`recommend`、`audit`、`risks`、`report`、`graph` 等只读命令。
+桥接 skill 默认应使用 `recommend`、`search` 等只读推荐命令。
 
 写操作仍然保持显式：
 
@@ -98,4 +85,4 @@ skm scan
 - 主项目：<https://github.com/GrubbyLee/skill-manager>
 - 许可证：MIT
 - 兼容 AIDE：Claude Code、Codex CLI
-- 扫描生态：Claude Code、Codex CLI、Cursor、Gemini、MCP
+- 核心用途：推荐用户当前任务应该使用哪款已安装 skill

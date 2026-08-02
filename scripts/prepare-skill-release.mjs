@@ -198,7 +198,7 @@ function main() {
 `;
   fs.writeFileSync(path.join(outputDir, 'release-summary.md'), summary);
 
-  const prLine = '- [skill-navigator](https://github.com/GrubbyLee/skill-manager/tree/main/integrations/skill-navigator) - Bridge skill for Claude Code and Codex to query local `skm` for installed Agent Skills/MCP discovery, recommendations, audits, duplicate detection, version checks, and knowledge graphs.\n';
+  const prLine = '- [skill-navigator](https://github.com/GrubbyLee/skill-manager/tree/main/integrations/skill-navigator) - Bridge skill for Claude Code and Codex that recommends which already-installed local Agent Skill should handle a user task by querying the local `skm` catalog.\n';
   fs.writeFileSync(path.join(outputDir, 'awesome-pr-entry.md'), prLine);
 
   let archive = null;

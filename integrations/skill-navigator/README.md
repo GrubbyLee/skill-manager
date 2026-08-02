@@ -6,9 +6,9 @@
 
 [简体中文](README.zh-CN.md) | English
 
-`skill-navigator` is the bundled bridge skill for [skill-manager](https://github.com/GrubbyLee/skill-manager). It lets Claude Code and Codex ask the local `skm` CLI which skills and MCP servers are installed, which skill fits a task, which items are duplicated or unused, and how the local skill graph is connected.
+`skill-navigator` is the bundled bridge skill for [skill-manager](https://github.com/GrubbyLee/skill-manager). It answers one question: **which already-installed local Agent Skill should handle this task?**
 
-It is intentionally thin: the skill does not scan directories by itself. It calls `skm`, so recommendations and audits come from the user's real local catalog.
+It is intentionally thin: the skill does not perform the task itself and does not scan directories by hand. It calls `skm recommend` against the user's real local skill catalog, then explains the best 1-3 installed skill choices.
 
 ## Install
 
@@ -38,14 +38,9 @@ skm scan
 
 | User question | Command the skill should use |
 |---|---|
-| What skills do I have? | `skm list` |
 | Which skill should I use for this task? | `skm recommend "<task>" --json` |
-| Which skills are duplicated? | `skm dupes` |
-| Which skills are unused or risky? | `skm audit` / `skm risks` |
-| Are GitHub/Gitee skills current? | `skm outdated`; use `skm outdated --online` only when explicit upstream checking is needed |
-| Can you draw the skill knowledge graph? | `skm graph --format html --output skill-graph.html` |
-| Why is startup/context heavy? | `skm list --mcp` / `skm audit` |
-| Did my catalog get stale? | `skm scan` |
+| The recommendation looks incomplete | `skm search "<keyword>" --json` |
+| The catalog may be stale after installing/removing skills | Ask the user to run `skm scan`, then retry `skm recommend` |
 
 ## Example Prompts
 
@@ -58,20 +53,12 @@ I want to create a product slide deck. Which installed skill fits best?
 ```
 
 ```text
-Which skills are duplicated or have never been used?
-```
-
-```text
-Are my GitHub-sourced skills still up to date?
-```
-
-```text
-Generate a local HTML knowledge graph for my installed skills.
+I need to publish a Markdown article to WeChat. Which installed skill should I use?
 ```
 
 ## Safety
 
-Most `skm` commands are read-only for AIDE data. The bridge normally uses read-only commands such as `list`, `search`, `recommend`, `audit`, `risks`, `report`, and `graph`.
+The bridge normally uses read-only recommendation commands such as `recommend` and `search`.
 
 Write operations remain explicit:
 
@@ -98,4 +85,4 @@ If a hub only accepts pasted content or uploaded files, treat that listing as a 
 - Main project: <https://github.com/GrubbyLee/skill-manager>
 - License: MIT
 - Compatible AIDE targets: Claude Code, Codex CLI
-- Scanned ecosystems: Claude Code, Codex CLI, Cursor, Gemini, MCP
+- Primary purpose: recommend which installed skill should handle a user task
