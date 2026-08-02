@@ -34,6 +34,7 @@
   ],
   "scripts": {
     "setup": "node scripts/install.mjs",
+    "skill:release:prepare": "node scripts/prepare-skill-release.mjs",
     "benchmark:recommend": "node scripts/benchmark-recommend.mjs",
     "check": "node scripts/check-syntax.mjs",
     "test": "node --test"

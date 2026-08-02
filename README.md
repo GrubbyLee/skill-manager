@@ -104,7 +104,7 @@ Detailed command manual: [docs/usage.en.md](docs/usage.en.md).
 
 Bundled bridge skill: `skm setup` installs `skill-navigator` for Claude Code and Codex to call local `skm`; `skill-navigator` is not a CLI command.
 
-Standalone bridge skill docs for skill hubs: [integrations/skill-navigator/README.md](integrations/skill-navigator/README.md).
+Standalone bridge skill docs for skill hubs: [integrations/skill-navigator/README.md](integrations/skill-navigator/README.md). Platform publishing workflow: [docs/skill-publishing.en.md](docs/skill-publishing.en.md).
 
 ## Features
 
@@ -228,7 +228,7 @@ More details: [docs/safety.md](docs/safety.md).
 
 This thin skill is the bridge between your AIDE coding assistant and `skill-manager`: when you ask "which skill should I use for this task?", the assistant should call the local `skm` command instead of manually scanning directories. Re-run `skm setup` after upgrading to refresh the bridge skill.
 
-The publishable skill directory is [integrations/skill-navigator](integrations/skill-navigator). When submitting it to a skill hub, use the GitHub source URL as the source of truth so future updates follow repository releases whenever the hub supports indexing.
+The publishable skill directory is [integrations/skill-navigator](integrations/skill-navigator). When submitting it to a skill hub, use the GitHub source URL as the source of truth so future updates follow repository releases whenever the hub supports indexing. For automated and semi-automated platform publishing, see [docs/skill-publishing.en.md](docs/skill-publishing.en.md).
 
 ## Documentation
 
@@ -241,6 +241,7 @@ The publishable skill directory is [integrations/skill-navigator](integrations/s
 | [docs/report.en.md](docs/report.en.md) / [docs/report.md](docs/report.md) | HTML overview report |
 | [docs/safety.en.md](docs/safety.en.md) / [docs/safety.md](docs/safety.md) | Safety boundaries and data notes |
 | [docs/release.en.md](docs/release.en.md) / [docs/release.md](docs/release.md) | npm Trusted Publishing release flow |
+| [docs/skill-publishing.en.md](docs/skill-publishing.en.md) / [docs/skill-publishing.md](docs/skill-publishing.md) | skill-navigator hub publishing flow |
 | [docs/roadmap.en.md](docs/roadmap.en.md) / [docs/roadmap.md](docs/roadmap.md) | Roadmap |
 | [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide |
 | [SECURITY.md](SECURITY.md) | Security policy and sensitive data reporting notes |

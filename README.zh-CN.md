@@ -110,7 +110,7 @@ SKM_LANG=zh-CN skm doctor
 
 附属桥接 skill：运行 `skm setup` 会安装 `skill-navigator`，供 Claude Code / Codex 调用本机 `skm`；它不是 CLI 命令。
 
-面向 skill hub 的独立桥接 skill 说明：[integrations/skill-navigator/README.zh-CN.md](integrations/skill-navigator/README.zh-CN.md)。
+面向 skill hub 的独立桥接 skill 说明：[integrations/skill-navigator/README.zh-CN.md](integrations/skill-navigator/README.zh-CN.md)。平台发布流程：[docs/skill-publishing.md](docs/skill-publishing.md)。
 
 ## 项目特性
 
@@ -236,7 +236,7 @@ CLI 内只有四类动作会修改 AIDE 文件：
 
 这个薄入口 skill 是 Claude Code / Codex 与本项目之间的桥梁：之后你可以直接在对话里问“我要做 XX 该用哪个 skill”，编程助手应通过本机 `skm` 命令读取清单、审计和推荐结果，而不是手动扫描目录。升级后重新运行 `skm setup` 即可刷新桥接 skill。
 
-可发布到 skill hub 的独立目录是 [integrations/skill-navigator](integrations/skill-navigator)。提交平台时建议填写 GitHub 源码 URL 作为唯一真源；如果平台支持索引 GitHub，后续更新会跟随仓库发布，无法自动索引的平台再按发布台账手动更新。
+可发布到 skill hub 的独立目录是 [integrations/skill-navigator](integrations/skill-navigator)。提交平台时建议填写 GitHub 源码 URL 作为唯一真源；如果平台支持索引 GitHub，后续更新会跟随仓库发布。支持 CLI/token 的平台可走 [docs/skill-publishing.md](docs/skill-publishing.md) 中的手动触发 workflow，无法自动索引的平台再按发布台账手动更新。
 
 ## 文档
 
@@ -248,6 +248,7 @@ CLI 内只有四类动作会修改 AIDE 文件：
 | [docs/report.md](docs/report.md) | HTML 总览报告 |
 | [docs/safety.md](docs/safety.md) | 只读边界、写操作防护、数据说明 |
 | [docs/release.md](docs/release.md) | npm Trusted Publishing 发布流程 |
+| [docs/skill-publishing.md](docs/skill-publishing.md) | skill-navigator 平台发布流程 |
 | [docs/roadmap.md](docs/roadmap.md) | 项目路线图与近期优先级 |
 | [CONTRIBUTING.en.md](CONTRIBUTING.en.md) / [CONTRIBUTING.md](CONTRIBUTING.md) | 贡献方式、本地开发、提交流程 |
 | [SECURITY.md](SECURITY.md) | 安全报告方式与敏感数据提醒 |

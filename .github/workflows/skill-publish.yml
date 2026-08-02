@@ -1,0 +1,180 @@
+name: 发布 skill-navigator
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '发布目标'
+        required: true
+        type: choice
+        default: package-only
+        options:
+          - package-only
+          - clawhub
+          - skillhub
+          - all
+      dry_run:
+        description: '只预览，不真正发布'
+        required: true
+        type: boolean
+        default: true
+      skillhub_namespace:
+        description: 'SkillHub namespace'
+        required: false
+        default: GrubbyLee
+      skillhub_registry:
+        description: 'SkillHub registry'
+        required: false
+        default: https://skill.xfyun.cn
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skill-navigator-publish
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: 校验并生成发布包
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 安装校验
+        run: npm install --ignore-scripts
+
+      - name: 语法检查
+        run: npm run check
+
+      - name: 单元测试
+        run: npm test
+
+      - name: 生成 skill 发布包
+        run: node scripts/prepare-skill-release.mjs --archive
+
+      - name: 上传发布包
+        uses: actions/upload-artifact@v4
+        with:
+          name: skill-navigator-release
+          path: .skill-release/
+
+  publish-clawhub:
+    name: 发布到 ClawHub
+    needs: package
+    if: ${{ inputs.target == 'clawhub' || inputs.target == 'all' }}
+    runs-on: ubuntu-latest
+    env:
+      CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 安装 ClawHub CLI
+        run: npm i -g clawhub@0.23.1
+
+      - name: 发布 skill-navigator 到 ClawHub
+        run: |
+          set -euo pipefail
+          args=(
+            skill
+            publish
+            "$GITHUB_WORKSPACE/integrations/skill-navigator"
+            --slug skill-navigator
+            --name skill-navigator
+            --version "$(node -p "require('./package.json').version")"
+            --changelog "Sync skill-navigator from GrubbyLee/skill-manager"
+            --source-repo GrubbyLee/skill-manager
+            --source-commit "$GITHUB_SHA"
+            --source-ref "$GITHUB_REF_NAME"
+            --source-path integrations/skill-navigator
+            --topics claude-code,codex-cli,agent-skills,mcp,skill-management
+          )
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          elif [ -n "${CLAWHUB_TOKEN:-}" ]; then
+            clawhub login --token "$CLAWHUB_TOKEN"
+          else
+            echo "::error::真实发布 ClawHub 需要配置 GitHub Secret：CLAWHUB_TOKEN"
+            exit 1
+          fi
+          clawhub "${args[@]}"
+
+  publish-skillhub:
+    name: 发布到 SkillHub
+    needs: package
+    if: ${{ inputs.target == 'skillhub' || inputs.target == 'all' }}
+    runs-on: ubuntu-latest
+    env:
+      SKILLHUB_TOKEN: ${{ secrets.SKILLHUB_TOKEN }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      SKILLHUB_NAMESPACE: ${{ inputs.skillhub_namespace }}
+      SKILLHUB_REGISTRY: ${{ inputs.skillhub_registry }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 安装 SkillHub CLI
+        run: npm i -g @astron-team/skillhub@0.1.9
+
+      - name: 发布 skill-navigator 到 SkillHub
+        run: |
+          set -euo pipefail
+          if [ -z "${SKILLHUB_TOKEN:-}" ]; then
+            echo "::error::SkillHub publish 和 dry-run 都需要配置 GitHub Secret：SKILLHUB_TOKEN"
+            exit 1
+          fi
+          args=(
+            publish
+            integrations/skill-navigator
+            --namespace "$SKILLHUB_NAMESPACE"
+            --visibility public
+            --registry "$SKILLHUB_REGISTRY"
+            --token "$SKILLHUB_TOKEN"
+          )
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          skillhub "${args[@]}"
+
+  manual-platforms:
+    name: 生成半自动平台说明
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下载发布包
+        uses: actions/download-artifact@v4
+        with:
+          name: skill-navigator-release
+          path: .skill-release
+
+      - name: 输出后续处理入口
+        run: |
+          cat .skill-release/release-summary.md
+          echo
+          echo "半自动平台入口："
+          echo "- skills-hub.ai: https://skills-hub.ai/publish"
+          echo "- claudeskills.info: https://claudeskills.info/submit/"
+          echo "- mcpservers.org: https://mcpservers.org/submit"
+          echo "- SkillHub: https://skillhub.cn/"
+          echo "- skillhub.club: https://www.skillhub.club/app/skills"
+          echo "- CowAgent Skill Hub: https://skills.cowagent.ai/submit"
+          echo "- awesome-claude-skills: https://github.com/ComposioHQ/awesome-claude-skills"
+          echo "- awesome-openclaw-skills: https://github.com/VoltAgent/awesome-openclaw-skills"

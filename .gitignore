@@ -1,6 +1,7 @@
 # 依赖与构建产物
 node_modules/
 coverage/
+.skill-release/
 
 # 日志与临时文件
 *.log
