@@ -2,6 +2,7 @@
 node_modules/
 coverage/
 .skill-release/
+integrations/skill-navigator/.skillhub.json
 
 # 日志与临时文件
 *.log
