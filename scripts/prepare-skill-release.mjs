@@ -134,6 +134,12 @@ function main() {
   const hub = readJson(path.join(skillDir, 'skillhub.json'));
   const errors = [];
   const warnings = [];
+  const skillsHubCategories = new Set([
+    'build', 'test', 'qa', 'review', 'deploy', 'docs', 'security', 'ux', 'analysis',
+    'productivity', 'integration', 'ops', 'combo', 'meta', 'marketing', 'product',
+    'creative', 'data', 'business', 'healthcare', 'accessibility', 'gamedev',
+    'research', 'education',
+  ]);
 
   for (const key of ['name', 'version', 'description', 'category', 'homepage', 'source']) {
     if (!skill[key]) errors.push(`SKILL.md 缺少 ${key}`);
@@ -143,6 +149,7 @@ function main() {
   if (skill.version !== hub.version) errors.push(`SKILL.md version 与 skillhub.json version 不一致：${skill.version} / ${hub.version}`);
   if (skill.version !== packageJson.version) errors.push(`skill 版本与 package.json 不一致：${skill.version} / ${packageJson.version}`);
   if (hub.source !== skill.source) errors.push('skillhub.json source 与 SKILL.md source 不一致');
+  if (skill.category && !skillsHubCategories.has(skill.category)) errors.push(`SKILL.md category 不是 skills-hub.ai 合法分类：${skill.category}`);
   if (!String(skill.source).startsWith('https://github.com/GrubbyLee/skill-manager/')) warnings.push('source 不是 GitHub 主仓目录，请确认是否故意修改');
   if (!Array.isArray(hub.tags) || hub.tags.length < 5) warnings.push('skillhub.json tags 数量偏少，可能影响平台检索');
 

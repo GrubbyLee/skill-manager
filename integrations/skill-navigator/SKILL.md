@@ -2,7 +2,7 @@
 name: skill-navigator
 version: 0.1.4
 description: Use when users ask which local Agent Skill to use, what skills/MCP servers are installed, or how to scan, recommend, audit, deduplicate, clean up, or visualize skills. 当用户询问当前有哪些 skill、该用哪个 skill、skill/MCP 清单、分类、重复、审计、清理或知识图谱时使用。通过 skm CLI 读取本机真实目录并解读，不要自己去扫描文件系统。
-category: developer-tools
+category: meta
 homepage: https://github.com/GrubbyLee/skill-manager
 source: https://github.com/GrubbyLee/skill-manager/tree/main/integrations/skill-navigator
 platforms:
