@@ -25,6 +25,7 @@ test('CLI help：支持英文输出', () => {
   assert.match(r.stdout, /--lang <zh-CN\|en>/);
   assert.match(r.stdout, /--anonymize/);
   assert.match(r.stdout, /--tool <claude\|codex\|cursor\|gemini>/);
+  assert.match(r.stdout, /skm state plan/);
   assert.doesNotMatch(r.stdout, /用法：/);
 });
 

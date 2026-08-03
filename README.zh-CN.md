@@ -70,10 +70,11 @@ SKM_LANG=zh-CN skm doctor
 | 你遇到的问题 | 运行 | skm 给你的答案 |
 |---|---|---|
 | 我到底装了多少 skill / MCP？ | `skm scan` | 刷新目录，并在扫描事实后展示治理总览 |
-| 这台机器状态健康吗？ | `skm` | 按清单、风险、使用、版本、重复、图谱、会话、推荐分域展示问题与下一步 |
+| 这台机器状态健康吗？ | `skm` | 按清单、风险、使用、状态、版本、重复、图谱、会话、推荐分域展示问题与下一步 |
 | 做某件事该用哪个 skill？ | `skm ask "任务"` | 首选 skill、理由、备选 |
 | 哪些 skill 重复了？ | `skm dupes` | 同名、同内容、同类多实现、文本相似 |
 | 哪些从未真正用过？ | `skm audit` | 使用频率、僵尸 skill、MCP 调用记录、静态安全发现 |
+| skill 太多但不想删除？ | `skm state plan` | 给出 `on` / `name-only` / `user-only` / `off` 降载建议 |
 | 来自 GitHub/Gitee 的 skill 是否最新？ | `skm outdated --online` | 版本 / commit 新旧检查；只读并缓存 |
 | 太多 skill 显示无法判断版本？ | `skm sources wizard` | 把缺失的上游地址补到 skm 本地来源表 |
 | skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
@@ -102,6 +103,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm graph` | 导出知识图谱 |
 | `skm dupes` | 检测重复与相似 skill |
 | `skm audit` | 审计真实使用频率和静态安全信号 |
+| `skm state` | 生成 skill 状态治理计划；查看/写入 Claude Code 原生状态 |
 | `skm sessions` | 查看会话日志分布 |
 | `skm sessions --clean` | 按策略清理会话日志，需确认 |
 | `skm disable` / `skm enable` | 软禁用或恢复 skill / MCP |
@@ -118,6 +120,7 @@ SKM_LANG=zh-CN skm doctor
 - 软链感知：区分共享实体、实体双份和内容不同
 - 四级重复检测：同名、同内容、同类多实现、文本高度相似
 - 真实使用审计：解析可观测会话日志，只统计真正读取或调用过的 skill / MCP；Claude Code / Codex 信号更完整，Cursor / Gemini 暂以扫描和静态安全审计为主
+- 状态治理：对过多、重复、长期未用或高上下文开销的 skill 给出降载建议；Claude Code 支持写入原生 `skillOverrides`
 - 静态安全审计：识别疑似外发密钥、破坏性命令、提示词注入、MCP 命令携带密钥等信号
 - 上游版本检查：识别来自 GitHub/Gitee 或 git remote 的 skill 是否可能落后，但不自动更新
 - 推荐增强：自然语言推荐会在相关候选内学习你的常用分类和套件偏好
@@ -197,6 +200,7 @@ skm outdated
 skm outdated --online
 skm sources missing
 skm sources wizard
+skm state plan
 skm report --format html --output skm-report.html
 skm report --format html --output skm-report.html --anonymize
 skm dupes
@@ -206,7 +210,34 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-排查时先用 `skm scan` 刷新事实；扫描结束后会直接显示治理总览。之后单独运行 `skm` 不会强制重扫，而是基于已有 catalog、使用统计和会话索引，按基础子命令分域提示问题在哪里、下一步该运行什么。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+排查时先用 `skm scan` 刷新事实；扫描结束后会直接显示治理总览。之后单独运行 `skm` 不会强制重扫，而是基于已有 catalog、使用统计和会话索引，按基础子命令分域提示问题在哪里、下一步该运行什么。`skm state plan` 适合在发现 skill 太多时先做降载方案，而不是直接删除。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+
+### skill 状态治理
+
+当 skill 太多时，最佳处理顺序不是删除，而是先降载、再禁用、最后才考虑人工删除。`skm state plan` 会基于重复安装、真实使用频率、长期未用和上下文开销，给出一份只读治理计划：
+
+```bash
+skm state plan
+skm state plan --json
+```
+
+| 状态 | 含义 | 适合场景 |
+|---|---|---|
+| `on` | 正常启用 | 常用、近期用过、无明显上下文负担 |
+| `name-only` | 只保留名称级可见性 | 偶尔用、但描述较长或长期未用 |
+| `user-only` | 仅用户明确点名时可用 | 从未用过且上下文开销高，但还不想彻底关掉 |
+| `off` | 原生关闭 | 重复安装且从未使用，或你确认不用 |
+| 目录软禁用 | `skm disable <skill>` 把目录改名为 `_disabled-*` | AIDE 原生状态不可用时的可逆兜底 |
+
+Claude Code 可写入原生状态：
+
+```bash
+skm state list
+skm state set baoyu-image-gen --tool claude --mode name-only
+skm state set old-skill --tool claude --mode off --scope user
+```
+
+写入时会修改 Claude Code 的 `skillOverrides`，修改前备份，默认需要输入 `yes` 确认；`--dry-run` 只看计划。Claude Code 菜单里的 `user-only` 会按官方配置值写成 `user-invocable-only`。Codex 当前建议继续使用内置 `/skills` 里的 Enable/Disable Skills 交互界面，skm 不猜测或改写未稳定公开的状态文件。
 
 ## 安全边界
 
@@ -214,11 +245,12 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 安全审计是静态、保守的：只读取 `SKILL.md`、目录元数据和 MCP 的非 `env` 配置字段，不执行 skill/MCP，不输出 env 值；疑似命令证据会先脱敏再展示。上游版本检查同样只读：`scan` 只记录本地 `version` / `source` / git metadata，`outdated --online` 才显式访问 GitHub/Gitee 或 git remote，结果缓存 24 小时。直接 `source` URL 建议指向 skill 目录或 `SKILL.md`；裸仓库 URL 只有在 `main` 或 `master` 根目录存在 `SKILL.md` 时才能直接检查。`skm sources` 只写入 skm 自己的 `~/.skill-manager/sources.json`，不会修改已安装的 skill 文件。使用频率审计依赖 AIDE 会话日志是否可解析：Claude Code / Codex 的 skill 使用信号更完整，Cursor / Gemini 当前不读取敏感编辑器缓存，因此不会为了凑数字推断真实使用次数。
 
-CLI 内只有四类动作会修改 AIDE 文件：
+CLI 内只有五类动作会修改 AIDE 文件：
 
 | 动作 | 改动内容 | 防护 |
 |---|---|---|
 | `setup` | 安装 `skill-navigator` 到用户 skill 目录 | 显式命令；目标已有不同内容时先备份再替换；支持 `--dry-run` |
+| `state set <skill>` | 写入 Claude Code `skillOverrides` | 仅支持 Claude 原生状态；自动备份；需确认；支持 `--dry-run` |
 | `sessions --clean` | 删除会话日志文件 | 必须给保留策略；先打印计划；交互确认或 `--yes`；24 小时内活跃会话永不删；删除前聚合统计 |
 | `disable/enable <skill>` | 重命名 skill 目录 | 完全可逆，不删除文件；插件 skill 拒绝处理 |
 | `disable/enable --mcp` | 修改 `~/.claude.json` / `config.toml` | 自动备份；需确认；恢复时不覆盖用户手动重建的同名配置 |

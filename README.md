@@ -64,10 +64,11 @@ SKM_LANG=zh-CN skm doctor
 | Question | Command | What you get |
 |---|---|---|
 | How many skills and MCP servers are installed? | `skm scan` | Refresh the catalog, then show the governance overview |
-| Is my local AIDE setup healthy? | `skm` | Findings and next steps grouped by inventory, risks, usage, versions, duplicates, graph, sessions, and recommendations |
+| Is my local AIDE setup healthy? | `skm` | Findings and next steps grouped by inventory, risks, usage, state, versions, duplicates, graph, sessions, and recommendations |
 | Which skill should I use for this task? | `skm ask "task"` | Best match, reasons, alternatives |
 | Which skills are duplicated? | `skm dupes` | Same name, same content, same category, text similarity |
 | Which skills were never really used? | `skm audit` | Real usage frequency from Claude Code / Codex sessions, plus static skill/MCP security findings |
+| Too many skills, but you do not want to delete them? | `skm state plan` | Suggested `on` / `name-only` / `user-only` / `off` downshifts |
 | Are GitHub/Gitee skills still current? | `skm outdated --online` | Version / commit freshness check; read-only and cached |
 | Too many skills show unknown freshness? | `skm sources wizard` | Add missing upstream URLs into skm's local source map |
 | How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
@@ -96,6 +97,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm graph` | Export the skill knowledge graph |
 | `skm dupes` | Detect duplicates and similar skills |
 | `skm audit` | Audit real usage frequency and static safety signals |
+| `skm state` | Plan skill state governance; list/set Claude Code native states |
 | `skm sessions` | Inspect session log distribution |
 | `skm sessions --clean` | Clean session logs with confirmation |
 | `skm disable` / `skm enable` | Soft-disable or restore skills / MCP servers |
@@ -113,6 +115,7 @@ Standalone bridge skill docs for skill hubs: [integrations/skill-navigator/READM
 - Classifies skills with local rules
 - Recommends skills from natural-language task descriptions, with local usage preference boosts after relevance matching
 - Audits real usage from observable session logs; Claude Code and Codex signals are more complete, while Cursor and Gemini currently focus on scanning and static safety checks
+- Plans state downshifts for excessive, duplicate, stale, or high-context skills; Claude Code native `skillOverrides` can be written with safeguards
 - Adds static, read-only security audit for suspicious skill instructions and MCP launch configuration
 - Checks whether GitHub/Gitee-sourced skills appear current, without updating them automatically
 - Finds zombie skills, idle Claude-side MCP servers, and high estimated MCP schema context cost
@@ -189,6 +192,7 @@ skm outdated
 skm outdated --online
 skm sources missing
 skm sources wizard
+skm state plan
 skm report --format html --output skm-report.html
 skm report --format html --output skm-report.html --anonymize
 skm dupes
@@ -198,7 +202,34 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Run `skm scan` to refresh facts; after scanning, skm prints the governance overview automatically. Later, plain `skm` does not force a rescan: it uses the existing catalog plus usage/session indexes to show which domain has findings and which subcommand to run next. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
+Start with read-only commands. Run `skm scan` to refresh facts; after scanning, skm prints the governance overview automatically. Later, plain `skm` does not force a rescan: it uses the existing catalog plus usage/session indexes to show which domain has findings and which subcommand to run next. `skm state plan` is the first stop when the setup has too many skills: downshift before you disable, and disable before you ever delete manually. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
+
+### Skill State Governance
+
+When there are too many skills, the best default is not deletion. First downshift, then disable, and only manually delete after you are certain. `skm state plan` builds a read-only plan from duplicate installs, real usage, stale usage, and estimated context cost:
+
+```bash
+skm state plan
+skm state plan --json
+```
+
+| State | Meaning | Good for |
+|---|---|---|
+| `on` | Fully enabled | Frequently or recently used skills |
+| `name-only` | Keep name-level visibility | Occasionally used skills with long descriptions |
+| `user-only` | Only available when explicitly named by the user | Never-used high-context skills you do not want to fully turn off |
+| `off` | Native off state | Duplicate and never-used skills, or skills you confirmed unused |
+| Directory soft-disable | `skm disable <skill>` renames the directory to `_disabled-*` | Reversible fallback when native AIDE state is unavailable |
+
+Claude Code native state can be written directly:
+
+```bash
+skm state list
+skm state set baoyu-image-gen --tool claude --mode name-only
+skm state set old-skill --tool claude --mode off --scope user
+```
+
+`state set` writes Claude Code `skillOverrides`, backs up the settings file first, and asks for confirmation by default. `--dry-run` prints the intended write only. Claude Code's menu label `user-only` is stored as the official `user-invocable-only` value. For Codex, use the built-in `/skills` -> Enable/Disable Skills UI for now; skm does not guess or rewrite an unstable state file.
 
 ## Safety Boundaries
 
@@ -206,11 +237,12 @@ Most commands are read-only for Claude Code, Codex, Cursor, and Gemini data. Som
 
 The security audit is static and conservative: it reads `SKILL.md`, directory metadata, and non-`env` MCP config fields only. It never executes a skill or MCP server, and suspicious command evidence is redacted before display. Upstream freshness checks are also read-only: `scan` records local `version` / `source` / git metadata, while `outdated --online` explicitly checks GitHub/Gitee or git remote and caches results for 24 hours. Direct `source` URLs should point to a skill directory or `SKILL.md`; bare repository URLs are only checkable when a root `SKILL.md` exists on `main` or `master`. `skm sources` writes only skm's own source map under `~/.skill-manager/sources.json`; it does not edit installed skill files. Usage auditing depends on observable AIDE session logs: Claude Code and Codex provide fuller skill usage signals, while Cursor and Gemini are scanned conservatively without reading sensitive editor caches or inventing usage counts.
 
-Inside the CLI, only four actions can modify AIDE files:
+Inside the CLI, only five actions can modify AIDE files:
 
 | Action | What changes | Safeguards |
 |---|---|---|
 | `setup` | Installs `skill-navigator` into user skill directories | Explicit command; existing different directories are backed up before replacement; `--dry-run` available |
+| `state set <skill>` | Writes Claude Code `skillOverrides` | Claude native states only; automatic backup; confirmation required; `--dry-run` available |
 | `sessions --clean` | Deletes session log files | Requires retention policy; prints plan first; interactive confirmation or `--yes`; never deletes sessions active within 24 hours; aggregates usage stats before deletion |
 | `disable/enable <skill>` | Renames skill directories | Reversible, no deletion; plugin skills are refused |
 | `disable/enable --mcp` | Edits `~/.claude.json` / `config.toml` | Automatic backups; confirmation required; restore never overwrites manually recreated config |
@@ -257,7 +289,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-`skm help`, argument validation, `doctor`, `scan`, `setup`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `outdated`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
+`skm help`, argument validation, `doctor`, `scan`, `setup`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `outdated`, `sources`, `state`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
 
 Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. JSON field names stay stable.
 

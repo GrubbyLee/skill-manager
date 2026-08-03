@@ -16,6 +16,8 @@ skm search
 skm recommend
 skm ask
 skm outdated
+skm state plan
+skm state list
 skm graph
 skm dupes
 skm audit
@@ -26,11 +28,14 @@ skm sessions
 
 显式运行 `skm setup` 或 `node scripts/install.mjs` 是安装阶段的例外：它们会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 与 `~/.codex/skills/`。如果目标目录已有不同内容，会先备份旧目录再替换。
 
-## CLI 四类写操作
+`skm state plan` 与 `skm state list` 只读；只有显式 `skm state set` 才会写入 Claude Code 设置。
+
+## CLI 五类写操作
 
 | 动作 | 改动内容 | 防护 |
 |---|---|---|
 | `setup` | 安装 `skill-navigator` 桥接 skill | 显式命令；支持 `--dry-run`；目标已有不同内容时先备份再替换 |
+| `state set <skill>` | 写入 Claude Code `skillOverrides` | 仅支持 Claude 原生状态；修改前备份设置文件；默认需确认；支持 `--dry-run` |
 | `sessions --clean` | 删除会话日志文件 | 必须显式给保留策略；先打印完整计划；交互确认或 `--yes`；24 小时内活跃会话永不删；未知工作区只接受 `--days` 策略；删除前聚合统计 |
 | `disable/enable <skill>` | 重命名 skill 目录 | 完全可逆，不删文件；插件 skill 拒绝处理 |
 | `disable/enable --mcp` | 修改 `~/.claude.json` / `config.toml` | 每个 MCP 每次操作独立备份；Codex 侧行级注释可逐字节还原；恢复时不覆盖用户手动重建的同名配置；需确认 |
@@ -69,7 +74,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `~/.skill-manager/usage-cache.json` | 使用统计增量缓存 |
 | `~/.skill-manager/update-cache.json` | 上游版本检查缓存 |
 | `~/.skill-manager/audit-history/` | 审计快照 |
-| `~/.skill-manager/backups/` | MCP 配置修改前备份 |
+| `~/.skill-manager/backups/` | MCP 配置或 Claude 状态设置修改前备份 |
 | `~/.skill-manager/rules.json` | 用户自定义分类规则 |
 
 ## 日期与时区

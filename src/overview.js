@@ -74,7 +74,13 @@ export function buildOverview({ catalog, usage, sessions = [], lang = 'zh-CN' })
         stale,
         duplicateNeverUsed: primary.length,
         topUsed: rows.filter((row) => row.usage.count > 0).sort((a, b) => b.usage.count - a.usage.count).slice(0, 3).map(({ skill, usage: u }) => ({ name: skill.dirName, count: u.count })),
-        commands: ['skm audit', 'skm audit --history'],
+        commands: ['skm audit', 'skm state plan', 'skm audit --history'],
+      },
+      state: {
+        candidates: countStateCandidates(rows),
+        claudeNative: merged.filter((skill) => (skill.entries || [skill]).some((entry) => entry.tool === 'claude-code' && entry.scope !== 'plugin')).length,
+        codexManual: merged.filter((skill) => (skill.entries || [skill]).some((entry) => entry.tool === 'codex')).length,
+        commands: ['skm state plan', 'skm state list'],
       },
       versions: {
         outdated: 0,
@@ -118,6 +124,7 @@ export function renderOverview(data, lang = 'zh-CN') {
     domainRow(lang, 'overview.domain.inventory', inventorySummary(data, lang), inventoryProblem(data, lang), data.domains.inventory.commands),
     domainRow(lang, 'overview.domain.risks', risksSummary(data, lang), risksProblem(data, lang), data.domains.risks.commands),
     domainRow(lang, 'overview.domain.usage', usageSummary(data, lang), usageProblem(data, lang), data.domains.usage.commands),
+    domainRow(lang, 'overview.domain.state', stateSummary(data, lang), stateProblem(data, lang), data.domains.state.commands),
     domainRow(lang, 'overview.domain.versions', versionSummary(data, lang), versionProblem(data, lang), data.domains.versions.commands),
     domainRow(lang, 'overview.domain.duplicates', duplicateSummary(data, lang), duplicateProblem(data, lang), data.domains.duplicates.commands),
     domainRow(lang, 'overview.domain.graph', graphSummary(data, lang), graphProblem(data, lang), data.domains.graph.commands),
@@ -185,6 +192,17 @@ function usageProblem(data, lang) {
   return tr(lang, 'common.none');
 }
 
+function stateSummary(data, lang) {
+  const d = data.domains.state;
+  return tr(lang, 'overview.state.summary', { candidates: d.candidates, claude: d.claudeNative, codex: d.codexManual });
+}
+
+function stateProblem(data, lang) {
+  const d = data.domains.state;
+  if (d.candidates) return tr(lang, 'overview.state.problem', { count: d.candidates });
+  return tr(lang, 'common.none');
+}
+
 function versionSummary(data, lang) {
   const d = data.domains.versions;
   return tr(lang, 'overview.versions.summary', { unchecked: d.unchecked, unknown: d.unknown, untracked: d.untracked });
@@ -236,6 +254,7 @@ function priorityLines(data, lang) {
   if (risks.high || risks.medium) out.push(tr(lang, 'overview.priority.risks', { command: 'skm risks' }));
   if (versions.unchecked || versions.sourceMissing) out.push(tr(lang, 'overview.priority.versions', { command: 'skm outdated --online', sources: 'skm sources missing' }));
   if (usage.duplicateNeverUsed || usage.neverUsed) out.push(tr(lang, 'overview.priority.usage', { command: 'skm audit' }));
+  if (data.domains.state.candidates) out.push(tr(lang, 'overview.priority.state', { command: 'skm state plan' }));
   if (data.domains.duplicates.dupEntities) out.push(tr(lang, 'overview.priority.dupes', { command: 'skm dupes' }));
   if (sessions.reclaimBytes) out.push(tr(lang, 'overview.priority.sessions', { command: 'skm sessions --clean --days 30 --keep 3 --dry-run' }));
   if (!out.length) out.push(tr(lang, 'overview.priority.ok'));
@@ -262,6 +281,13 @@ function countStaleRows(rows) {
     if (!(row.usage.count > 0) || !row.usage.lastUsed) return false;
     const last = Date.parse(row.usage.lastUsed);
     return Number.isFinite(last) && now - last > STALE_DAYS * 86400e3;
+  }).length;
+}
+
+function countStateCandidates(rows) {
+  return rows.filter((row) => {
+    const highContext = Number(row.skill.descTokens || 0) >= 120;
+    return row.usage.count === 0 || highContext || isDupEntity(row.skill);
   }).length;
 }
 

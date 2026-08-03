@@ -73,7 +73,7 @@ skm recommend "convert a web page to markdown" --lang en
 skm graph --format html --output skill-graph.html --lang en
 ```
 
-当前已覆盖 `help`、参数错误、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`outdated`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
+当前已覆盖 `help`、参数错误、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`outdated`、`sources`、`state`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
 
 ## 推荐排查流程
 
@@ -83,6 +83,7 @@ skm scan
 skm
 skm risks
 skm outdated
+skm state plan
 skm report --format html --output skm-report.html
 skm dupes
 skm audit
@@ -91,7 +92,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-建议先只读排查，确认报告无误后再考虑 `disable`、`enable` 或 `sessions --clean`。
+建议先只读排查，确认报告无误后再考虑 `state set`、`disable`、`enable` 或 `sessions --clean`。
 
 ## 命令一览
 
@@ -104,6 +105,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm scan` | 扫描 skill / MCP 并展示治理总览 | `--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
 | `skm outdated` | 检查 skill 上游新旧 | `--online`、`--refresh`、`--json` |
 | `skm sources` | 管理本机补充的上游地址 | `missing`、`add`、`list`、`remove`、`check`、`wizard` |
+| `skm state` | skill 状态治理计划与 Claude 原生状态写入 | `plan`、`list`、`set`、`--mode`、`--scope`、`--dry-run`、`--yes` |
 | `skm setup` | 安装桥接 skill | `--dry-run` |
 | `skm list` | 列出 skill | `--category`、`--tool claude\|codex\|cursor\|gemini`、`--scope`、`--raw`、`--json` |
 | `skm list --mcp` | 列出 MCP | `--tool`、`--json` |
@@ -158,7 +160,7 @@ skm
 skm status --json
 ```
 
-治理总览按基础子命令分域展示：清单 `scan/list`、风险 `risks`、使用 `audit`、版本 `outdated/sources`、重复 `dupes`、图谱 `graph`、会话 `sessions`、推荐 `ask/recommend`。每一行都包含概括、当前问题和建议操作。健康分为 0-100 的启发式评分，会综合僵尸率、实体双份、闲置 MCP、会话日志体积；它用于清理前后自我对比，不代表绝对质量。
+治理总览按基础子命令分域展示：清单 `scan/list`、风险 `risks`、使用 `audit`、状态 `state`、版本 `outdated/sources`、重复 `dupes`、图谱 `graph`、会话 `sessions`、推荐 `ask/recommend`。每一行都包含概括、当前问题和建议操作。健康分为 0-100 的启发式评分，会综合僵尸率、实体双份、闲置 MCP、会话日志体积；它用于清理前后自我对比，不代表绝对质量。
 
 ## doctor 与 risks
 
@@ -287,6 +289,28 @@ skm audit --json
 - MCP 明文 HTTP、shell 求值、动态包运行器、过高容器权限或免确认信任配置
 
 安全审计只读取 `SKILL.md`、目录元数据和 MCP 非 `env` 配置字段；不会执行 skill/MCP，也不会输出 env 值。`audit` 还会离线统计上游版本线索覆盖率，告诉你有多少 skill 可以通过 `skm outdated --online` 继续检查。解析结果会写入 `~/.skill-manager/usage-cache.json` 做增量缓存；每次审计还会归档快照到 `~/.skill-manager/audit-history/`。
+
+## state
+
+```bash
+skm state plan
+skm state plan --json
+skm state list
+skm state set baoyu-image-gen --tool claude --mode name-only
+skm state set old-skill --tool claude --mode off --scope user
+skm state set old-skill --tool claude --mode user-only --dry-run
+```
+
+`state` 用于处理“skill 太多”的生命周期治理问题。它不会删除 skill。推荐顺序是：先用 `state plan` 看降载建议，再对 Claude Code 使用原生状态；AIDE 原生状态不可用时，才考虑 `skm disable <skill>` 这种目录级软禁用兜底。
+
+`state plan` 会根据以下信号给出建议：
+
+- 重复安装且从未使用：优先 `off`
+- 从未使用且上下文开销高：优先 `user-only`
+- 长期未用或偶尔用：优先 `name-only`
+- 常用且无明显负担：保持 `on`
+
+Claude Code 支持自动写入 `skillOverrides`。`user-only` 会按官方配置值保存为 `user-invocable-only`；写入前会备份设置文件，默认要求输入 `yes` 确认。Codex 当前建议继续使用内置 `/skills` -> Enable/Disable Skills 交互界面，skm 不猜测或改写未稳定公开的状态文件。
 
 ## sessions
 

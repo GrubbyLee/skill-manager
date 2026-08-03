@@ -63,6 +63,7 @@ skm scan
 skm
 skm risks
 skm outdated
+skm state plan
 skm dupes
 skm audit
 skm list --mcp
@@ -70,7 +71,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Use dry-run before cleanup.
+Start with read-only commands. Use dry-run before cleanup or state changes.
 
 ## Commands
 
@@ -83,6 +84,7 @@ Start with read-only commands. Use dry-run before cleanup.
 | `skm scan` | Scan skills/MCP servers and show the governance overview | `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
 | `skm outdated` | Check upstream freshness metadata | `--online`, `--refresh`, `--json` |
 | `skm sources` | Manage local upstream source mappings | `missing`, `add`, `list`, `remove`, `check`, `wizard` |
+| `skm state` | Plan skill state governance and write Claude native states | `plan`, `list`, `set`, `--mode`, `--scope`, `--dry-run`, `--yes` |
 | `skm setup` | Install the bridge skill | `--dry-run` |
 | `skm list` | List skills | `--category`, `--tool claude\|codex\|cursor\|gemini`, `--scope`, `--raw`, `--json` |
 | `skm list --mcp` | List MCP servers | `--tool`, `--json` |
@@ -121,7 +123,7 @@ skm
 skm status --json
 ```
 
-The overview is grouped by base subcommands: inventory `scan/list`, risks `risks`, usage `audit`, versions `outdated/sources`, duplicates `dupes`, graph `graph`, sessions `sessions`, and recommendation `ask/recommend`. Each row gives a summary, current finding, and next command. The health score is heuristic and useful for comparing your own setup before and after cleanup.
+The overview is grouped by base subcommands: inventory `scan/list`, risks `risks`, usage `audit`, state `state`, versions `outdated/sources`, duplicates `dupes`, graph `graph`, sessions `sessions`, and recommendation `ask/recommend`. Each row gives a summary, current finding, and next command. The health score is heuristic and useful for comparing your own setup before and after cleanup.
 
 ## report
 
@@ -196,6 +198,28 @@ skm audit --json
 It also shows static security findings recorded by `scan`, including suspicious secret access/exfiltration wording, destructive commands, remote script execution, encoded PowerShell, privileged commands, MCP command-line secrets, plain HTTP endpoints, shell evaluation, dynamic package runners, over-privileged containers, and trust-without-confirmation settings.
 
 The security audit only reads `SKILL.md`, directory metadata, and non-`env` MCP config fields. It never executes skills or MCP servers, and it redacts suspicious command evidence before display. `audit` also reports offline upstream metadata coverage, so you can see how many skills can be checked by `skm outdated --online`. Parsed usage results are cached in `~/.skill-manager/usage-cache.json`.
+
+## state
+
+```bash
+skm state plan
+skm state plan --json
+skm state list
+skm state set baoyu-image-gen --tool claude --mode name-only
+skm state set old-skill --tool claude --mode off --scope user
+skm state set old-skill --tool claude --mode user-only --dry-run
+```
+
+`state` handles the lifecycle problem behind "too many skills". It does not delete skills. The recommended order is: use `state plan` first, apply native Claude Code states when appropriate, and use `skm disable <skill>` only as a reversible directory-level fallback when native AIDE state is unavailable.
+
+`state plan` uses these signals:
+
+- Duplicate and never used: prefer `off`
+- Never used with high context cost: prefer `user-only`
+- Stale or occasional usage: prefer `name-only`
+- Frequently used with no obvious load issue: keep `on`
+
+Claude Code can be written automatically through `skillOverrides`. `user-only` is stored as the official `user-invocable-only` value. skm backs up the settings file before writing and asks for `yes` by default. For Codex, use the built-in `/skills` -> Enable/Disable Skills UI for now; skm does not guess or rewrite an unstable state file.
 
 ## sessions
 

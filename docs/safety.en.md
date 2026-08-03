@@ -17,6 +17,8 @@ skm search
 skm recommend
 skm ask
 skm outdated
+skm state plan
+skm state list
 skm graph
 skm dupes
 skm audit
@@ -27,11 +29,14 @@ Some commands update skm's own files under `~/.skill-manager`, such as catalog, 
 
 Explicitly running `skm setup` or `node scripts/install.mjs` is the install-time exception: it installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`. If a target directory already exists with different content, skm backs it up before replacing it.
 
+`skm state plan` and `skm state list` are read-only. Only explicit `skm state set` writes Claude Code settings.
+
 ## CLI Write Operations
 
 | Action | What changes | Safeguards |
 |---|---|---|
 | `setup` | Installs the `skill-navigator` bridge skill | Explicit command, supports `--dry-run`, backs up existing different content before replacement |
+| `state set <skill>` | Writes Claude Code `skillOverrides` | Claude native states only, backs up settings before writing, confirmation required, `--dry-run` available |
 | `sessions --clean` | Deletes session log files | Requires retention policy, prints plan first, confirmation or `--yes`, never deletes sessions active within 24 hours, aggregates usage before deletion |
 | `disable/enable <skill>` | Renames skill directories | Reversible, no deletion, plugin skills are refused |
 | `disable/enable --mcp` | Edits `~/.claude.json` / `config.toml` | Per-operation backups, confirmation, Codex line comments are reversible, restore never overwrites manually recreated config |
@@ -68,5 +73,5 @@ Before deletion, skm aggregates usage stats into cache. This preserves cumulativ
 | `~/.skill-manager/usage-cache.json` | Incremental usage cache |
 | `~/.skill-manager/update-cache.json` | Upstream freshness check cache |
 | `~/.skill-manager/audit-history/` | Audit snapshots |
-| `~/.skill-manager/backups/` | MCP config backups |
+| `~/.skill-manager/backups/` | MCP config and Claude state-setting backups |
 | `~/.skill-manager/rules.json` | User classification rules |

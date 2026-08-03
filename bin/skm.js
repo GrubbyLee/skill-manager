@@ -17,16 +17,17 @@ import { runReport } from '../src/commands/report.js';
 import { runSetup } from '../src/commands/setup.js';
 import { runOutdated } from '../src/commands/outdated.js';
 import { runSources } from '../src/commands/sources.js';
+import { runState } from '../src/commands/state.js';
 import { detectLang, langFromArgv, tr } from '../src/i18n.js';
 
 const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
-（不修改 AIDE 的配置与 skill 文件，仅 setup / sessions --clean / disable / enable 例外且均有确认或备份；
+（不修改 AIDE 的配置与 skill 文件，仅 setup / state set / sessions --clean / disable / enable 例外且均有确认或备份；
  工具自身的目录与缓存写在 ~/.skill-manager，首次运行会解析会话日志建立缓存，需数秒到几十秒）
 
 用法：skm <命令> [选项]
 
 命令：
-  （无命令）      治理总览：按清单、风险、使用、版本、重复、图谱、会话、推荐分域展示摘要与建议
+  （无命令）      治理总览：按清单、风险、使用、状态、版本、重复、图谱、会话、推荐分域展示摘要与建议
   status          同上（显式写法）
   doctor          只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI
   risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、MCP schema 估算、日志体积
@@ -34,6 +35,7 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   scan            扫描 Claude Code、Codex、Cursor、Gemini，生成 catalog 后展示同一份治理总览
   outdated        检查 skill 上游版本线索；--online 才访问 GitHub/Gitee 或 git remote
   sources         管理本机补充的 skill 上游地址（list/missing/add/remove/check/wizard）
+  state           skill 状态治理：plan 生成降载建议；list 查看 Claude 状态；set 写入 Claude 原生状态
   setup           显式安装 skill-navigator 桥接 skill（npm 安装后可选）
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）
@@ -75,6 +77,15 @@ sources 选项：
   skm sources add <skill> --source <url>   为某个 skill 补充上游地址
   skm sources wizard       交互式逐个补充上游地址
 
+state 选项：
+  skm state plan            只读生成治理建议，不修改 skill
+  skm state list            查看 Claude Code skillOverrides 当前状态
+  skm state set <skill> --tool claude --mode <on|name-only|user-only|off>
+                            写入 Claude Code 原生 skill 状态；修改前备份，默认需确认
+  --scope <user|project>    指定写入用户级或项目级 Claude 设置
+  --dry-run                 只显示将写入的状态
+  --yes                     跳过交互确认（脚本模式）
+
 recommend 选项：
   --top <N>               推荐数量（默认 3）
   --tool <claude|codex|cursor|gemini>   只推荐某个工具可用的 skill
@@ -104,6 +115,8 @@ sessions 选项：
   skm outdated --online
   skm sources missing
   skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
+  skm state plan
+  skm state set gsap-plugins --tool claude --mode user-only
   skm doctor
   skm risks
   skm report --format html --output skm-report.html
@@ -120,13 +133,13 @@ sessions 选项：
   skm dupes --json`;
 
 const HELP_EN = `skm — AIDE skill / MCP inventory and governance CLI
-(Most commands do not modify AIDE configs or skill files. Only setup / sessions --clean / disable / enable can write files,
+(Most commands do not modify AIDE configs or skill files. Only setup / state set / sessions --clean / disable / enable can write files,
  and those actions have explicit command, confirmation, or backup safeguards. skm's own cache lives under ~/.skill-manager.)
 
 Usage: skm <command> [options]
 
 Commands:
-  (no command)      Governance overview grouped by inventory, risks, usage, versions, duplicates, graph, sessions, and recommendations
+  (no command)      Governance overview grouped by inventory, risks, usage, state, versions, duplicates, graph, sessions, and recommendations
   status            Same as above
   doctor            Read-only diagnostics: Node, directories, catalog, advisor CLI, macOS/Windows CI
   risks             Risk report: duplicates, idle MCP, context cost, MCP schema estimate, log size
@@ -134,6 +147,7 @@ Commands:
   scan              Scan Claude Code, Codex, Cursor, and Gemini, write the catalog, then show the same governance overview
   outdated          Check skill upstream freshness; --online accesses GitHub/Gitee or git remotes
   sources           Manage local skill upstream sources (list/missing/add/remove/check/wizard)
+  state             Skill state governance: plan recommendations, list Claude states, set Claude native state
   setup             Explicitly install the skill-navigator bridge skill after npm install
   list              List all skills by category
   search <text>     Search skills by name, category, and description
@@ -175,6 +189,15 @@ sources options:
   skm sources add <skill> --source <url>   Add an upstream URL for one skill
   skm sources wizard       Fill missing upstream URLs interactively
 
+state options:
+  skm state plan            Generate a read-only state governance plan
+  skm state list            List current Claude Code skillOverrides states
+  skm state set <skill> --tool claude --mode <on|name-only|user-only|off>
+                            Write Claude Code native skill state with backup and confirmation
+  --scope <user|project>    Write user-level or project-level Claude settings
+  --dry-run                 Show the intended state write without changing files
+  --yes                     Skip interactive confirmation for scripts
+
 recommend options:
   --top <N>               Number of recommendations (default 3)
   --tool <claude|codex|cursor|gemini>   Recommend skills available to one tool
@@ -204,6 +227,8 @@ Examples:
   skm outdated --online
   skm sources missing
   skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
+  skm state plan
+  skm state set gsap-plugins --tool claude --mode user-only
   skm setup
   skm doctor
   skm risks
@@ -249,6 +274,7 @@ try {
       repository: { type: 'string' },
       homepage: { type: 'string' },
       version: { type: 'string' },
+      mode: { type: 'string' },
       tool: { type: 'string' },
       advisor: { type: 'string' },
       lang: { type: 'string' },
@@ -296,6 +322,10 @@ if (values.format && !['summary', 'json', 'html', 'mermaid'].includes(values.for
   console.error(tr(lang, 'cli.formatInvalid', { value: values.format }));
   process.exit(1);
 }
+if (values.mode && !['on', 'name-only', 'user-only', 'user-invocable-only', 'off'].includes(values.mode)) {
+  console.error(tr(lang, 'cli.modeInvalid', { value: values.mode }));
+  process.exit(1);
+}
 if (values.export && values.export !== 'json') {
   console.error(tr(lang, 'cli.exportInvalid', { value: values.export }));
   process.exit(1);
@@ -313,6 +343,7 @@ async function main() {
   else if (cmd === 'scan') runScan(ctx);
   else if (cmd === 'outdated') await runOutdated(ctx);
   else if (cmd === 'sources') await runSources(ctx, positionals.slice(1));
+  else if (cmd === 'state') await runState(ctx, positionals.slice(1));
   else if (cmd === 'setup') runSetup(ctx);
   else if (cmd === 'list') runList(ctx);
   else if (cmd === 'search') runSearch({ ...ctx, keywords: positionals.slice(1) });
