@@ -79,6 +79,31 @@ test('安全审计：scanSkillDir 在扫描时写入 skill securityFindings', ()
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('扫描适配器：无效上游 URL 不进入 catalog 元数据', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'skm-upstream-'));
+  const dir = path.join(root, 'invalid-source');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'SKILL.md'), [
+    '---',
+    'name: invalid-source',
+    'description: 测试',
+    'version: 1.0.0',
+    'source: not-a-url',
+    'repository: https://github.com/example/valid',
+    '---',
+    '',
+    '正文',
+  ].join('\n'));
+
+  const { skills } = scanSkillDir(root, { tool: 'codex', scope: 'user' });
+  assert.equal(skills[0].upstream.version, '1.0.0');
+  assert.equal(skills[0].upstream.source, null);
+  assert.equal(skills[0].upstream.repository, 'https://github.com/example/valid');
+  assert.deepEqual(skills[0].upstream.urls, ['https://github.com/example/valid']);
+
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('安全审计：发现项可以按语言本地化', () => {
   const text = localizeSecurityFinding({ ruleId: 'mcp.secretInCommand' }, 'en');
   assert.equal(text.title, 'MCP command may contain secrets');

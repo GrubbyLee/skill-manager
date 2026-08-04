@@ -72,9 +72,9 @@ export function applySourcesToSkills(skills, data = loadSources()) {
 
 export function applySourceToSkill(skill, data = loadSources()) {
   const found = findSourceForSkill(skill, data);
-  if (!found) return skill;
+  const upstream = sanitizeUpstreamUrls(skill.upstream || {});
+  if (!found) return { ...skill, upstream };
   const record = found.record;
-  const upstream = skill.upstream || {};
   return {
     ...skill,
     upstream: {
@@ -86,7 +86,7 @@ export function applySourceToSkill(skill, data = loadSources()) {
       localSourceKey: found.key,
       localSource: true,
       urls: mergeUrls(upstream.urls, [record.source, record.repository, record.homepage]),
-      trackable: Boolean(upstream.trackable || upstream.git?.remote || upstream.source || upstream.repository || upstream.homepage || record.source || record.repository || record.homepage),
+      trackable: Boolean(upstream.git?.remote || upstream.source || upstream.repository || upstream.homepage || record.source || record.repository || record.homepage),
     },
   };
 }
@@ -95,7 +95,7 @@ export function missingSourceRows(skills, data = loadSources()) {
   return skills
     .map((skill) => {
       const found = findSourceForSkill(skill, data);
-      const upstream = found ? applySourceToSkill(skill, data).upstream : (skill.upstream || {});
+      const upstream = applySourceToSkill(skill, data).upstream || {};
       const hasUrl = Boolean(upstream.git?.remote || upstream.source || upstream.repository || upstream.homepage);
       return {
         dirName: skill.dirName,
@@ -149,6 +149,16 @@ function normalizeSourceRecord(value) {
 
 function mergeUrls(existing = [], values = []) {
   return [...new Set([...(existing || []), ...values].filter((v) => isValidSourceUrl(v)))];
+}
+
+function sanitizeUpstreamUrls(upstream) {
+  return {
+    ...upstream,
+    source: isValidSourceUrl(upstream.source) ? upstream.source : null,
+    repository: isValidSourceUrl(upstream.repository) ? upstream.repository : null,
+    homepage: isValidSourceUrl(upstream.homepage) ? upstream.homepage : null,
+    urls: mergeUrls(upstream.urls),
+  };
 }
 
 function sourceStatusOrder(status) {

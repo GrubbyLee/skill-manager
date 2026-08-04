@@ -5,6 +5,7 @@ import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { parseFrontmatter, fallbackDescription } from '../frontmatter.js';
 import { auditSkillSecurity } from '../securityAudit.js';
+import { isValidSourceUrl } from '../sources.js';
 
 const gitCache = new Map();
 
@@ -64,9 +65,9 @@ export function scanSkillDir(baseDir, { tool, scope, source = null }) {
 
 function collectUpstreamMetadata(data, dir) {
   const version = cleanMeta(data.version);
-  const source = cleanMeta(data.source);
-  const repository = cleanMeta(data.repository || data.repo);
-  const homepage = cleanMeta(data.homepage);
+  const source = validUrlOrNull(data.source);
+  const repository = validUrlOrNull(data.repository || data.repo);
+  const homepage = validUrlOrNull(data.homepage);
   const git = inspectGit(dir);
   const urls = uniqueUrls([source, repository, homepage, git?.remote]);
   return {
@@ -85,8 +86,13 @@ function cleanMeta(value) {
   return text || null;
 }
 
+function validUrlOrNull(value) {
+  const text = cleanMeta(value);
+  return text && isValidSourceUrl(text) ? text : null;
+}
+
 function uniqueUrls(values) {
-  return [...new Set(values.filter((v) => /^https?:\/\/|^(git@|ssh:\/\/)/i.test(v)))];
+  return [...new Set(values.filter((v) => isValidSourceUrl(v)))];
 }
 
 function inspectGit(dir) {

@@ -56,6 +56,20 @@ test('sources：missing 只列出缺少上游 URL 的 skill', () => {
   assert.equal(rows[1].status, 'missing');
 });
 
+test('sources：旧 catalog 中的无效 URL 会被清洗后再判断', () => {
+  const rows = missingSourceRows([
+    {
+      dirName: 'bad-source',
+      name: 'bad-source',
+      tools: ['codex'],
+      upstream: { version: '1.0.0', source: 'not-a-url', trackable: true },
+    },
+  ], { version: 1, sources: {} });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].status, 'version-only');
+});
+
 test('sources：本地来源可让 outdated 从无法判断变为可联网检查', async () => {
   const fetchImpl = async () => ({
     ok: true,
