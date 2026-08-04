@@ -9,6 +9,7 @@ skill-manager aims to become the most useful open-source governance tool for AID
 - scan Claude Code / Codex skills and MCP servers
 - classify, search, recommend, and visualize
 - detect duplicates, audit usage, and report risks
+- govern skill lifecycle: sources, update, rollback, lock files, policy, profiles, and quality evaluation
 - inspect and safely plan session log cleanup
 - export a one-page HTML overview report
 - export anonymized scan/report data and estimate MCP schema context cost
@@ -24,6 +25,7 @@ skill-manager aims to become the most useful open-source governance tool for AID
 | P1 | Graph layout | Clearer large graphs and clusters | In progress |
 | P1 | Anonymized export | Share scan/report output without local paths, config locations, or MCP commands | Implemented |
 | P1 | Install experience | Keep git clone install smooth before npm release | First pass implemented |
+| P1 | Skill lifecycle governance | Close the loop from source, update, rollback, and review | First pass implemented |
 | P1 | English docs and CLI i18n | Serve global GitHub users while keeping Chinese docs; core CLI flows and detailed docs support English | Implemented |
 | P2 | More AIDE adapters | Cursor, Gemini CLI, and other tools | First conservative directory-scan pass implemented |
 | P2 | MCP token estimate | Per-server MCP tool schema context estimate | Static estimate implemented |
@@ -39,7 +41,7 @@ skill-manager aims to become the most useful open-source governance tool for AID
 
 ## Internationalization
 
-- Implemented: bilingual README, detailed English docs, `--lang` / `SKM_LANG`, help, validation errors, all primary commands, and the install script
+- Implemented: bilingual README, detailed English docs, `--lang` / `SKM_LANG`, help, validation errors, all primary commands, lifecycle commands, and the install script
 - Next: refine English wording, category localization, and cross-platform message consistency
 - Constraints: no third-party dependencies; stable JSON field names; Simplified Chinese docs remain available
 

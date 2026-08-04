@@ -73,7 +73,7 @@ skm recommend "convert a web page to markdown" --lang en
 skm graph --format html --output skill-graph.html --lang en
 ```
 
-当前已覆盖 `help`、参数错误、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`outdated`、`sources`、`state`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
+当前已覆盖 `help`、参数错误、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`outdated`、`sources`、`state`、`install`、`update`、`rollback`、`lock`、`policy`、`profile`、`eval`、`history`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 与安装脚本；`--json` 的字段名保持稳定。
 
 ## 推荐排查流程
 
@@ -84,6 +84,9 @@ skm
 skm risks
 skm outdated
 skm state plan
+skm lock
+skm policy check
+skm eval --all
 skm report --format html --output skm-report.html
 skm dupes
 skm audit
@@ -92,7 +95,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-建议先只读排查，确认报告无误后再考虑 `state set`、`disable`、`enable` 或 `sessions --clean`。
+建议先只读排查，确认报告无误后再考虑 `install`、`update`、`rollback`、`profile apply`、`state set`、`disable`、`enable` 或 `sessions --clean`。
 
 ## 命令一览
 
@@ -106,6 +109,14 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm outdated` | 检查 skill 上游新旧 | `--online`、`--refresh`、`--json` |
 | `skm sources` | 管理本机补充的上游地址 | `missing`、`add`、`list`、`remove`、`check`、`wizard` |
 | `skm state` | skill 状态治理计划与 Claude 原生状态写入 | `plan`、`list`、`set`、`--mode`、`--scope`、`--dry-run`、`--yes` |
+| `skm install` | 安装本地目录或远程 `SKILL.md` skill | `<源>`、`--tool`、`--dry-run`、`--yes` |
+| `skm update` | 从已登记来源更新 skill | `<skill>`、`--tool`、`--dry-run`、`--yes` |
+| `skm rollback` | 从 skm 备份回滚 skill | `<skill>`、`--tool`、`--dry-run`、`--yes` |
+| `skm lock` | 生成生命周期锁定文件 | `--json` |
+| `skm policy` | 生命周期策略 | `init`、`check`、`--json` |
+| `skm profile` | Claude Code 场景状态 profile | `list`、`create`、`apply`、`--dry-run`、`--yes` |
+| `skm eval` | skill 质量评测 | `[skill]`、`--all`、`--json` |
+| `skm history` | 生命周期事件记录 | `[skill]`、`--json` |
 | `skm setup` | 安装桥接 skill | `--dry-run` |
 | `skm list` | 列出 skill | `--category`、`--tool claude\|codex\|cursor\|gemini`、`--scope`、`--raw`、`--json` |
 | `skm list --mcp` | 列出 MCP | `--tool`、`--json` |
@@ -160,7 +171,7 @@ skm
 skm status --json
 ```
 
-治理总览按基础子命令分域展示：清单 `scan/list`、风险 `risks`、使用 `audit`、状态 `state`、版本 `outdated/sources`、重复 `dupes`、图谱 `graph`、会话 `sessions`、推荐 `ask/recommend`。每一行都包含概括、当前问题和建议操作。健康分为 0-100 的启发式评分，会综合僵尸率、实体双份、闲置 MCP、会话日志体积；它用于清理前后自我对比，不代表绝对质量。
+治理总览按基础子命令分域展示：清单 `scan/list`、风险 `risks`、使用 `audit`、状态 `state`、版本 `outdated/sources`、生命周期 `lock/policy/eval/history`、重复 `dupes`、图谱 `graph`、会话 `sessions`、推荐 `ask/recommend`。每一行都包含概括、当前问题和建议操作。健康分为 0-100 的启发式评分，会综合僵尸率、实体双份、闲置 MCP、会话日志体积；它用于清理前后自我对比，不代表绝对质量。
 
 ## doctor 与 risks
 
@@ -213,6 +224,37 @@ skm sources remove baoyu-image-gen
 `sources` 用于补充那些没有声明 `source` / `repository` 的已安装 skill 的上游地址。记录会保存到 `~/.skill-manager/sources.json`，后续 `scan` 和 `outdated` 会自动合并这些本地来源；它不会修改已安装的 skill 文件。
 
 最便捷的方式是 `sources wizard`：它会逐个展示无法判断版本的 skill，输入上游 skill 目录或 `SKILL.md` URL 后立即保存；回车或 `s` 跳过，`q` 退出。需要脚本化处理时，可用 `sources missing --json` 导出待补充清单。
+
+## lifecycle：install / update / rollback / lock / policy / profile / eval / history
+
+```bash
+skm install ./my-skill --tool claude --dry-run
+skm install https://github.com/org/repo/tree/main/skills/my-skill --tool codex --dry-run
+skm update baoyu-image-gen --dry-run
+skm rollback baoyu-image-gen --dry-run
+skm lock
+skm policy init
+skm policy check
+skm profile list
+skm profile create writing
+skm profile apply writing --dry-run
+skm eval --all
+skm eval baoyu-image-gen --json
+skm history baoyu-image-gen
+```
+
+这些命令用于把 skill 管起来，而不是只扫出来：
+
+- `install`：本地目录会完整复制；远程 GitHub/Gitee skill 目录或 `SKILL.md` URL 当前安装 `SKILL.md` 单文件。安装前会打印计划和静态安全审计。目标目录已存在时拒绝覆盖。安装成功后会把远程 URL 或本地 frontmatter 里的 `source` / `repository` / `homepage` / `version` 记录到 `~/.skill-manager/sources.json` 并刷新 catalog；没有可升级来源时会提示 `skm sources add`，来源字段格式不合法时会明确提示被忽略。
+- `update`：读取已登记的 `source` / `repository` / `homepage`，从可直接访问的 `SKILL.md` 更新；写入前备份原 skill 目录。
+- `rollback`：从 `~/.skill-manager/skill-backups/` 恢复最近一次备份；回滚前也会备份当前目录。
+- `lock`：写入 `~/.skill-manager/skill-lock.json`，记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash；`--json` 只输出 JSON。
+- `policy init/check`：初始化或检查本机治理策略，覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。
+- `profile create/apply`：创建 Claude Code skill 状态快照，并按场景写回 `skillOverrides`；应用前备份设置文件。Codex/Cursor/Gemini 的状态切换仍走各自工具的原生 UI。
+- `eval`：给 skill 打分，扣分项包括缺少描述、缺少 frontmatter、缺少来源、重复安装、上下文开销偏高、从未使用、安全发现。
+- `history`：查看 skm 记录的安装、更新、回滚、锁定、策略和 profile 事件。
+
+建议流程：先 `skm scan`，再用 `skm sources wizard` 补来源，然后 `skm lock` 建立基线。使用 `skm install` 引入的新 skill 如果带有来源，后续 `skm update` 会自动复用这条来源，不需要手工改 catalog。更新前先跑 `skm update <skill> --dry-run`，确认计划和安全审计没有异常后再执行。完整说明见 [lifecycle.md](lifecycle.md)。
 
 ## list 与 search
 

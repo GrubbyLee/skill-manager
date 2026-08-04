@@ -9,6 +9,11 @@ export const CATALOG_PATH = path.join(DATA_DIR, 'catalog.json');
 export const RULES_PATH = path.join(DATA_DIR, 'rules.json');
 export const UPDATE_CACHE_PATH = path.join(DATA_DIR, 'update-cache.json');
 export const SOURCES_PATH = path.join(DATA_DIR, 'sources.json');
+export const LOCK_PATH = path.join(DATA_DIR, 'skill-lock.json');
+export const LIFECYCLE_HISTORY_PATH = path.join(DATA_DIR, 'lifecycle-history.json');
+export const POLICY_PATH = path.join(DATA_DIR, 'policy.json');
+export const PROFILES_PATH = path.join(DATA_DIR, 'profiles.json');
+export const SKILL_BACKUP_DIR = path.join(DATA_DIR, 'skill-backups');
 
 // 各 AIDE 的扫描目标
 export const CLAUDE_SKILLS_DIR = path.join(HOME, '.claude', 'skills');

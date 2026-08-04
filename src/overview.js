@@ -90,6 +90,12 @@ export function buildOverview({ catalog, usage, sessions = [], lang = 'zh-CN' })
         sourceMissing: sourceMissing.length,
         commands: ['skm outdated --online', 'skm sources missing', 'skm sources wizard'],
       },
+      lifecycle: {
+        installRecords: catalog.skills.length,
+        sourceMissing: sourceMissing.length,
+        lockable: merged.length,
+        commands: ['skm lock', 'skm policy check', 'skm eval --all', 'skm history'],
+      },
       duplicates: {
         dupEntities: dupEntities.length,
         sameNameBoth: both,
@@ -126,6 +132,7 @@ export function renderOverview(data, lang = 'zh-CN') {
     domainRow(lang, 'overview.domain.usage', usageSummary(data, lang), usageProblem(data, lang), data.domains.usage.commands),
     domainRow(lang, 'overview.domain.state', stateSummary(data, lang), stateProblem(data, lang), data.domains.state.commands),
     domainRow(lang, 'overview.domain.versions', versionSummary(data, lang), versionProblem(data, lang), data.domains.versions.commands),
+    domainRow(lang, 'overview.domain.lifecycle', lifecycleSummary(data, lang), lifecycleProblem(data, lang), data.domains.lifecycle.commands),
     domainRow(lang, 'overview.domain.duplicates', duplicateSummary(data, lang), duplicateProblem(data, lang), data.domains.duplicates.commands),
     domainRow(lang, 'overview.domain.graph', graphSummary(data, lang), graphProblem(data, lang), data.domains.graph.commands),
     domainRow(lang, 'overview.domain.sessions', sessionSummary(data, lang), sessionProblem(data, lang), data.domains.sessions.commands),
@@ -215,6 +222,16 @@ function versionProblem(data, lang) {
   return tr(lang, 'common.none');
 }
 
+function lifecycleSummary(data, lang) {
+  const d = data.domains.lifecycle;
+  return tr(lang, 'overview.lifecycle.summary', { records: d.installRecords, lockable: d.lockable });
+}
+
+function lifecycleProblem(data, lang) {
+  const d = data.domains.lifecycle;
+  return d.sourceMissing ? tr(lang, 'overview.lifecycle.problem', { count: d.sourceMissing }) : tr(lang, 'common.none');
+}
+
 function duplicateSummary(data, lang) {
   const d = data.domains.duplicates;
   return tr(lang, 'overview.duplicates.summary', { dup: d.dupEntities, both: d.sameNameBoth });
@@ -253,6 +270,7 @@ function priorityLines(data, lang) {
   const sessions = data.domains.sessions;
   if (risks.high || risks.medium) out.push(tr(lang, 'overview.priority.risks', { command: 'skm risks' }));
   if (versions.unchecked || versions.sourceMissing) out.push(tr(lang, 'overview.priority.versions', { command: 'skm outdated --online', sources: 'skm sources missing' }));
+  if (data.domains.lifecycle.sourceMissing) out.push(tr(lang, 'overview.priority.lifecycle', { command: 'skm lock / skm policy check' }));
   if (usage.duplicateNeverUsed || usage.neverUsed) out.push(tr(lang, 'overview.priority.usage', { command: 'skm audit' }));
   if (data.domains.state.candidates) out.push(tr(lang, 'overview.priority.state', { command: 'skm state plan' }));
   if (data.domains.duplicates.dupEntities) out.push(tr(lang, 'overview.priority.dupes', { command: 'skm dupes' }));

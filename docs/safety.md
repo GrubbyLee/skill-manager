@@ -4,7 +4,7 @@
 
 ## 默认只读
 
-大多数命令不会修改 Claude/Codex 的配置、skill、MCP 或会话日志：
+大多数命令不会修改 Claude Code、Codex、Cursor、Gemini 的配置、skill、MCP 或会话日志：
 
 ```bash
 skm
@@ -18,23 +18,34 @@ skm ask
 skm outdated
 skm state plan
 skm state list
+skm lock
+skm policy check
+skm profile list
+skm eval
+skm history
 skm graph
 skm dupes
 skm audit
 skm sessions
 ```
 
-其中 `scan`、`audit`、`risks`、`sessions`、`outdated --online` 可能更新 `~/.skill-manager` 下的 skm 自身数据，例如 catalog、usage cache、audit history、sessions index、update cache。这些不是 AIDE 数据，不会改变 Claude Code 或 Codex 的行为。`outdated --online` 只读访问 GitHub/Gitee 或 git remote，不会自动更新 skill。
+其中 `scan`、`audit`、`risks`、`sessions`、`outdated --online`、`lock`、`policy`、`profile create`、`history` 可能更新 `~/.skill-manager` 下的 skm 自身数据，例如 catalog、usage cache、audit history、sessions index、update cache、lock、policy、profiles、lifecycle history。这些不是 AIDE 数据，不会改变 Claude Code、Codex、Cursor 或 Gemini 的行为。`outdated --online` 只读访问 GitHub/Gitee 或 git remote，不会自动更新 skill。
 
 显式运行 `skm setup` 或 `node scripts/install.mjs` 是安装阶段的例外：它们会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 与 `~/.codex/skills/`。如果目标目录已有不同内容，会先备份旧目录再替换。
 
 `skm state plan` 与 `skm state list` 只读；只有显式 `skm state set` 才会写入 Claude Code 设置。
 
-## CLI 五类写操作
+`skm install`、`skm update`、`skm rollback` 和 `skm profile apply` 是显式生命周期写操作。它们默认要求确认，并提供 `--dry-run` 预览。
+
+## CLI 写操作
 
 | 动作 | 改动内容 | 防护 |
 |---|---|---|
 | `setup` | 安装 `skill-navigator` 桥接 skill | 显式命令；支持 `--dry-run`；目标已有不同内容时先备份再替换 |
+| `install <源>` | 安装 skill 到用户 skill 目录 | 显式命令；安装前展示静态安全审计；目标已存在时拒绝覆盖；默认需确认；支持 `--dry-run` |
+| `update <skill>` | 替换已安装 skill | 需要有可读取来源；更新前备份旧目录到 `~/.skill-manager/skill-backups/`；默认需确认；支持 `--dry-run` |
+| `rollback <skill>` | 用 skm 备份恢复 skill | 回滚前备份当前目录；默认需确认；支持 `--dry-run` |
+| `profile apply <名称>` | 写入 Claude Code `skillOverrides` | 只写用户级 Claude Code 设置；修改前备份；默认需确认；支持 `--dry-run` |
 | `state set <skill>` | 写入 Claude Code `skillOverrides` | 仅支持 Claude 原生状态；修改前备份设置文件；默认需确认；支持 `--dry-run` |
 | `sessions --clean` | 删除会话日志文件 | 必须显式给保留策略；先打印完整计划；交互确认或 `--yes`；24 小时内活跃会话永不删；未知工作区只接受 `--days` 策略；删除前聚合统计 |
 | `disable/enable <skill>` | 重命名 skill 目录 | 完全可逆，不删文件；插件 skill 拒绝处理 |
@@ -73,6 +84,11 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `~/.skill-manager/catalog.json` | 扫描后的 skill / MCP 目录 |
 | `~/.skill-manager/usage-cache.json` | 使用统计增量缓存 |
 | `~/.skill-manager/update-cache.json` | 上游版本检查缓存 |
+| `~/.skill-manager/skill-lock.json` | skill 生命周期锁定文件 |
+| `~/.skill-manager/lifecycle-history.json` | skm 生命周期事件记录 |
+| `~/.skill-manager/policy.json` | 生命周期策略 |
+| `~/.skill-manager/profiles.json` | Claude Code 场景状态 profile |
+| `~/.skill-manager/skill-backups/` | skill 更新、回滚前的目录备份 |
 | `~/.skill-manager/audit-history/` | 审计快照 |
 | `~/.skill-manager/backups/` | MCP 配置或 Claude 状态设置修改前备份 |
 | `~/.skill-manager/rules.json` | 用户自定义分类规则 |

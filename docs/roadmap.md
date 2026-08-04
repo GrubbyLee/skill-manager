@@ -9,6 +9,7 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 - 扫描 Claude Code / Codex 的 skill 与 MCP
 - 分类、搜索、推荐、知识图谱
 - 重复检测、使用审计、风险报告
+- skill 生命周期治理：来源、更新、回滚、锁定、策略、profile、质量评测
 - 会话日志统计与安全清理计划
 - HTML 总览报告
 - 匿名导出、MCP schema 开销估算
@@ -24,6 +25,7 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 | P1 | 图谱布局优化 | 大量 skill 时更清楚地查看套件、平台、流程关系 | 进行中 |
 | P1 | 匿名导出 | 对外分享扫描和报告时隐藏本机路径、配置位置与 MCP 命令 | 已完成 |
 | P1 | 安装体验 | 在 npm 发布前，让 git clone 安装更稳、更易懂 | 已完成一版 |
+| P1 | skill 生命周期治理 | 让 skill 从引入、更新到回滚和复盘形成闭环 | 已完成一版 |
 | P1 | 英文文档与 CLI 国际化 | GitHub 默认入口服务全球用户，同时保留中文文档；CLI 主链路与详细 docs 已支持英文 | 已完成 |
 | P2 | 更多 AIDE 适配器 | 支持 Cursor、Gemini CLI 等更多工具 | 已完成保守目录扫描一版 |
 | P2 | MCP token 估算 | 逐 server 估算 tool schema 常驻开销 | 已完成静态估算一版 |
@@ -39,7 +41,7 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 
 ## 国际化路线
 
-- 已完成：README 中英文入口、英文详细 docs、`--lang` / `SKM_LANG`、`help`、参数校验、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`graph`、`dupes`、`audit`、`sessions`、`disable/enable`、安装脚本
+- 已完成：README 中英文入口、英文详细 docs、`--lang` / `SKM_LANG`、`help`、参数校验、`doctor`、`scan`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`outdated`、`sources`、`state`、`install/update/rollback`、`lock/policy/profile/eval/history`、`graph`、`dupes`、`audit`、`sessions`、`disable/enable`、安装脚本
 - 下一步：继续打磨英文措辞、分类名国际化和跨端文案一致性
 - 约束：不引入第三方依赖；JSON 字段名保持稳定；中文文档继续保留
 

@@ -18,16 +18,17 @@ import { runSetup } from '../src/commands/setup.js';
 import { runOutdated } from '../src/commands/outdated.js';
 import { runSources } from '../src/commands/sources.js';
 import { runState } from '../src/commands/state.js';
+import { runPolicy, runProfile, runSkillEval, runSkillHistory, runSkillInstall, runSkillLock, runSkillRollback, runSkillUpdate } from '../src/commands/lifecycle.js';
 import { detectLang, langFromArgv, tr } from '../src/i18n.js';
 
 const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
-（不修改 AIDE 的配置与 skill 文件，仅 setup / state set / sessions --clean / disable / enable 例外且均有确认或备份；
+（不修改 AIDE 的配置与 skill 文件，仅 setup / install / update / rollback / profile apply / state set / sessions --clean / disable / enable 例外且均有确认或备份；
  工具自身的目录与缓存写在 ~/.skill-manager，首次运行会解析会话日志建立缓存，需数秒到几十秒）
 
 用法：skm <命令> [选项]
 
 命令：
-  （无命令）      治理总览：按清单、风险、使用、状态、版本、重复、图谱、会话、推荐分域展示摘要与建议
+  （无命令）      治理总览：按清单、风险、使用、状态、版本、生命周期、重复、图谱、会话、推荐分域展示摘要与建议
   status          同上（显式写法）
   doctor          只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI
   risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、MCP schema 估算、日志体积
@@ -36,6 +37,14 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   outdated        检查 skill 上游版本线索；--online 才访问 GitHub/Gitee 或 git remote
   sources         管理本机补充的 skill 上游地址（list/missing/add/remove/check/wizard）
   state           skill 状态治理：plan 生成降载建议；list 查看 Claude 状态；set 写入 Claude 原生状态
+  install         安装 skill（本地目录完整复制；远程 SKILL.md/GitHub/Gitee 目录单文件安装，先审计）
+  update          更新 skill（可直接读取 SKILL.md 的来源；更新前备份）
+  rollback        从 skm 备份回滚 skill
+  lock            生成 skill 锁定文件
+  policy          生命周期策略：init/check
+  profile         场景 profile：list/create/apply
+  eval            skill 质量评测
+  history         查看生命周期事件
   setup           显式安装 skill-navigator 桥接 skill（npm 安装后可选）
   list            按分类列出所有 skill（默认合并两侧同名条目）
   search <词>     关键词搜索 skill（名称/分类/描述，按相关度排序）
@@ -86,6 +95,16 @@ state 选项：
   --dry-run                 只显示将写入的状态
   --yes                     跳过交互确认（脚本模式）
 
+生命周期选项：
+  skm install <源> --tool <claude|codex|cursor|gemini> [--dry-run] [--yes]
+  skm update <skill> [--tool <工具>] [--dry-run] [--yes]
+  skm rollback <skill> [--tool <工具>] [--dry-run] [--yes]
+  skm lock [--json]
+  skm policy init|check [--json]
+  skm profile list|create <名称>|apply <名称> [--dry-run] [--yes]
+  skm eval [skill] [--all] [--json]
+  skm history [skill] [--json]
+
 recommend 选项：
   --top <N>               推荐数量（默认 3）
   --tool <claude|codex|cursor|gemini>   只推荐某个工具可用的 skill
@@ -117,6 +136,11 @@ sessions 选项：
   skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
   skm state plan
   skm state set gsap-plugins --tool claude --mode user-only
+  skm install ./my-skill --tool claude --dry-run
+  skm update baoyu-image-gen --dry-run
+  skm lock
+  skm policy check
+  skm eval --all
   skm doctor
   skm risks
   skm report --format html --output skm-report.html
@@ -133,13 +157,13 @@ sessions 选项：
   skm dupes --json`;
 
 const HELP_EN = `skm — AIDE skill / MCP inventory and governance CLI
-(Most commands do not modify AIDE configs or skill files. Only setup / state set / sessions --clean / disable / enable can write files,
+(Most commands do not modify AIDE configs or skill files. Only setup / install / update / rollback / profile apply / state set / sessions --clean / disable / enable can write files,
  and those actions have explicit command, confirmation, or backup safeguards. skm's own cache lives under ~/.skill-manager.)
 
 Usage: skm <command> [options]
 
 Commands:
-  (no command)      Governance overview grouped by inventory, risks, usage, state, versions, duplicates, graph, sessions, and recommendations
+  (no command)      Governance overview grouped by inventory, risks, usage, state, versions, lifecycle, duplicates, graph, sessions, and recommendations
   status            Same as above
   doctor            Read-only diagnostics: Node, directories, catalog, advisor CLI, macOS/Windows CI
   risks             Risk report: duplicates, idle MCP, context cost, MCP schema estimate, log size
@@ -148,6 +172,14 @@ Commands:
   outdated          Check skill upstream freshness; --online accesses GitHub/Gitee or git remotes
   sources           Manage local skill upstream sources (list/missing/add/remove/check/wizard)
   state             Skill state governance: plan recommendations, list Claude states, set Claude native state
+  install           Install a skill after local static audit
+  update            Update a skill from a directly readable SKILL.md source, with backup
+  rollback          Roll back a skill from skm backups
+  lock              Generate the skill lock file
+  policy            Lifecycle policy: init/check
+  profile           Scenario profiles: list/create/apply
+  eval              Evaluate skill quality
+  history           Show lifecycle events
   setup             Explicitly install the skill-navigator bridge skill after npm install
   list              List all skills by category
   search <text>     Search skills by name, category, and description
@@ -198,6 +230,16 @@ state options:
   --dry-run                 Show the intended state write without changing files
   --yes                     Skip interactive confirmation for scripts
 
+lifecycle options:
+  skm install <source> --tool <claude|codex|cursor|gemini> [--dry-run] [--yes]
+  skm update <skill> [--tool <tool>] [--dry-run] [--yes]
+  skm rollback <skill> [--tool <tool>] [--dry-run] [--yes]
+  skm lock [--json]
+  skm policy init|check [--json]
+  skm profile list|create <name>|apply <name> [--dry-run] [--yes]
+  skm eval [skill] [--all] [--json]
+  skm history [skill] [--json]
+
 recommend options:
   --top <N>               Number of recommendations (default 3)
   --tool <claude|codex|cursor|gemini>   Recommend skills available to one tool
@@ -229,6 +271,11 @@ Examples:
   skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
   skm state plan
   skm state set gsap-plugins --tool claude --mode user-only
+  skm install ./my-skill --tool claude --dry-run
+  skm update baoyu-image-gen --dry-run
+  skm lock
+  skm policy check
+  skm eval --all
   skm setup
   skm doctor
   skm risks
@@ -257,6 +304,7 @@ try {
       mcp: { type: 'boolean', default: false },
       raw: { type: 'boolean', default: false },
       clean: { type: 'boolean', default: false },
+      all: { type: 'boolean', default: false },
       'dry-run': { type: 'boolean', default: false },
       yes: { type: 'boolean', default: false },
       history: { type: 'boolean', default: false },
@@ -344,6 +392,14 @@ async function main() {
   else if (cmd === 'outdated') await runOutdated(ctx);
   else if (cmd === 'sources') await runSources(ctx, positionals.slice(1));
   else if (cmd === 'state') await runState(ctx, positionals.slice(1));
+  else if (cmd === 'install') await runSkillInstall(ctx, positionals.slice(1));
+  else if (cmd === 'update') await runSkillUpdate(ctx, positionals.slice(1));
+  else if (cmd === 'rollback') await runSkillRollback(ctx, positionals.slice(1));
+  else if (cmd === 'lock') runSkillLock(ctx);
+  else if (cmd === 'policy') runPolicy(ctx, positionals.slice(1));
+  else if (cmd === 'profile') await runProfile(ctx, positionals.slice(1));
+  else if (cmd === 'eval') runSkillEval(ctx, positionals.slice(1));
+  else if (cmd === 'history') runSkillHistory(ctx, positionals.slice(1));
   else if (cmd === 'setup') runSetup(ctx);
   else if (cmd === 'list') runList(ctx);
   else if (cmd === 'search') runSearch({ ...ctx, keywords: positionals.slice(1) });

@@ -1,6 +1,6 @@
 {
   "name": "aide-skill-manager",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize AIDE skills and MCP servers.",
   "type": "module",
   "bin": {

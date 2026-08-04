@@ -26,6 +26,9 @@ test('CLI help：支持英文输出', () => {
   assert.match(r.stdout, /--anonymize/);
   assert.match(r.stdout, /--tool <claude\|codex\|cursor\|gemini>/);
   assert.match(r.stdout, /skm state plan/);
+  assert.match(r.stdout, /skm install \.\/my-skill --tool claude --dry-run/);
+  assert.match(r.stdout, /skm policy check/);
+  assert.match(r.stdout, /skm eval --all/);
   assert.doesNotMatch(r.stdout, /用法：/);
 });
 

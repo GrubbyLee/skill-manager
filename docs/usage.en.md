@@ -51,9 +51,10 @@ node scripts/install.mjs --dry-run
 skm help --lang en
 skm scan --lang zh-CN
 SKM_LANG=en skm doctor
+skm graph --format html --output skill-graph.html --lang en
 ```
 
-Most CLI output supports English and Simplified Chinese. JSON field names stay stable.
+The main CLI paths support English and Simplified Chinese, including `install`, `update`, `rollback`, `lock`, `policy`, `profile`, `eval`, and `history`. JSON field names stay stable.
 
 ## Troubleshooting Flow
 
@@ -64,6 +65,9 @@ skm
 skm risks
 skm outdated
 skm state plan
+skm lock
+skm policy check
+skm eval --all
 skm dupes
 skm audit
 skm list --mcp
@@ -71,7 +75,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Use dry-run before cleanup or state changes.
+Start with read-only commands. Use dry-run before install, update, rollback, profile apply, cleanup, or state changes.
 
 ## Commands
 
@@ -85,6 +89,14 @@ Start with read-only commands. Use dry-run before cleanup or state changes.
 | `skm outdated` | Check upstream freshness metadata | `--online`, `--refresh`, `--json` |
 | `skm sources` | Manage local upstream source mappings | `missing`, `add`, `list`, `remove`, `check`, `wizard` |
 | `skm state` | Plan skill state governance and write Claude native states | `plan`, `list`, `set`, `--mode`, `--scope`, `--dry-run`, `--yes` |
+| `skm install` | Install a local directory or remote `SKILL.md` skill | `<source>`, `--tool`, `--dry-run`, `--yes` |
+| `skm update` | Update a skill from its registered source | `<skill>`, `--tool`, `--dry-run`, `--yes` |
+| `skm rollback` | Roll back a skill from skm backups | `<skill>`, `--tool`, `--dry-run`, `--yes` |
+| `skm lock` | Generate a lifecycle lock file | `--json` |
+| `skm policy` | Lifecycle policy | `init`, `check`, `--json` |
+| `skm profile` | Claude Code scenario profiles | `list`, `create`, `apply`, `--dry-run`, `--yes` |
+| `skm eval` | Evaluate skill quality | `[skill]`, `--all`, `--json` |
+| `skm history` | Lifecycle event log | `[skill]`, `--json` |
 | `skm setup` | Install the bridge skill | `--dry-run` |
 | `skm list` | List skills | `--category`, `--tool claude\|codex\|cursor\|gemini`, `--scope`, `--raw`, `--json` |
 | `skm list --mcp` | List MCP servers | `--tool`, `--json` |
@@ -123,7 +135,7 @@ skm
 skm status --json
 ```
 
-The overview is grouped by base subcommands: inventory `scan/list`, risks `risks`, usage `audit`, state `state`, versions `outdated/sources`, duplicates `dupes`, graph `graph`, sessions `sessions`, and recommendation `ask/recommend`. Each row gives a summary, current finding, and next command. The health score is heuristic and useful for comparing your own setup before and after cleanup.
+The overview is grouped by base subcommands: inventory `scan/list`, risks `risks`, usage `audit`, state `state`, versions `outdated/sources`, lifecycle `lock/policy/eval/history`, duplicates `dupes`, graph `graph`, sessions `sessions`, and recommendation `ask/recommend`. Each row gives a summary, current finding, and next command. The health score is heuristic and useful for comparing your own setup before and after cleanup.
 
 ## report
 
@@ -163,6 +175,37 @@ skm sources remove baoyu-image-gen
 `sources` lets users fill missing upstream URLs when installed skills do not declare `source` / `repository` metadata. Records are stored in `~/.skill-manager/sources.json` and are merged into future scans and `outdated` checks. This does not edit installed skill files.
 
 Use `sources wizard` for the fastest manual workflow: it walks through skills whose freshness is unknown, accepts an upstream skill directory or `SKILL.md` URL, and persists each answer immediately. Use `sources missing --json` if you want to script or batch-edit the missing list.
+
+## lifecycle: install / update / rollback / lock / policy / profile / eval / history
+
+```bash
+skm install ./my-skill --tool claude --dry-run
+skm install https://github.com/org/repo/tree/main/skills/my-skill --tool codex --dry-run
+skm update baoyu-image-gen --dry-run
+skm rollback baoyu-image-gen --dry-run
+skm lock
+skm policy init
+skm policy check
+skm profile list
+skm profile create writing
+skm profile apply writing --dry-run
+skm eval --all
+skm eval baoyu-image-gen --json
+skm history baoyu-image-gen
+```
+
+These commands govern skills after discovery:
+
+- `install`: fully copies local directories; remote GitHub/Gitee skill directories or `SKILL.md` URLs install the `SKILL.md` file for now. The plan and static audit are printed before install. Existing targets are not overwritten. After a successful install, skm saves the remote URL or local frontmatter `source` / `repository` / `homepage` / `version` into `~/.skill-manager/sources.json` and refreshes the catalog; if no upgrade source exists, it prints a `skm sources add` hint. Invalid source fields are reported explicitly.
+- `update`: reads the registered `source` / `repository` / `homepage` and updates from a directly accessible `SKILL.md`; the old skill directory is backed up first.
+- `rollback`: restores the latest backup from `~/.skill-manager/skill-backups/`; the current directory is backed up before rollback.
+- `lock`: writes `~/.skill-manager/skill-lock.json` with name, tool, version, source, git HEAD, and `SKILL.md` hash. `--json` prints JSON only.
+- `policy init/check`: initializes or checks local governance thresholds: total skills, never-used rate, duplicate installs, source coverage, and safety findings.
+- `profile create/apply`: snapshots Claude Code skill states and writes them back for scenarios; settings are backed up before apply. Codex/Cursor/Gemini state changes still use their native UI.
+- `eval`: scores description quality, frontmatter, source metadata, duplication, context cost, usage, and safety signals.
+- `history`: shows skm-recorded install, update, rollback, lock, policy, and profile events.
+
+Recommended flow: run `skm scan`, fill missing sources with `skm sources wizard`, then establish a baseline with `skm lock`. A skill installed by `skm install` can be updated later without manually editing the catalog when source metadata was available during install. Before updating, run `skm update <skill> --dry-run` and review the plan plus audit result. See [lifecycle.en.md](lifecycle.en.md).
 
 ## recommend / ask
 

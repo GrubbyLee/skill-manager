@@ -109,7 +109,8 @@ function runStateList({ cwd, json = false, lang = 'zh-CN' }) {
   ));
 }
 
-async function runStateSet({ cwd, tool, mode, scope, dryRun = false, yes = false, lang = 'zh-CN' }, names) {
+async function runStateSet(opts, names) {
+  const { cwd, tool, mode, scope, yes = false, lang = 'zh-CN' } = opts;
   const name = names[0];
   if (!name || !mode) {
     console.error(tr(lang, 'state.setUsage'));
@@ -156,7 +157,7 @@ async function runStateSet({ cwd, tool, mode, scope, dryRun = false, yes = false
 
   const target = resolveClaudeSettingsTarget({ cwd, scope, entries: claudeEntries });
   console.log(tr(lang, 'state.setPlan', { name, mode: displayMode(normalizedMode), file: target.file }));
-  if (dryRun) {
+  if (opts.dryRun || opts['dry-run']) {
     console.log(tr(lang, 'state.dryRun'));
     return;
   }
