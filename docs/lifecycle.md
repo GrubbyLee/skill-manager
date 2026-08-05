@@ -36,9 +36,9 @@ skm rollback <skill>
 | `skm install <源>` | 安装本地 skill 目录或远程 `SKILL.md` | 用户 skill 目录 |
 | `skm update <skill>` | 从已登记来源更新 skill | 用户 skill 目录；备份到 `~/.skill-manager/skill-backups/` |
 | `skm rollback <skill>` | 从 skm 备份回滚 skill | 用户 skill 目录；回滚前再备份 |
-| `skm lock` | 生成当前 skill 锁定文件 | `~/.skill-manager/skill-lock.json` |
-| `skm lock diff [文件]` | 对比当前 skill 与锁定文件 | 只读；比较前静默刷新 catalog |
-| `skm lock verify [文件]` | 校验当前 skill 是否匹配锁定文件 | 只读；发现漂移时返回非 0 |
+| `skm lock` | 生成当前 skill 锁定文件 | 刷新 skm 自身 catalog；写入 `~/.skill-manager/skill-lock.json` |
+| `skm lock diff [文件]` | 对比当前 skill 与锁定文件 | 不改 AIDE 数据；比较前会刷新 skm 自身 catalog |
+| `skm lock verify [文件]` | 校验当前 skill 是否匹配锁定文件 | 不改 AIDE 数据；发现漂移时返回非 0 |
 | `skm policy init/check` | 初始化或检查治理策略 | `~/.skill-manager/policy.json` |
 | `skm profile create/apply` | 保存或应用 Claude Code skill 状态 profile | `~/.skill-manager/profiles.json`；应用时写 Claude 设置 |
 | `skm eval [skill]` | 评测 skill 质量 | 只读 |
@@ -85,7 +85,7 @@ skm policy init
 skm policy check
 ```
 
-锁定文件记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash。`diff` 和 `verify` 会先静默刷新 catalog，再和锁定文件比较新增、删除、变更项；`verify` 发现漂移时返回非 0，适合放进 CI 或个人升级脚本。策略检查覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。策略文件是本机数据，可按团队习惯手工编辑。
+锁定文件按“实际安装实例”记录名称、工具、scope、版本、来源、git HEAD 和 `SKILL.md` hash。同名 skill 如果同时安装在 Claude Code、Codex、Cursor 或 Gemini，也会分别锁定和校验。`lock`、`diff` 和 `verify` 会先静默刷新 skm 自身 catalog，再生成或比较新增、删除、变更项；发现旧版锁文件或重复锁定 key 时会直接报错，避免对比时覆盖。`verify` 发现漂移时返回非 0，适合放进 CI 或个人升级脚本。策略检查覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。策略文件是本机数据，可按团队习惯手工编辑。
 
 ## Profile
 

@@ -97,7 +97,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm install` | Install a local skill directory or remote `SKILL.md` after static audit |
 | `skm update` | Update a skill from its recorded source, with backup |
 | `skm rollback` | Restore a skill from skm backups |
-| `skm lock` | Generate `~/.skill-manager/skill-lock.json` |
+| `skm lock` | Generate `~/.skill-manager/skill-lock.json` per installed instance |
 | `skm lock diff` | Compare current skills against the lock file and show added, removed, or changed skills |
 | `skm lock verify` | Verify current skills against the lock file; exits non-zero on drift for CI scripts |
 | `skm policy` | Initialize or check lifecycle policy |
@@ -250,13 +250,13 @@ skm history baoyu-image-gen
 | Register | `skm sources add` / `skm sources wizard` | Add upstream URLs for skills missing source metadata, so freshness checks, updates, and locks have a source of truth |
 | Update | `skm update <skill>` | Updates from a directly readable `SKILL.md` source; backs up the old directory first |
 | Roll back | `skm rollback <skill>` | Restores from `~/.skill-manager/skill-backups/`; backs up the current directory before rollback |
-| Lock | `skm lock` / `skm lock diff` / `skm lock verify` | Writes `~/.skill-manager/skill-lock.json` with name, tool, version, source, git HEAD, and `SKILL.md` hash; later compares or verifies drift |
+| Lock | `skm lock` / `skm lock diff` / `skm lock verify` | Writes `~/.skill-manager/skill-lock.json` with each installed instance's name, tool, scope, version, source, git HEAD, and `SKILL.md` hash; later compares or verifies drift |
 | Policy | `skm policy init/check` | Checks local thresholds for total skills, never-used rate, duplicate installs, source coverage, and safety findings |
 | Profile | `skm profile create/apply` | Saves and applies Claude Code skill state profiles for scenarios such as writing, coding, or design; settings are backed up before apply |
 | Evaluate | `skm eval [skill]` | Scores description, frontmatter, source metadata, duplication, context cost, usage, and safety signals |
 | Review | `skm history [skill]` | Shows skm-recorded install, update, rollback, lock, policy, and profile events |
 
-Recommended flow: run `skm scan`, fill missing sources, then run `skm lock` to establish a baseline. Later, use `skm lock diff` to see added, removed, or changed skills, and `skm lock verify` for scriptable drift checks. Before an update, run `skm update <skill> --dry-run` to inspect the plan and audit result, then confirm interactively or add `--yes`. `skm install` saves the remote URL or local `SKILL.md` frontmatter fields `source` / `repository` / `homepage` / `version` into `~/.skill-manager/sources.json`, so later updates can find the source. If a local skill has no source, skm prints a `skm sources add` hint. Remote install/update uses `SKILL.md` as the smallest trusted unit; it does not automatically pull scripts or asset directories from a repository. For a full directory install, clone manually first and run `skm install ./directory`.
+Recommended flow: run `skm scan`, fill missing sources, then run `skm lock` to establish a baseline. Later, use `skm lock diff` to see added, removed, or changed skills, and `skm lock verify` for scriptable drift checks. The lock file records actual installed instances, so same-name skills installed in Claude Code, Codex, Cursor, or Gemini are verified separately. Before an update, run `skm update <skill> --dry-run` to inspect the plan and audit result, then confirm interactively or add `--yes`. `skm install` saves the remote URL or local `SKILL.md` frontmatter fields `source` / `repository` / `homepage` / `version` into `~/.skill-manager/sources.json`, so later updates can find the source. If a local skill has no source, skm prints a `skm sources add` hint. Remote install/update uses `SKILL.md` as the smallest trusted unit; it does not automatically pull scripts or asset directories from a repository. For a full directory install, clone manually first and run `skm install ./directory`.
 
 ### Skill State Governance
 

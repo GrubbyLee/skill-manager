@@ -204,9 +204,9 @@ These commands govern skills after discovery:
 - `install`: fully copies local directories; remote GitHub/Gitee skill directories or `SKILL.md` URLs install the `SKILL.md` file for now. The plan and static audit are printed before install. Existing targets are not overwritten. After a successful install, skm saves the remote URL or local frontmatter `source` / `repository` / `homepage` / `version` into `~/.skill-manager/sources.json` and refreshes the catalog; if no upgrade source exists, it prints a `skm sources add` hint. Invalid source fields are reported explicitly.
 - `update`: reads the registered `source` / `repository` / `homepage` and updates from a directly accessible `SKILL.md`; the old skill directory is backed up first.
 - `rollback`: restores the latest backup from `~/.skill-manager/skill-backups/`; the current directory is backed up before rollback.
-- `lock`: writes `~/.skill-manager/skill-lock.json` with name, tool, version, source, git HEAD, and `SKILL.md` hash. `--json` prints JSON only.
-- `lock diff [file]`: silently refreshes the catalog, then compares added, removed, and changed skills against the lock file.
-- `lock verify [file]`: silently refreshes the catalog and exits non-zero on drift, suitable for CI or upgrade scripts.
+- `lock`: silently refreshes skm's own catalog and writes `~/.skill-manager/skill-lock.json` with each installed instance's name, tool, scope, version, source, git HEAD, and `SKILL.md` hash. `--json` prints JSON only.
+- `lock diff [file]`: silently refreshes skm's own catalog, then compares added, removed, and changed skills against the lock file without changing AIDE data.
+- `lock verify [file]`: silently refreshes skm's own catalog and exits non-zero on drift, suitable for CI or upgrade scripts.
 - `policy init/check`: initializes or checks local governance thresholds: total skills, never-used rate, duplicate installs, source coverage, and safety findings.
 - `profile create/apply`: snapshots Claude Code skill states and writes them back for scenarios; settings are backed up before apply. Codex/Cursor/Gemini state changes still use their native UI.
 - `eval`: scores description quality, frontmatter, source metadata, duplication, context cost, usage, and safety signals.

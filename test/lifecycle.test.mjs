@@ -111,6 +111,42 @@ test('生命周期：lock diff/verify 能发现当前 skill 与基线漂移', ()
   assert.equal(JSON.parse(diff.stdout).changed[0].name, 'delta');
 });
 
+test('生命周期：lock verify 按安装实例发现同名多端 skill 漂移', () => {
+  const home = makeHome();
+  const claudeSource = makeSkillSource('multi', 'claude copy', '1.0.0');
+  const codexSource = makeSkillSource('multi', 'codex copy', '2.0.0');
+  assert.equal(run(['install', claudeSource, '--tool', 'claude', '--yes', '--lang', 'en'], home).status, 0);
+  assert.equal(run(['install', codexSource, '--tool', 'codex', '--yes', '--lang', 'en'], home).status, 0);
+  assert.equal(run(['lock', '--lang', 'en'], home).status, 0);
+
+  const target = path.join(home, '.codex', 'skills', 'multi', 'SKILL.md');
+  fs.writeFileSync(target, skillMd('multi', 'codex changed', '3.0.0'));
+
+  const verify = run(['lock', 'verify', '--json', '--lang', 'en'], home);
+  assert.equal(verify.status, 1, verify.stderr);
+  const report = JSON.parse(verify.stdout);
+  assert.equal(report.summary.changed, 1);
+  assert.equal(report.changed[0].name, 'multi');
+  assert.equal(report.changed[0].label, 'multi (codex/user)');
+});
+
+test('生命周期：lock diff/verify 拒绝重复锁定 key，避免对比时覆盖', () => {
+  const home = makeHome();
+  const source = makeSkillSource('dup-lock', 'dup description', '1.0.0');
+  assert.equal(run(['install', source, '--tool', 'claude', '--yes', '--lang', 'en'], home).status, 0);
+  const lock = run(['lock', '--json', '--lang', 'en'], home);
+  assert.equal(lock.status, 0, lock.stderr);
+  const data = JSON.parse(lock.stdout);
+  data.items.push({ ...data.items[0] });
+  fs.mkdirSync(path.join(home, '.skill-manager'), { recursive: true });
+  fs.writeFileSync(path.join(home, '.skill-manager', 'skill-lock.json'), JSON.stringify(data, null, 2));
+
+  const verify = run(['lock', 'verify', '--json', '--lang', 'en'], home);
+  assert.equal(verify.status, 1);
+  assert.match(verify.stderr, /duplicate entry/);
+  assert.equal(verify.stdout, '');
+});
+
 test('生命周期：本地来源字段无效时明确提示，避免用户误以为已建立升级源', () => {
   const home = makeHome();
   const source = makeSkillSource('gamma', 'gamma description', '1.0.0', { source: 'not-a-url' });

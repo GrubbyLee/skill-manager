@@ -253,9 +253,9 @@ skm history baoyu-image-gen
 - `install`：本地目录会完整复制；远程 GitHub/Gitee skill 目录或 `SKILL.md` URL 当前安装 `SKILL.md` 单文件。安装前会打印计划和静态安全审计。目标目录已存在时拒绝覆盖。安装成功后会把远程 URL 或本地 frontmatter 里的 `source` / `repository` / `homepage` / `version` 记录到 `~/.skill-manager/sources.json` 并刷新 catalog；没有可升级来源时会提示 `skm sources add`，来源字段格式不合法时会明确提示被忽略。
 - `update`：读取已登记的 `source` / `repository` / `homepage`，从可直接访问的 `SKILL.md` 更新；写入前备份原 skill 目录。
 - `rollback`：从 `~/.skill-manager/skill-backups/` 恢复最近一次备份；回滚前也会备份当前目录。
-- `lock`：写入 `~/.skill-manager/skill-lock.json`，记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash；`--json` 只输出 JSON。
-- `lock diff [文件]`：静默刷新 catalog 后，对比当前 skill 与锁定文件的新增、删除和变更。
-- `lock verify [文件]`：同样静默刷新 catalog，发现漂移时返回非 0，适合 CI 或升级脚本。
+- `lock`：静默刷新 skm 自身 catalog，写入 `~/.skill-manager/skill-lock.json`，按安装实例记录名称、工具、scope、版本、来源、git HEAD 和 `SKILL.md` hash；`--json` 只输出 JSON。
+- `lock diff [文件]`：静默刷新 skm 自身 catalog 后，对比当前 skill 与锁定文件的新增、删除和变更，不修改 AIDE 数据。
+- `lock verify [文件]`：同样静默刷新 skm 自身 catalog，发现漂移时返回非 0，适合 CI 或升级脚本。
 - `policy init/check`：初始化或检查本机治理策略，覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。
 - `profile create/apply`：创建 Claude Code skill 状态快照，并按场景写回 `skillOverrides`；应用前备份设置文件。Codex/Cursor/Gemini 的状态切换仍走各自工具的原生 UI。
 - `eval`：给 skill 打分，扣分项包括缺少描述、缺少 frontmatter、缺少来源、重复安装、上下文开销偏高、从未使用、安全发现。

@@ -103,7 +103,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm install` | 安装本地 skill 目录或远程 `SKILL.md` 来源，安装前做静态审计 |
 | `skm update` | 从已记录来源更新 skill，更新前自动备份 |
 | `skm rollback` | 从 skm 备份回滚 skill |
-| `skm lock` | 生成 `~/.skill-manager/skill-lock.json` 生命周期锁定文件 |
+| `skm lock` | 生成 `~/.skill-manager/skill-lock.json` 生命周期锁定文件，按安装实例记录 |
 | `skm lock diff` | 对比当前 skill 与锁定文件的新增、删除和变更 |
 | `skm lock verify` | 校验当前 skill 是否匹配锁定文件；发现漂移时返回非 0，适合 CI |
 | `skm policy` | 初始化 / 检查 skill 生命周期策略 |
@@ -258,13 +258,13 @@ skm history baoyu-image-gen
 | 登记 | `skm sources add` / `skm sources wizard` | 为缺少来源的 skill 补充上游地址，后续版本检查、更新和锁定才能闭环 |
 | 更新 | `skm update <skill>` | 从可直接读取的 `SKILL.md` 来源更新；写入前自动备份原目录 |
 | 回滚 | `skm rollback <skill>` | 从 `~/.skill-manager/skill-backups/` 恢复上一次备份；回滚前再备份当前目录 |
-| 锁定 | `skm lock` / `skm lock diff` / `skm lock verify` | 生成 `~/.skill-manager/skill-lock.json`，记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash；后续可对比或校验当前环境是否漂移 |
+| 锁定 | `skm lock` / `skm lock diff` / `skm lock verify` | 生成 `~/.skill-manager/skill-lock.json`，按安装实例记录名称、工具、scope、版本、来源、git HEAD 和 `SKILL.md` hash；后续可对比或校验当前环境是否漂移 |
 | 策略 | `skm policy init/check` | 用本机策略检查 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现 |
 | 场景 | `skm profile create/apply` | 保存一组 Claude Code skill 状态，并可按写作、开发、设计等场景切换；应用前会备份设置 |
 | 评测 | `skm eval [skill]` | 从描述、frontmatter、来源、重复、上下文开销、使用和安全信号打分 |
 | 复盘 | `skm history [skill]` | 查看 skm 记录的安装、更新、回滚、锁定、策略和 profile 事件 |
 
-推荐顺序是：先 `skm scan`，再补来源，之后 `skm lock` 建基线；后续用 `skm lock diff` 看当前环境相对基线新增、删除或变更了哪些 skill，用 `skm lock verify` 做脚本化校验。更新前先 `skm update <skill> --dry-run` 看计划和安全审计，确认后再加 `--yes` 或交互输入 `yes`。`skm install` 会把远程 URL 或本地 `SKILL.md` frontmatter 里的 `source` / `repository` / `homepage` / `version` 写入 `~/.skill-manager/sources.json`，避免后续升级找不到源；如果本地 skill 没有来源，会提示你运行 `skm sources add` 补齐。远程安装/更新目前以 `SKILL.md` 为最小可信单元，不会自动拉取仓库里的脚本或资源目录；需要完整目录时，先人工 clone 到本地，再用 `skm install ./目录`。
+推荐顺序是：先 `skm scan`，再补来源，之后 `skm lock` 建基线；后续用 `skm lock diff` 看当前环境相对基线新增、删除或变更了哪些 skill，用 `skm lock verify` 做脚本化校验。锁定文件按实际安装实例记录，同名 skill 分别装在 Claude Code、Codex、Cursor 或 Gemini 时会分别校验。更新前先 `skm update <skill> --dry-run` 看计划和安全审计，确认后再加 `--yes` 或交互输入 `yes`。`skm install` 会把远程 URL 或本地 `SKILL.md` frontmatter 里的 `source` / `repository` / `homepage` / `version` 写入 `~/.skill-manager/sources.json`，避免后续升级找不到源；如果本地 skill 没有来源，会提示你运行 `skm sources add` 补齐。远程安装/更新目前以 `SKILL.md` 为最小可信单元，不会自动拉取仓库里的脚本或资源目录；需要完整目录时，先人工 clone 到本地，再用 `skm install ./目录`。
 
 ### skill 状态治理
 

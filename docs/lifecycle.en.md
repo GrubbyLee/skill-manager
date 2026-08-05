@@ -36,9 +36,9 @@ skm rollback <skill>
 | `skm install <source>` | Install a local skill directory or remote `SKILL.md` | User skill directory |
 | `skm update <skill>` | Update a skill from its registered source | User skill directory; backup under `~/.skill-manager/skill-backups/` |
 | `skm rollback <skill>` | Roll back from skm backup | User skill directory; backs up current directory first |
-| `skm lock` | Generate the current skill lock file | `~/.skill-manager/skill-lock.json` |
-| `skm lock diff [file]` | Compare current skills against the lock file | Read-only; silently refreshes the catalog first |
-| `skm lock verify [file]` | Verify current skills against the lock file | Read-only; exits non-zero on drift |
+| `skm lock` | Generate the current skill lock file | Refreshes skm's own catalog; writes `~/.skill-manager/skill-lock.json` |
+| `skm lock diff [file]` | Compare current skills against the lock file | Does not change AIDE data; refreshes skm's own catalog first |
+| `skm lock verify [file]` | Verify current skills against the lock file | Does not change AIDE data; exits non-zero on drift |
 | `skm policy init/check` | Initialize or check governance policy | `~/.skill-manager/policy.json` |
 | `skm profile create/apply` | Save or apply Claude Code skill state profiles | `~/.skill-manager/profiles.json`; Claude settings on apply |
 | `skm eval [skill]` | Evaluate skill quality | Read-only |
@@ -85,7 +85,7 @@ skm policy init
 skm policy check
 ```
 
-The lock file records name, tool, version, source, git HEAD, and `SKILL.md` hash. `diff` and `verify` silently refresh the catalog first, then compare added, removed, and changed skills against the lock file. `verify` exits non-zero on drift, so it can be used in CI or personal upgrade scripts. Policy checks cover total skills, never-used rate, duplicate installs, source coverage, and safety findings. The policy file is local data and can be edited to fit your team.
+The lock file records each installed skill instance with name, tool, scope, version, source, git HEAD, and `SKILL.md` hash. Same-name skills installed in Claude Code, Codex, Cursor, or Gemini are locked and verified separately. `lock`, `diff`, and `verify` silently refresh skm's own catalog first, then generate or compare added, removed, and changed entries against the lock file. Older lock files or duplicate lock keys fail fast to avoid hidden overwrite during comparison. `verify` exits non-zero on drift, so it can be used in CI or personal upgrade scripts. Policy checks cover total skills, never-used rate, duplicate installs, source coverage, and safety findings. The policy file is local data and can be edited to fit your team.
 
 ## Profiles
 

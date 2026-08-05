@@ -88,7 +88,7 @@ export function runSkillLock(ctx, args = []) {
   if (action === 'diff') return runLockDiff(ctx, args[1], false);
   if (action === 'verify') return runLockDiff(ctx, args[1], true);
   if (action && action !== 'write') return fail(lang, zh(lang, `未知 lock 子命令：${action}`, `Unknown lock subcommand: ${action}`));
-  const data = buildCurrentLock(ctx, { refresh: false });
+  const data = buildCurrentLock(ctx, { refresh: true });
   if (ctx.json) return console.log(JSON.stringify(data, null, 2));
   saveJsonFile(LOCK_PATH, data, { pretty: true });
   console.log(paint.green(zh(lang, `锁定文件已写入：${LOCK_PATH}（${data.items.length} 个 skill）`, `Lock file written: ${LOCK_PATH} (${data.items.length} skills)`)));
@@ -98,8 +98,8 @@ export function runSkillLock(ctx, args = []) {
 function runLockDiff(ctx, fileArg, verifyOnly) {
   const lang = ctx.lang || 'zh-CN';
   const baselineFile = resolveLockPath(fileArg);
-  const baseline = loadLockFile(baselineFile);
-  if (!baseline) return fail(lang, zh(lang, `无法读取锁定文件：${baselineFile}。请先运行 skm lock 建立基线。`, `Unable to read lock file: ${baselineFile}. Run skm lock first to establish a baseline.`));
+  const { data: baseline, error } = loadLockFile(baselineFile, lang);
+  if (!baseline) return fail(lang, error || zh(lang, `无法读取锁定文件：${baselineFile}。请先运行 skm lock 建立基线。`, `Unable to read lock file: ${baselineFile}. Run skm lock first to establish a baseline.`));
   const current = buildCurrentLock(ctx, { refresh: true });
   const report = compareLocks(baseline, current, baselineFile);
   if (ctx.json) {
@@ -254,16 +254,19 @@ function targetRoots(tool, cwd) {
 }
 
 function lockRow(skill) {
-  const entries = skill.entries || [skill];
-  const best = entries.find((entry) => entry.upstream?.git?.head || entry.upstream?.source) || entries[0] || {};
-  const upstream = best.upstream || {};
+  const upstream = skill.upstream || {};
   return {
+    key: '',
     name: skill.dirName,
-    tools: skill.tools || entries.map((entry) => entry.tool),
+    title: skill.name || skill.dirName,
+    tool: skill.tool || null,
+    scope: skill.scope || null,
+    tools: skill.tool ? [skill.tool] : [],
+    locationHash: hashText(skill.realPath || skill.path || `${skill.tool || ''}:${skill.scope || ''}:${skill.dirName || ''}`).slice(0, 12),
     version: upstream.version || null,
     source: upstream.source || upstream.repository || upstream.homepage || upstream.git?.remote || null,
     gitHead: upstream.git?.head || null,
-    skillMdHash: best.skillMdHash || skill.skillMdHash || null,
+    skillMdHash: skill.skillMdHash || null,
     lockedAt: new Date().toISOString(),
   };
 }
@@ -272,43 +275,52 @@ function buildCurrentLock(ctx, { refresh }) {
   const lang = ctx.lang || 'zh-CN';
   if (refresh) runScan({ cwd: ctx.cwd, silent: true, quiet: true, lang });
   const catalog = ensureCatalog(ctx.cwd, lang);
-  const merged = mergeByDirName(applySourcesToSkills(catalog.skills || []));
-  const items = merged.map((skill) => lockRow(skill)).sort((a, b) => a.name.localeCompare(b.name));
-  return { version: 1, generatedAt: new Date().toISOString(), items };
+  const rows = applySourcesToSkills(catalog.skills || []).map((skill) => lockRow(skill));
+  const items = assignLockKeys(rows).sort(compareLockItems);
+  return { version: 2, generatedAt: new Date().toISOString(), items };
 }
 
-function loadLockFile(file) {
+function loadLockFile(file, lang) {
   const data = loadJsonFile(file);
-  if (data?.version === 1 && Array.isArray(data.items)) return data;
-  return null;
+  if (!data) return { data: null };
+  if (![1, 2].includes(data.version) || !Array.isArray(data.items)) {
+    return { data: null, error: zh(lang, `锁定文件格式无效：${file}`, `Invalid lock file format: ${file}`) };
+  }
+  if (data.version === 1 && data.items.some((item) => !item.key)) {
+    return { data: null, error: zh(lang, `锁定文件来自旧版格式，缺少实例级 key。请重新运行 skm lock 建立新基线：${file}`, `The lock file uses an older format without per-installation keys. Re-run skm lock to establish a new baseline: ${file}`) };
+  }
+  const duplicate = firstDuplicateLockKey(data.items);
+  if (duplicate) {
+    return { data: null, error: zh(lang, `锁定文件包含重复项：${duplicate}。请重新运行 skm lock 生成干净基线。`, `The lock file contains a duplicate entry: ${duplicate}. Re-run skm lock to generate a clean baseline.`) };
+  }
+  return { data };
 }
 
 function compareLocks(baseline, current, baselineFile) {
-  const oldMap = new Map(baseline.items.map((item) => [item.name, normalizeLockItem(item)]));
-  const newMap = new Map(current.items.map((item) => [item.name, normalizeLockItem(item)]));
+  const oldMap = new Map(baseline.items.map((item) => [lockCompareKey(item), normalizeLockItem(item)]));
+  const newMap = new Map(current.items.map((item) => [lockCompareKey(item), normalizeLockItem(item)]));
   const added = [];
   const removed = [];
   const changed = [];
   const unchanged = [];
-  for (const [name, item] of newMap) {
-    const old = oldMap.get(name);
+  for (const [key, item] of newMap) {
+    const old = oldMap.get(key);
     if (!old) added.push(item);
     else {
       const fields = changedFields(old, item);
-      if (fields.length) changed.push({ name, fields, before: pickFields(old, fields), after: pickFields(item, fields) });
+      if (fields.length) changed.push({ key, name: item.name, label: lockLabel(item), fields, before: pickFields(old, fields), after: pickFields(item, fields) });
       else unchanged.push(item);
     }
   }
-  for (const [name, item] of oldMap) {
-    if (!newMap.has(name)) removed.push(item);
+  for (const [key, item] of oldMap) {
+    if (!newMap.has(key)) removed.push(item);
   }
-  const byName = (a, b) => a.name.localeCompare(b.name);
-  added.sort(byName);
-  removed.sort(byName);
-  changed.sort(byName);
-  unchanged.sort(byName);
+  added.sort(compareLockItems);
+  removed.sort(compareLockItems);
+  changed.sort(compareLockItems);
+  unchanged.sort(compareLockItems);
   return {
-    version: 1,
+    version: 2,
     generatedAt: new Date().toISOString(),
     baselineFile,
     baselineGeneratedAt: baseline.generatedAt || null,
@@ -330,8 +342,13 @@ function compareLocks(baseline, current, baselineFile) {
 
 function normalizeLockItem(item) {
   return {
+    key: lockCompareKey(item),
     name: String(item.name || ''),
+    title: item.title || null,
+    tool: item.tool || null,
+    scope: item.scope || null,
     tools: [...new Set(item.tools || [])].sort(),
+    locationHash: item.locationHash || null,
     version: item.version || null,
     source: item.source || null,
     gitHead: item.gitHead || null,
@@ -340,7 +357,7 @@ function normalizeLockItem(item) {
 }
 
 function changedFields(before, after) {
-  return ['tools', 'version', 'source', 'gitHead', 'skillMdHash'].filter((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
+  return ['title', 'tool', 'scope', 'tools', 'locationHash', 'version', 'source', 'gitHead', 'skillMdHash'].filter((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
 }
 
 function pickFields(item, fields) {
@@ -365,7 +382,7 @@ function printLockDiff(lang, report, verifyOnly) {
 }
 
 function namesOf(items) {
-  return items.map((item) => item.name).slice(0, 12).join(', ') || '—';
+  return items.map((item) => lockLabel(item)).slice(0, 12).join(', ') || '—';
 }
 
 function resolveLockPath(fileArg) {
@@ -375,6 +392,44 @@ function resolveLockPath(fileArg) {
   if (text === '~') return home;
   if (text.startsWith('~/')) return path.join(home, text.slice(2));
   return path.resolve(text);
+}
+
+function assignLockKeys(rows) {
+  return rows.map((row) => ({ ...row, key: `${lockKeyBase(row)}:${row.locationHash || 'unknown'}` }));
+}
+
+function lockKeyBase(item) {
+  return [item.tool || 'unknown', item.scope || 'unknown', item.name || 'unknown'].join(':');
+}
+
+function lockCompareKey(item) {
+  return String(item.key || lockKeyBase(item));
+}
+
+function firstDuplicateLockKey(items) {
+  const seen = new Set();
+  for (const item of items) {
+    const key = lockCompareKey(item);
+    if (seen.has(key)) return key;
+    seen.add(key);
+  }
+  return null;
+}
+
+function compareLockItems(a, b) {
+  return lockLabel(a).localeCompare(lockLabel(b)) || lockCompareKey(a).localeCompare(lockCompareKey(b));
+}
+
+function lockLabel(item) {
+  if (item.label) return item.label;
+  const parts = [item.name || 'unknown'];
+  const tool = item.tool || (Array.isArray(item.tools) && item.tools.length === 1 ? item.tools[0] : null);
+  if (tool || item.scope) parts.push(`(${[tool, item.scope].filter(Boolean).join('/')})`);
+  return parts.join(' ');
+}
+
+function hashText(text) {
+  return crypto.createHash('sha256').update(String(text || '')).digest('hex');
 }
 
 function installSourceRecord(data, source) {
