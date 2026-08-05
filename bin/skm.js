@@ -40,7 +40,7 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   install         安装 skill（本地目录完整复制；远程 SKILL.md/GitHub/Gitee 目录单文件安装，先审计）
   update          更新 skill（可直接读取 SKILL.md 的来源；更新前备份）
   rollback        从 skm 备份回滚 skill
-  lock            生成 skill 锁定文件
+  lock            生成 / 对比 / 校验 skill 锁定文件
   policy          生命周期策略：init/check
   profile         场景 profile：list/create/apply
   eval            skill 质量评测
@@ -100,6 +100,8 @@ state 选项：
   skm update <skill> [--tool <工具>] [--dry-run] [--yes]
   skm rollback <skill> [--tool <工具>] [--dry-run] [--yes]
   skm lock [--json]
+  skm lock diff [锁定文件] [--json]
+  skm lock verify [锁定文件] [--json]
   skm policy init|check [--json]
   skm profile list|create <名称>|apply <名称> [--dry-run] [--yes]
   skm eval [skill] [--all] [--json]
@@ -139,6 +141,8 @@ sessions 选项：
   skm install ./my-skill --tool claude --dry-run
   skm update baoyu-image-gen --dry-run
   skm lock
+  skm lock diff
+  skm lock verify
   skm policy check
   skm eval --all
   skm doctor
@@ -175,7 +179,7 @@ Commands:
   install           Install a skill after local static audit
   update            Update a skill from a directly readable SKILL.md source, with backup
   rollback          Roll back a skill from skm backups
-  lock              Generate the skill lock file
+  lock              Generate, diff, or verify the skill lock file
   policy            Lifecycle policy: init/check
   profile           Scenario profiles: list/create/apply
   eval              Evaluate skill quality
@@ -235,6 +239,8 @@ lifecycle options:
   skm update <skill> [--tool <tool>] [--dry-run] [--yes]
   skm rollback <skill> [--tool <tool>] [--dry-run] [--yes]
   skm lock [--json]
+  skm lock diff [lock-file] [--json]
+  skm lock verify [lock-file] [--json]
   skm policy init|check [--json]
   skm profile list|create <name>|apply <name> [--dry-run] [--yes]
   skm eval [skill] [--all] [--json]
@@ -274,6 +280,8 @@ Examples:
   skm install ./my-skill --tool claude --dry-run
   skm update baoyu-image-gen --dry-run
   skm lock
+  skm lock diff
+  skm lock verify
   skm policy check
   skm eval --all
   skm setup
@@ -395,7 +403,7 @@ async function main() {
   else if (cmd === 'install') await runSkillInstall(ctx, positionals.slice(1));
   else if (cmd === 'update') await runSkillUpdate(ctx, positionals.slice(1));
   else if (cmd === 'rollback') await runSkillRollback(ctx, positionals.slice(1));
-  else if (cmd === 'lock') runSkillLock(ctx);
+  else if (cmd === 'lock') runSkillLock(ctx, positionals.slice(1));
   else if (cmd === 'policy') runPolicy(ctx, positionals.slice(1));
   else if (cmd === 'profile') await runProfile(ctx, positionals.slice(1));
   else if (cmd === 'eval') runSkillEval(ctx, positionals.slice(1));

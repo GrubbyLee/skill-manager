@@ -66,6 +66,7 @@ skm risks
 skm outdated
 skm state plan
 skm lock
+skm lock verify
 skm policy check
 skm eval --all
 skm dupes
@@ -93,6 +94,8 @@ Start with read-only commands. Use dry-run before install, update, rollback, pro
 | `skm update` | Update a skill from its registered source | `<skill>`, `--tool`, `--dry-run`, `--yes` |
 | `skm rollback` | Roll back a skill from skm backups | `<skill>`, `--tool`, `--dry-run`, `--yes` |
 | `skm lock` | Generate a lifecycle lock file | `--json` |
+| `skm lock diff` | Compare current skills against the lock file | `[file]`, `--json` |
+| `skm lock verify` | Verify current skills against the lock file | `[file]`, `--json` |
 | `skm policy` | Lifecycle policy | `init`, `check`, `--json` |
 | `skm profile` | Claude Code scenario profiles | `list`, `create`, `apply`, `--dry-run`, `--yes` |
 | `skm eval` | Evaluate skill quality | `[skill]`, `--all`, `--json` |
@@ -184,6 +187,8 @@ skm install https://github.com/org/repo/tree/main/skills/my-skill --tool codex -
 skm update baoyu-image-gen --dry-run
 skm rollback baoyu-image-gen --dry-run
 skm lock
+skm lock diff
+skm lock verify
 skm policy init
 skm policy check
 skm profile list
@@ -200,12 +205,14 @@ These commands govern skills after discovery:
 - `update`: reads the registered `source` / `repository` / `homepage` and updates from a directly accessible `SKILL.md`; the old skill directory is backed up first.
 - `rollback`: restores the latest backup from `~/.skill-manager/skill-backups/`; the current directory is backed up before rollback.
 - `lock`: writes `~/.skill-manager/skill-lock.json` with name, tool, version, source, git HEAD, and `SKILL.md` hash. `--json` prints JSON only.
+- `lock diff [file]`: silently refreshes the catalog, then compares added, removed, and changed skills against the lock file.
+- `lock verify [file]`: silently refreshes the catalog and exits non-zero on drift, suitable for CI or upgrade scripts.
 - `policy init/check`: initializes or checks local governance thresholds: total skills, never-used rate, duplicate installs, source coverage, and safety findings.
 - `profile create/apply`: snapshots Claude Code skill states and writes them back for scenarios; settings are backed up before apply. Codex/Cursor/Gemini state changes still use their native UI.
 - `eval`: scores description quality, frontmatter, source metadata, duplication, context cost, usage, and safety signals.
 - `history`: shows skm-recorded install, update, rollback, lock, policy, and profile events.
 
-Recommended flow: run `skm scan`, fill missing sources with `skm sources wizard`, then establish a baseline with `skm lock`. A skill installed by `skm install` can be updated later without manually editing the catalog when source metadata was available during install. Before updating, run `skm update <skill> --dry-run` and review the plan plus audit result. See [lifecycle.en.md](lifecycle.en.md).
+Recommended flow: run `skm scan`, fill missing sources with `skm sources wizard`, then establish a baseline with `skm lock`; later use `skm lock diff` to inspect drift and `skm lock verify` for scriptable checks. A skill installed by `skm install` can be updated later without manually editing the catalog when source metadata was available during install. Before updating, run `skm update <skill> --dry-run` and review the plan plus audit result. See [lifecycle.en.md](lifecycle.en.md).
 
 ## recommend / ask
 

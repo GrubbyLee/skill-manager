@@ -82,16 +82,32 @@ export async function runSkillRollback(ctx, args = []) {
   console.log(paint.green(zh(lang, `回滚完成：${selected.dirName}`, `Rolled back: ${selected.dirName}`)));
 }
 
-export function runSkillLock(ctx) {
+export function runSkillLock(ctx, args = []) {
   const lang = ctx.lang || 'zh-CN';
-  const catalog = ensureCatalog(ctx.cwd, lang);
-  const merged = mergeByDirName(applySourcesToSkills(catalog.skills || []));
-  const items = merged.map((skill) => lockRow(skill));
-  const data = { version: 1, generatedAt: new Date().toISOString(), items };
+  const action = args[0];
+  if (action === 'diff') return runLockDiff(ctx, args[1], false);
+  if (action === 'verify') return runLockDiff(ctx, args[1], true);
+  if (action && action !== 'write') return fail(lang, zh(lang, `未知 lock 子命令：${action}`, `Unknown lock subcommand: ${action}`));
+  const data = buildCurrentLock(ctx, { refresh: false });
   if (ctx.json) return console.log(JSON.stringify(data, null, 2));
   saveJsonFile(LOCK_PATH, data, { pretty: true });
-  console.log(paint.green(zh(lang, `锁定文件已写入：${LOCK_PATH}（${items.length} 个 skill）`, `Lock file written: ${LOCK_PATH} (${items.length} skills)`)));
-  appendHistory({ type: 'lock', count: items.length, file: LOCK_PATH });
+  console.log(paint.green(zh(lang, `锁定文件已写入：${LOCK_PATH}（${data.items.length} 个 skill）`, `Lock file written: ${LOCK_PATH} (${data.items.length} skills)`)));
+  appendHistory({ type: 'lock', count: data.items.length, file: LOCK_PATH });
+}
+
+function runLockDiff(ctx, fileArg, verifyOnly) {
+  const lang = ctx.lang || 'zh-CN';
+  const baselineFile = resolveLockPath(fileArg);
+  const baseline = loadLockFile(baselineFile);
+  if (!baseline) return fail(lang, zh(lang, `无法读取锁定文件：${baselineFile}。请先运行 skm lock 建立基线。`, `Unable to read lock file: ${baselineFile}. Run skm lock first to establish a baseline.`));
+  const current = buildCurrentLock(ctx, { refresh: true });
+  const report = compareLocks(baseline, current, baselineFile);
+  if (ctx.json) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    printLockDiff(lang, report, verifyOnly);
+  }
+  if (verifyOnly && !report.summary.verified) process.exitCode = 1;
 }
 
 export function runPolicy(ctx, args = []) {
@@ -250,6 +266,115 @@ function lockRow(skill) {
     skillMdHash: best.skillMdHash || skill.skillMdHash || null,
     lockedAt: new Date().toISOString(),
   };
+}
+
+function buildCurrentLock(ctx, { refresh }) {
+  const lang = ctx.lang || 'zh-CN';
+  if (refresh) runScan({ cwd: ctx.cwd, silent: true, quiet: true, lang });
+  const catalog = ensureCatalog(ctx.cwd, lang);
+  const merged = mergeByDirName(applySourcesToSkills(catalog.skills || []));
+  const items = merged.map((skill) => lockRow(skill)).sort((a, b) => a.name.localeCompare(b.name));
+  return { version: 1, generatedAt: new Date().toISOString(), items };
+}
+
+function loadLockFile(file) {
+  const data = loadJsonFile(file);
+  if (data?.version === 1 && Array.isArray(data.items)) return data;
+  return null;
+}
+
+function compareLocks(baseline, current, baselineFile) {
+  const oldMap = new Map(baseline.items.map((item) => [item.name, normalizeLockItem(item)]));
+  const newMap = new Map(current.items.map((item) => [item.name, normalizeLockItem(item)]));
+  const added = [];
+  const removed = [];
+  const changed = [];
+  const unchanged = [];
+  for (const [name, item] of newMap) {
+    const old = oldMap.get(name);
+    if (!old) added.push(item);
+    else {
+      const fields = changedFields(old, item);
+      if (fields.length) changed.push({ name, fields, before: pickFields(old, fields), after: pickFields(item, fields) });
+      else unchanged.push(item);
+    }
+  }
+  for (const [name, item] of oldMap) {
+    if (!newMap.has(name)) removed.push(item);
+  }
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  added.sort(byName);
+  removed.sort(byName);
+  changed.sort(byName);
+  unchanged.sort(byName);
+  return {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    baselineFile,
+    baselineGeneratedAt: baseline.generatedAt || null,
+    currentGeneratedAt: current.generatedAt || null,
+    summary: {
+      verified: added.length === 0 && removed.length === 0 && changed.length === 0,
+      added: added.length,
+      removed: removed.length,
+      changed: changed.length,
+      unchanged: unchanged.length,
+      baseline: baseline.items.length,
+      current: current.items.length,
+    },
+    added,
+    removed,
+    changed,
+  };
+}
+
+function normalizeLockItem(item) {
+  return {
+    name: String(item.name || ''),
+    tools: [...new Set(item.tools || [])].sort(),
+    version: item.version || null,
+    source: item.source || null,
+    gitHead: item.gitHead || null,
+    skillMdHash: item.skillMdHash || null,
+  };
+}
+
+function changedFields(before, after) {
+  return ['tools', 'version', 'source', 'gitHead', 'skillMdHash'].filter((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
+}
+
+function pickFields(item, fields) {
+  return Object.fromEntries(fields.map((field) => [field, item[field]]));
+}
+
+function printLockDiff(lang, report, verifyOnly) {
+  const s = report.summary;
+  const title = verifyOnly ? zh(lang, '锁定文件校验', 'Lock verification') : zh(lang, '锁定文件差异', 'Lock diff');
+  printPlan(lang, title, [
+    [zh(lang, '基线文件', 'Baseline file'), report.baselineFile, report.baselineGeneratedAt || '—'],
+    [zh(lang, '当前 skill', 'Current skills'), String(s.current), zh(lang, `基线 ${s.baseline} 个`, `baseline ${s.baseline}`)],
+    [zh(lang, '新增', 'Added'), String(s.added), namesOf(report.added)],
+    [zh(lang, '删除', 'Removed'), String(s.removed), namesOf(report.removed)],
+    [zh(lang, '变更', 'Changed'), String(s.changed), namesOf(report.changed)],
+  ]);
+  if (s.verified) {
+    console.log(paint.green(zh(lang, '锁定文件校验通过：当前 skill 与基线一致。', 'Lock verification passed: current skills match the baseline.')));
+  } else if (verifyOnly) {
+    console.log(paint.red(zh(lang, '锁定文件校验失败：当前 skill 与基线不一致。', 'Lock verification failed: current skills differ from the baseline.')));
+  }
+}
+
+function namesOf(items) {
+  return items.map((item) => item.name).slice(0, 12).join(', ') || '—';
+}
+
+function resolveLockPath(fileArg) {
+  if (!fileArg) return LOCK_PATH;
+  const text = String(fileArg);
+  const home = path.dirname(DATA_DIR);
+  if (text === '~') return home;
+  if (text.startsWith('~/')) return path.join(home, text.slice(2));
+  return path.resolve(text);
 }
 
 function installSourceRecord(data, source) {

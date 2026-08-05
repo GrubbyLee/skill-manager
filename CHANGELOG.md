@@ -6,6 +6,8 @@
 - `skm install` 会自动记录远程安装 URL 或本地 `SKILL.md` frontmatter 中的上游来源，并在安装后刷新 catalog，保证后续 `skm update` 能找到升级源。
 - `skm install` 对非法来源字段给出明确提示，并在安装前检查 `~/.skill-manager` 可写，避免 skill 已安装但来源/历史记录丢失。
 - 扫描与来源合并会过滤无效 `source/repository/homepage` URL，避免 `lock`、`outdated`、`sources missing` 将无效来源误判为可追踪。
+- `skm lock` 新增 `diff` / `verify`：可对比当前 skill 与锁定文件的新增、删除和变更；`verify` 发现漂移时返回非 0，适合 CI 或升级脚本。
+- README 新增平台成熟度矩阵，明确 Claude Code、Codex、Cursor、Gemini 在扫描、使用审计、状态治理和生命周期治理上的支持边界。
 - 新增 `skm outdated`，默认离线检查 skill 上游版本线索；显式 `--online` 时只读比对 GitHub/Gitee `SKILL.md` 或 git remote commit，并缓存结果 24 小时。
 - 补齐 `skill-navigator` 独立发布材料：中英文 README、skill hub 元数据、更新策略说明，并在主 README 增加 skill hub 入口。
 - 新增独立品牌 Logo：主 Logo、方形标识与 PNG 兜底图，并接入 README、中文 README、GitHub Pages 首页和产品演示 PPT。

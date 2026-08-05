@@ -31,6 +31,7 @@ skm
 skm ask "我要把网页转成 Markdown"
 skm outdated
 skm lock
+skm lock verify
 skm policy check
 skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
@@ -79,7 +80,7 @@ SKM_LANG=zh-CN skm doctor
 | skill 太多但不想删除？ | `skm state plan` | 给出 `on` / `name-only` / `user-only` / `off` 降载建议 |
 | 来自 GitHub/Gitee 的 skill 是否最新？ | `skm outdated --online` | 版本 / commit 新旧检查；只读并缓存 |
 | 太多 skill 显示无法判断版本？ | `skm sources wizard` | 把缺失的上游地址补到 skm 本地来源表 |
-| 能否形成安装、更新、回滚闭环？ | `skm lock` / `skm policy check` | 生成本机 skill 锁定文件，并按策略检查治理基线 |
+| 能否形成安装、更新、回滚闭环？ | `skm lock` / `skm lock verify` / `skm policy check` | 生成本机 skill 锁定文件，对比当前环境是否漂移，并按策略检查治理基线 |
 | 某个 skill 质量如何？ | `skm eval <skill>` | 从描述、来源、重复、使用、安全信号给出评分 |
 | skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
 | 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
@@ -103,6 +104,8 @@ SKM_LANG=zh-CN skm doctor
 | `skm update` | 从已记录来源更新 skill，更新前自动备份 |
 | `skm rollback` | 从 skm 备份回滚 skill |
 | `skm lock` | 生成 `~/.skill-manager/skill-lock.json` 生命周期锁定文件 |
+| `skm lock diff` | 对比当前 skill 与锁定文件的新增、删除和变更 |
+| `skm lock verify` | 校验当前 skill 是否匹配锁定文件；发现漂移时返回非 0，适合 CI |
 | `skm policy` | 初始化 / 检查 skill 生命周期策略 |
 | `skm profile` | 创建或应用 Claude Code 场景状态 profile |
 | `skm eval` | 评测 skill 质量和治理缺口 |
@@ -214,6 +217,7 @@ skm outdated --online
 skm sources missing
 skm sources wizard
 skm lock
+skm lock verify
 skm policy check
 skm eval --all
 skm state plan
@@ -226,7 +230,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-排查时先用 `skm scan` 刷新事实；扫描结束后会直接显示治理总览。之后单独运行 `skm` 不会强制重扫，而是基于已有 catalog、使用统计和会话索引，按基础子命令分域提示问题在哪里、下一步该运行什么。`skm state plan` 适合在发现 skill 太多时先做降载方案，而不是直接删除。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要建立生命周期基线时，用 `skm lock` 固化当前清单，用 `skm policy check` 检查是否超过治理阈值，用 `skm eval --all` 找出最需要整理的 skill。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+排查时先用 `skm scan` 刷新事实；扫描结束后会直接显示治理总览。之后单独运行 `skm` 不会强制重扫，而是基于已有 catalog、使用统计和会话索引，按基础子命令分域提示问题在哪里、下一步该运行什么。`skm state plan` 适合在发现 skill 太多时先做降载方案，而不是直接删除。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要建立生命周期基线时，用 `skm lock` 固化当前清单，用 `skm lock diff` 查看后续漂移，用 `skm lock verify` 在脚本或 CI 中校验是否偏离基线，用 `skm policy check` 检查是否超过治理阈值，用 `skm eval --all` 找出最需要整理的 skill。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
 
 ### skill 全生命周期治理
 
@@ -238,6 +242,8 @@ skm install https://github.com/org/repo/tree/main/skills/my-skill --tool codex -
 skm update baoyu-image-gen --dry-run
 skm rollback baoyu-image-gen --dry-run
 skm lock
+skm lock diff
+skm lock verify
 skm policy init
 skm policy check
 skm profile create writing
@@ -252,13 +258,13 @@ skm history baoyu-image-gen
 | 登记 | `skm sources add` / `skm sources wizard` | 为缺少来源的 skill 补充上游地址，后续版本检查、更新和锁定才能闭环 |
 | 更新 | `skm update <skill>` | 从可直接读取的 `SKILL.md` 来源更新；写入前自动备份原目录 |
 | 回滚 | `skm rollback <skill>` | 从 `~/.skill-manager/skill-backups/` 恢复上一次备份；回滚前再备份当前目录 |
-| 锁定 | `skm lock` | 生成 `~/.skill-manager/skill-lock.json`，记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash |
+| 锁定 | `skm lock` / `skm lock diff` / `skm lock verify` | 生成 `~/.skill-manager/skill-lock.json`，记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash；后续可对比或校验当前环境是否漂移 |
 | 策略 | `skm policy init/check` | 用本机策略检查 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现 |
 | 场景 | `skm profile create/apply` | 保存一组 Claude Code skill 状态，并可按写作、开发、设计等场景切换；应用前会备份设置 |
 | 评测 | `skm eval [skill]` | 从描述、frontmatter、来源、重复、上下文开销、使用和安全信号打分 |
 | 复盘 | `skm history [skill]` | 查看 skm 记录的安装、更新、回滚、锁定、策略和 profile 事件 |
 
-推荐顺序是：先 `skm scan`，再补来源，之后 `skm lock` 建基线；更新前先 `skm update <skill> --dry-run` 看计划和安全审计，确认后再加 `--yes` 或交互输入 `yes`。`skm install` 会把远程 URL 或本地 `SKILL.md` frontmatter 里的 `source` / `repository` / `homepage` / `version` 写入 `~/.skill-manager/sources.json`，避免后续升级找不到源；如果本地 skill 没有来源，会提示你运行 `skm sources add` 补齐。远程安装/更新目前以 `SKILL.md` 为最小可信单元，不会自动拉取仓库里的脚本或资源目录；需要完整目录时，先人工 clone 到本地，再用 `skm install ./目录`。
+推荐顺序是：先 `skm scan`，再补来源，之后 `skm lock` 建基线；后续用 `skm lock diff` 看当前环境相对基线新增、删除或变更了哪些 skill，用 `skm lock verify` 做脚本化校验。更新前先 `skm update <skill> --dry-run` 看计划和安全审计，确认后再加 `--yes` 或交互输入 `yes`。`skm install` 会把远程 URL 或本地 `SKILL.md` frontmatter 里的 `source` / `repository` / `homepage` / `version` 写入 `~/.skill-manager/sources.json`，避免后续升级找不到源；如果本地 skill 没有来源，会提示你运行 `skm sources add` 补齐。远程安装/更新目前以 `SKILL.md` 为最小可信单元，不会自动拉取仓库里的脚本或资源目录；需要完整目录时，先人工 clone 到本地，再用 `skm install ./目录`。
 
 ### skill 状态治理
 
@@ -354,6 +360,17 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。JSON 字段名保持稳定。
 
 手动验证入口：[GitHub Actions / macOS / Windows 验证](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml)。
+
+## 平台成熟度矩阵
+
+| 平台 | skill 扫描 | MCP 扫描 | 使用审计 | 状态治理 | 生命周期治理 | 说明 |
+|---|---|---|---|---|---|---|
+| Claude Code | 完整 | 完整 | 完整 | 可写原生 `skillOverrides` | 支持用户 skill 目录安装、更新、回滚 | 当前最完整适配对象 |
+| Codex CLI | 完整 | 完整 | 完整 | 提示使用原生 `/skills` UI | 支持用户 skill 目录安装、更新、回滚 | 不猜测未稳定公开的状态文件 |
+| Cursor | 保守扫描 | 常见配置扫描 | 暂无真实使用统计 | 暂不写状态 | 支持常见用户 skill 目录安装 | 不读取敏感编辑器缓存 |
+| Gemini | 保守扫描 | 常见配置扫描 | 暂无真实使用统计 | 暂不写状态 | 支持常见用户 skill 目录安装 | 等待稳定公开日志格式后再扩展 |
+
+“完整”表示当前有可观测、可测试的本机数据来源；“保守扫描”表示只读取常见目录和非敏感配置，不为了凑数字推断真实使用次数。
 
 ## Roadmap
 

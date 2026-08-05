@@ -17,8 +17,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // silent 模式：汇总走 stderr，保证 --json 消费方的 stdout 干净（兜底重扫场景）
-export function runScan({ cwd, json = false, verbose = false, silent = false, lang = 'zh-CN', export: exportFormat, output, anonymize = false }) {
-  const print = silent ? console.error : console.log;
+export function runScan({ cwd, json = false, verbose = false, silent = false, quiet = false, lang = 'zh-CN', export: exportFormat, output, anonymize = false }) {
+  const print = quiet ? () => {} : silent ? console.error : console.log;
   // 着色按实际写入的流判断（stdout 与 stderr 的 TTY 状态可能不同）
   const pal = silent ? paintErr : paint;
   const claude = scanClaudeCode({ cwd });

@@ -86,6 +86,31 @@ test('生命周期：lock、policy、profile、eval 支持 JSON/只读路径', (
   assert.equal(JSON.parse(evalResult.stdout).items[0].name, 'beta');
 });
 
+test('生命周期：lock diff/verify 能发现当前 skill 与基线漂移', () => {
+  const home = makeHome();
+  const source = makeSkillSource('delta', 'delta description', '1.0.0');
+  assert.equal(run(['install', source, '--tool', 'claude', '--yes', '--lang', 'en'], home).status, 0);
+  assert.equal(run(['lock', '--lang', 'en'], home).status, 0);
+
+  const cleanVerify = run(['lock', 'verify', '--json', '--lang', 'en'], home);
+  assert.equal(cleanVerify.status, 0, cleanVerify.stderr);
+  assert.equal(JSON.parse(cleanVerify.stdout).summary.verified, true);
+
+  const target = path.join(home, '.claude', 'skills', 'delta', 'SKILL.md');
+  fs.writeFileSync(target, skillMd('delta', 'delta changed', '1.0.1'));
+
+  const driftVerify = run(['lock', 'verify', '--json', '--lang', 'en'], home);
+  assert.equal(driftVerify.status, 1, driftVerify.stderr);
+  const drift = JSON.parse(driftVerify.stdout);
+  assert.equal(drift.summary.verified, false);
+  assert.equal(drift.summary.changed, 1);
+  assert.deepEqual(drift.changed[0].fields.sort(), ['skillMdHash', 'version']);
+
+  const diff = run(['lock', 'diff', '--json', '--lang', 'en'], home);
+  assert.equal(diff.status, 0, diff.stderr);
+  assert.equal(JSON.parse(diff.stdout).changed[0].name, 'delta');
+});
+
 test('生命周期：本地来源字段无效时明确提示，避免用户误以为已建立升级源', () => {
   const home = makeHome();
   const source = makeSkillSource('gamma', 'gamma description', '1.0.0', { source: 'not-a-url' });

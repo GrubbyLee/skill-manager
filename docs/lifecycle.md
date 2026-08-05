@@ -9,6 +9,7 @@ skm scan
 skm sources missing
 skm sources wizard
 skm lock
+skm lock verify
 skm policy check
 skm eval --all
 ```
@@ -36,6 +37,8 @@ skm rollback <skill>
 | `skm update <skill>` | 从已登记来源更新 skill | 用户 skill 目录；备份到 `~/.skill-manager/skill-backups/` |
 | `skm rollback <skill>` | 从 skm 备份回滚 skill | 用户 skill 目录；回滚前再备份 |
 | `skm lock` | 生成当前 skill 锁定文件 | `~/.skill-manager/skill-lock.json` |
+| `skm lock diff [文件]` | 对比当前 skill 与锁定文件 | 只读；比较前静默刷新 catalog |
+| `skm lock verify [文件]` | 校验当前 skill 是否匹配锁定文件 | 只读；发现漂移时返回非 0 |
 | `skm policy init/check` | 初始化或检查治理策略 | `~/.skill-manager/policy.json` |
 | `skm profile create/apply` | 保存或应用 Claude Code skill 状态 profile | `~/.skill-manager/profiles.json`；应用时写 Claude 设置 |
 | `skm eval [skill]` | 评测 skill 质量 | 只读 |
@@ -75,11 +78,14 @@ skm sources add my-skill --source https://github.com/org/repo/tree/main/skills/m
 ```bash
 skm lock
 skm lock --json
+skm lock diff
+skm lock diff ~/.skill-manager/skill-lock.json --json
+skm lock verify
 skm policy init
 skm policy check
 ```
 
-锁定文件记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash。策略检查覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。策略文件是本机数据，可按团队习惯手工编辑。
+锁定文件记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash。`diff` 和 `verify` 会先静默刷新 catalog，再和锁定文件比较新增、删除、变更项；`verify` 发现漂移时返回非 0，适合放进 CI 或个人升级脚本。策略检查覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。策略文件是本机数据，可按团队习惯手工编辑。
 
 ## Profile
 

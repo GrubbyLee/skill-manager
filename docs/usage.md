@@ -85,6 +85,7 @@ skm risks
 skm outdated
 skm state plan
 skm lock
+skm lock verify
 skm policy check
 skm eval --all
 skm report --format html --output skm-report.html
@@ -113,6 +114,8 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm update` | 从已登记来源更新 skill | `<skill>`、`--tool`、`--dry-run`、`--yes` |
 | `skm rollback` | 从 skm 备份回滚 skill | `<skill>`、`--tool`、`--dry-run`、`--yes` |
 | `skm lock` | 生成生命周期锁定文件 | `--json` |
+| `skm lock diff` | 对比当前 skill 与锁定文件 | `[文件]`、`--json` |
+| `skm lock verify` | 校验当前 skill 是否匹配锁定文件 | `[文件]`、`--json` |
 | `skm policy` | 生命周期策略 | `init`、`check`、`--json` |
 | `skm profile` | Claude Code 场景状态 profile | `list`、`create`、`apply`、`--dry-run`、`--yes` |
 | `skm eval` | skill 质量评测 | `[skill]`、`--all`、`--json` |
@@ -233,6 +236,8 @@ skm install https://github.com/org/repo/tree/main/skills/my-skill --tool codex -
 skm update baoyu-image-gen --dry-run
 skm rollback baoyu-image-gen --dry-run
 skm lock
+skm lock diff
+skm lock verify
 skm policy init
 skm policy check
 skm profile list
@@ -249,12 +254,14 @@ skm history baoyu-image-gen
 - `update`：读取已登记的 `source` / `repository` / `homepage`，从可直接访问的 `SKILL.md` 更新；写入前备份原 skill 目录。
 - `rollback`：从 `~/.skill-manager/skill-backups/` 恢复最近一次备份；回滚前也会备份当前目录。
 - `lock`：写入 `~/.skill-manager/skill-lock.json`，记录名称、工具、版本、来源、git HEAD 和 `SKILL.md` hash；`--json` 只输出 JSON。
+- `lock diff [文件]`：静默刷新 catalog 后，对比当前 skill 与锁定文件的新增、删除和变更。
+- `lock verify [文件]`：同样静默刷新 catalog，发现漂移时返回非 0，适合 CI 或升级脚本。
 - `policy init/check`：初始化或检查本机治理策略，覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。
 - `profile create/apply`：创建 Claude Code skill 状态快照，并按场景写回 `skillOverrides`；应用前备份设置文件。Codex/Cursor/Gemini 的状态切换仍走各自工具的原生 UI。
 - `eval`：给 skill 打分，扣分项包括缺少描述、缺少 frontmatter、缺少来源、重复安装、上下文开销偏高、从未使用、安全发现。
 - `history`：查看 skm 记录的安装、更新、回滚、锁定、策略和 profile 事件。
 
-建议流程：先 `skm scan`，再用 `skm sources wizard` 补来源，然后 `skm lock` 建立基线。使用 `skm install` 引入的新 skill 如果带有来源，后续 `skm update` 会自动复用这条来源，不需要手工改 catalog。更新前先跑 `skm update <skill> --dry-run`，确认计划和安全审计没有异常后再执行。完整说明见 [lifecycle.md](lifecycle.md)。
+建议流程：先 `skm scan`，再用 `skm sources wizard` 补来源，然后 `skm lock` 建立基线；后续用 `skm lock diff` 查看环境漂移，用 `skm lock verify` 做脚本化校验。使用 `skm install` 引入的新 skill 如果带有来源，后续 `skm update` 会自动复用这条来源，不需要手工改 catalog。更新前先跑 `skm update <skill> --dry-run`，确认计划和安全审计没有异常后再执行。完整说明见 [lifecycle.md](lifecycle.md)。
 
 ## list 与 search
 

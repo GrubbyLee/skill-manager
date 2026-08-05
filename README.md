@@ -33,6 +33,7 @@ skm
 skm ask "convert a web page to Markdown"
 skm outdated
 skm lock
+skm lock verify
 skm policy check
 skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
@@ -73,7 +74,7 @@ SKM_LANG=zh-CN skm doctor
 | Too many skills, but you do not want to delete them? | `skm state plan` | Suggested `on` / `name-only` / `user-only` / `off` downshifts |
 | Are GitHub/Gitee skills still current? | `skm outdated --online` | Version / commit freshness check; read-only and cached |
 | Too many skills show unknown freshness? | `skm sources wizard` | Add missing upstream URLs into skm's local source map |
-| Can installs, updates, and rollback be governed? | `skm lock` / `skm policy check` | Create a local skill lock file and check lifecycle policy baselines |
+| Can installs, updates, and rollback be governed? | `skm lock` / `skm lock verify` / `skm policy check` | Create a local skill lock file, detect drift from the baseline, and check lifecycle policy baselines |
 | How healthy is one skill? | `skm eval <skill>` | Score description, source metadata, duplication, usage, and safety signals |
 | How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
 | What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
@@ -97,6 +98,8 @@ SKM_LANG=zh-CN skm doctor
 | `skm update` | Update a skill from its recorded source, with backup |
 | `skm rollback` | Restore a skill from skm backups |
 | `skm lock` | Generate `~/.skill-manager/skill-lock.json` |
+| `skm lock diff` | Compare current skills against the lock file and show added, removed, or changed skills |
+| `skm lock verify` | Verify current skills against the lock file; exits non-zero on drift for CI scripts |
 | `skm policy` | Initialize or check lifecycle policy |
 | `skm profile` | Create or apply Claude Code scenario profiles |
 | `skm eval` | Evaluate skill quality and governance gaps |
@@ -206,6 +209,7 @@ skm outdated --online
 skm sources missing
 skm sources wizard
 skm lock
+skm lock verify
 skm policy check
 skm eval --all
 skm state plan
@@ -218,7 +222,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Run `skm scan` to refresh facts; after scanning, skm prints the governance overview automatically. Later, plain `skm` does not force a rescan: it uses the existing catalog plus usage/session indexes to show which domain has findings and which subcommand to run next. `skm state plan` is the first stop when the setup has too many skills: downshift before you disable, and disable before you ever delete manually. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. To build a lifecycle baseline, run `skm lock`, `skm policy check`, and `skm eval --all`. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
+Start with read-only commands. Run `skm scan` to refresh facts; after scanning, skm prints the governance overview automatically. Later, plain `skm` does not force a rescan: it uses the existing catalog plus usage/session indexes to show which domain has findings and which subcommand to run next. `skm state plan` is the first stop when the setup has too many skills: downshift before you disable, and disable before you ever delete manually. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. To build a lifecycle baseline, run `skm lock`; use `skm lock diff` to inspect later drift, `skm lock verify` in scripts or CI, `skm policy check` for policy thresholds, and `skm eval --all` for cleanup priorities. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
 
 ### Skill Lifecycle Governance
 
@@ -230,6 +234,8 @@ skm install https://github.com/org/repo/tree/main/skills/my-skill --tool codex -
 skm update baoyu-image-gen --dry-run
 skm rollback baoyu-image-gen --dry-run
 skm lock
+skm lock diff
+skm lock verify
 skm policy init
 skm policy check
 skm profile create writing
@@ -244,13 +250,13 @@ skm history baoyu-image-gen
 | Register | `skm sources add` / `skm sources wizard` | Add upstream URLs for skills missing source metadata, so freshness checks, updates, and locks have a source of truth |
 | Update | `skm update <skill>` | Updates from a directly readable `SKILL.md` source; backs up the old directory first |
 | Roll back | `skm rollback <skill>` | Restores from `~/.skill-manager/skill-backups/`; backs up the current directory before rollback |
-| Lock | `skm lock` | Writes `~/.skill-manager/skill-lock.json` with name, tool, version, source, git HEAD, and `SKILL.md` hash |
+| Lock | `skm lock` / `skm lock diff` / `skm lock verify` | Writes `~/.skill-manager/skill-lock.json` with name, tool, version, source, git HEAD, and `SKILL.md` hash; later compares or verifies drift |
 | Policy | `skm policy init/check` | Checks local thresholds for total skills, never-used rate, duplicate installs, source coverage, and safety findings |
 | Profile | `skm profile create/apply` | Saves and applies Claude Code skill state profiles for scenarios such as writing, coding, or design; settings are backed up before apply |
 | Evaluate | `skm eval [skill]` | Scores description, frontmatter, source metadata, duplication, context cost, usage, and safety signals |
 | Review | `skm history [skill]` | Shows skm-recorded install, update, rollback, lock, policy, and profile events |
 
-Recommended flow: run `skm scan`, fill missing sources, then run `skm lock` to establish a baseline. Before an update, run `skm update <skill> --dry-run` to inspect the plan and audit result, then confirm interactively or add `--yes`. `skm install` saves the remote URL or local `SKILL.md` frontmatter fields `source` / `repository` / `homepage` / `version` into `~/.skill-manager/sources.json`, so later updates can find the source. If a local skill has no source, skm prints a `skm sources add` hint. Remote install/update uses `SKILL.md` as the smallest trusted unit; it does not automatically pull scripts or asset directories from a repository. For a full directory install, clone manually first and run `skm install ./directory`.
+Recommended flow: run `skm scan`, fill missing sources, then run `skm lock` to establish a baseline. Later, use `skm lock diff` to see added, removed, or changed skills, and `skm lock verify` for scriptable drift checks. Before an update, run `skm update <skill> --dry-run` to inspect the plan and audit result, then confirm interactively or add `--yes`. `skm install` saves the remote URL or local `SKILL.md` frontmatter fields `source` / `repository` / `homepage` / `version` into `~/.skill-manager/sources.json`, so later updates can find the source. If a local skill has no source, skm prints a `skm sources add` hint. Remote install/update uses `SKILL.md` as the smallest trusted unit; it does not automatically pull scripts or asset directories from a repository. For a full directory install, clone manually first and run `skm install ./directory`.
 
 ### Skill State Governance
 
@@ -347,6 +353,17 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. JSON field names stay stable.
 
 Manual validation entry: [GitHub Actions / macOS / Windows CI](https://github.com/GrubbyLee/skill-manager/actions/workflows/ci.yml).
+
+## Platform Maturity Matrix
+
+| Platform | Skill scan | MCP scan | Usage audit | State governance | Lifecycle governance | Notes |
+|---|---|---|---|---|---|---|
+| Claude Code | Full | Full | Full | Writes native `skillOverrides` | Install, update, rollback for user skills | Most complete adapter today |
+| Codex CLI | Full | Full | Full | Uses native `/skills` UI guidance | Install, update, rollback for user skills | skm does not rewrite unstable state files |
+| Cursor | Conservative | Common config files | No real usage counts yet | No state writes yet | Install into common user skill dir | Does not read sensitive editor caches |
+| Gemini | Conservative | Common config files | No real usage counts yet | No state writes yet | Install into common user skill dir | Usage audit waits for stable public log formats |
+
+“Full” means skm has observable, testable local signals. “Conservative” means skm reads common directories and non-sensitive config only, without inventing usage counts.
 
 ## Roadmap
 
