@@ -76,7 +76,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Use dry-run before install, update, rollback, profile apply, cleanup, or state changes.
+Start with read-only commands. Use dry-run before install, update, rollback, profile apply, disable/enable, cleanup, or state changes.
 
 ## Commands
 
@@ -86,6 +86,7 @@ Start with read-only commands. Use dry-run before install, update, rollback, pro
 | `skm doctor` | Environment diagnostics | `--json` |
 | `skm risks` | Risk report | `--json` |
 | `skm report` | One-page overview report | `--format html`, `--output`, `--anonymize`, `--json` |
+| `skm web` | Local read-only Web dashboard | `--port` |
 | `skm scan` | Scan skills/MCP servers and show the governance overview | `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
 | `skm outdated` | Check upstream freshness metadata | `--online`, `--refresh`, `--json` |
 | `skm sources` | Manage local upstream source mappings | `missing`, `add`, `list`, `remove`, `check`, `wizard` |
@@ -111,10 +112,10 @@ Start with read-only commands. Use dry-run before install, update, rollback, pro
 | `skm audit` | Usage and static security audit | `--history`, `--json` |
 | `skm sessions` | Session log distribution | `--json` |
 | `skm sessions --clean` | Clean session logs | `--days`, `--keep`, `--dry-run`, `--yes` |
-| `skm disable <name>` | Soft-disable skills | multiple names supported |
-| `skm enable [name]` | Restore skills | no name lists disabled skills |
-| `skm disable --mcp <name>` | Disable MCP server | backup and confirmation |
-| `skm enable --mcp <name>` | Restore MCP server | backup and confirmation |
+| `skm disable <name>` | Soft-disable skills | multiple names supported, `--dry-run` |
+| `skm enable [name]` | Restore skills | no name lists disabled skills; named restore supports `--dry-run` |
+| `skm disable --mcp <name>` | Disable MCP server | backup and confirmation; supports `--dry-run` |
+| `skm enable --mcp <name>` | Restore MCP server | backup and confirmation; supports `--dry-run` |
 
 ## scan
 
@@ -150,6 +151,15 @@ skm report --json
 ```
 
 The HTML report is a single local file covering health, risks, top-used skills, context cost, estimated MCP schema cost, session logs, graph summary, and next commands. Use `--anonymize` before sharing a report.
+
+## web
+
+```bash
+skm web
+skm web --port 17362
+```
+
+`web` starts a local read-only dashboard on `127.0.0.1`. The page includes overview, governance domains, skill inventory, knowledge graph preview, recommendation entry, and command center. It uses Node.js built-in `http` plus native HTML/CSS/JS, keeping the project dependency-free. The interface includes Cyberpunk, Galaxy, and Sky themes plus a 3D loading cube. Phase 1 does not execute write actions in the browser; install, update, rollback, disable, and enable capabilities are exposed as copyable dry-run commands. When facts are missing or manually refreshed, the dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files. It does not modify AIDE data, execute skills/MCP servers, or read MCP `env` values.
 
 ## outdated
 
@@ -285,10 +295,12 @@ Cleanup keeps the union of `--days`, `--keep`, and the 24-hour safety window.
 
 ```bash
 skm disable gsap-plugins
+skm disable gsap-plugins --dry-run
 skm enable gsap-plugins
 skm enable
 skm disable --mcp drawio
+skm disable --mcp drawio --dry-run
 skm enable --mcp drawio
 ```
 
-Skill disable is reversible directory renaming. MCP disable edits config files only after confirmation and backup.
+Skill disable is reversible directory renaming. MCP disable edits config files only after confirmation and backup. `disable` / `enable` both support `--dry-run`; dry-run does not rename directories, write configs, create backups, or refresh the catalog.

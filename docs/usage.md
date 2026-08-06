@@ -96,7 +96,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-建议先只读排查，确认报告无误后再考虑 `install`、`update`、`rollback`、`profile apply`、`state set`、`disable`、`enable` 或 `sessions --clean`。
+建议先只读排查，确认报告无误后再考虑 `install`、`update`、`rollback`、`profile apply`、`state set`、`disable`、`enable` 或 `sessions --clean`；执行前先跑对应的 `--dry-run`。
 
 ## 命令一览
 
@@ -106,6 +106,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm doctor` | 环境诊断 | `--json` |
 | `skm risks` | 风险报告 | `--json` |
 | `skm report` | 一页式总览报告 | `--format html`、`--output`、`--anonymize`、`--json` |
+| `skm web` | 本地只读 Web 工作台 | `--port` |
 | `skm scan` | 扫描 skill / MCP 并展示治理总览 | `--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
 | `skm outdated` | 检查 skill 上游新旧 | `--online`、`--refresh`、`--json` |
 | `skm sources` | 管理本机补充的上游地址 | `missing`、`add`、`list`、`remove`、`check`、`wizard` |
@@ -131,10 +132,10 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm audit` | 使用审计 | `--history`、`--json` |
 | `skm sessions` | 会话日志分布 | `--json` |
 | `skm sessions --clean` | 清理会话日志 | `--days`、`--keep`、`--dry-run`、`--yes` |
-| `skm disable <名>` | 软禁用 skill | 可一次传多个名称 |
-| `skm enable [名]` | 恢复 skill | 不带名称时列出已禁用项 |
-| `skm disable --mcp <名>` | 禁用 MCP | 自动备份，需确认 |
-| `skm enable --mcp <名>` | 恢复 MCP | 自动备份，需确认 |
+| `skm disable <名>` | 软禁用 skill | 可一次传多个名称、`--dry-run` |
+| `skm enable [名]` | 恢复 skill | 不带名称时列出已禁用项；带名称时支持 `--dry-run` |
+| `skm disable --mcp <名>` | 禁用 MCP | 自动备份，需确认；支持 `--dry-run` |
+| `skm enable --mcp <名>` | 恢复 MCP | 自动备份，需确认；支持 `--dry-run` |
 | `skm help` | 查看帮助 | 同 `skm -h` |
 
 ## scan
@@ -199,6 +200,15 @@ skm report --json
 ```
 
 `report` 会生成一页式总览，包含健康分、风险、使用频率、上下文开销、MCP schema 开销估算、会话日志、知识图谱摘要和下一步命令。HTML 报告是零依赖单文件，可直接用浏览器打开。对外分享前建议使用 `--anonymize`。详细说明见 [report.md](report.md)。
+
+## web
+
+```bash
+skm web
+skm web --port 17362
+```
+
+`web` 会启动 `127.0.0.1` 本地只读工作台，页面包含总览、治理分域、skill 清单、知识图谱预览、推荐入口和命令中心。它使用 Node.js 内置 `http` 与原生 HTML/CSS/JS，不引入第三方依赖；页面支持赛博朋克、宇宙星系、蓝天白云三种主题和 3D 立体加载动画。第一阶段不在网页内执行写操作，涉及安装、更新、回滚、禁用、恢复的能力只提供 dry-run 命令复制。工作台在缺少事实或手动刷新时，可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，不会执行 skill/MCP，也不会读取 MCP `env` 值。
 
 ## outdated
 
@@ -385,13 +395,15 @@ skm sessions --clean --days 30 --keep 3
 
 ```bash
 skm disable gsap-plugins
+skm disable gsap-plugins --dry-run
 skm enable gsap-plugins
 skm enable
 skm disable --mcp drawio
+skm disable --mcp drawio --dry-run
 skm enable --mcp drawio
 ```
 
-skill 禁用只是目录重命名加 `_disabled-` 前缀，可逆且不删除文件。MCP 禁用会修改配置文件，修改前会自动备份并要求确认。
+skill 禁用只是目录重命名加 `_disabled-` 前缀，可逆且不删除文件。MCP 禁用会修改配置文件，修改前会自动备份并要求确认。`disable` / `enable` 都支持 `--dry-run` 预览计划；dry-run 不改目录、不写配置、不创建备份、不刷新扫描结果。
 
 ## 自定义分类规则
 

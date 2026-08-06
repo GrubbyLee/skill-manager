@@ -91,6 +91,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm doctor` | Read-only environment diagnostics |
 | `skm risks` | Risk report without changing AIDE data |
 | `skm report` | One-page overview report |
+| `skm web` | Start a local read-only Web dashboard with Cyberpunk / Galaxy / Sky themes |
 | `skm scan` | Scan skills and MCP servers, rebuild the catalog, then show the same governance overview |
 | `skm outdated` | Check upstream version metadata; `--online` compares GitHub/Gitee or git remote |
 | `skm sources` | Manage local upstream URLs for skills that lack source metadata |
@@ -186,6 +187,15 @@ skm report --format html --output skm-report.html --anonymize
 
 The report puts health score, risks, usage, context cost, estimated MCP schema cost, session logs, graph summary, and next commands on one local HTML page. Use `--anonymize` before sharing a report outside your machine. Details are in [docs/report.en.md](docs/report.en.md).
 
+## Web Dashboard
+
+```bash
+skm web
+skm web --port 17362
+```
+
+`skm web` starts a local read-only dashboard on `127.0.0.1`. It brings overview, governance domains, skill inventory, knowledge graph preview, recommendation entry, and command center into one modern technical interface. The page includes a real CSS 3D loading cube and three switchable themes: Cyberpunk, Galaxy, and Sky. Phase 1 does not execute write actions in the browser: install, update, rollback, disable, and enable are shown as copyable dry-run commands. The dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files when facts are missing or manually refreshed, but it does not modify AIDE data, execute skills/MCP servers, or read MCP `env` values.
+
 ## Visual Story
 
 | Too many tools | Scan and label |
@@ -222,7 +232,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Run `skm scan` to refresh facts; after scanning, skm prints the governance overview automatically. Later, plain `skm` does not force a rescan: it uses the existing catalog plus usage/session indexes to show which domain has findings and which subcommand to run next. `skm state plan` is the first stop when the setup has too many skills: downshift before you disable, and disable before you ever delete manually. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. To build a lifecycle baseline, run `skm lock`; use `skm lock diff` to inspect later drift, `skm lock verify` in scripts or CI, `skm policy check` for policy thresholds, and `skm eval --all` for cleanup priorities. Use anonymized exports when sharing data with others, and use dry-run before any cleanup.
+Start with read-only commands. Run `skm scan` to refresh facts; after scanning, skm prints the governance overview automatically. Later, plain `skm` does not force a rescan: it uses the existing catalog plus usage/session indexes to show which domain has findings and which subcommand to run next. `skm state plan` is the first stop when the setup has too many skills: downshift before you disable, and disable before you ever delete manually. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. To build a lifecycle baseline, run `skm lock`; use `skm lock diff` to inspect later drift, `skm lock verify` in scripts or CI, `skm policy check` for policy thresholds, and `skm eval --all` for cleanup priorities. Use anonymized exports when sharing data with others, and use dry-run before write-capable commands.
 
 ### Skill Lifecycle Governance
 
@@ -302,8 +312,8 @@ Inside the CLI, only these actions can modify AIDE files:
 | `profile apply <name>` | Writes Claude Code `skillOverrides` | Claude Code user settings only; backs up settings first; confirmation required; `--dry-run` available |
 | `state set <skill>` | Writes Claude Code `skillOverrides` | Claude native states only; automatic backup; confirmation required; `--dry-run` available |
 | `sessions --clean` | Deletes session log files | Requires retention policy; prints plan first; interactive confirmation or `--yes`; never deletes sessions active within 24 hours; aggregates usage stats before deletion |
-| `disable/enable <skill>` | Renames skill directories | Reversible, no deletion; plugin skills are refused |
-| `disable/enable --mcp` | Edits `~/.claude.json` / `config.toml` | Automatic backups; confirmation required; restore never overwrites manually recreated config |
+| `disable/enable <skill>` | Renames skill directories | Reversible, no deletion; plugin skills are refused; `--dry-run` available |
+| `disable/enable --mcp` | Edits `~/.claude.json` / `config.toml` | Automatic backups; confirmation required; restore never overwrites manually recreated config; `--dry-run` available |
 
 More details: [docs/safety.md](docs/safety.md).
 
@@ -348,7 +358,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-`skm help`, argument validation, `doctor`, `scan`, `setup`, `status`, `risks`, `report`, `list`, `search`, `recommend`, `ask`, `outdated`, `sources`, `state`, `install`, `update`, `rollback`, `lock`, `policy`, `profile`, `eval`, `history`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
+`skm help`, argument validation, `doctor`, `scan`, `setup`, `status`, `risks`, `report`, `web`, `list`, `search`, `recommend`, `ask`, `outdated`, `sources`, `state`, `install`, `update`, `rollback`, `lock`, `policy`, `profile`, `eval`, `history`, `graph`, `dupes`, `audit`, `sessions`, `disable`, `enable`, and the local install script support English and Simplified Chinese output.
 
 Use `--lang en`, `--lang zh-CN`, or `SKM_LANG=en`. JSON field names stay stable.
 

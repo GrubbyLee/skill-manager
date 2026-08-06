@@ -22,7 +22,8 @@ export async function runEnable(opts) {
   return toggleSkills(opts, false);
 }
 
-async function toggleSkills({ cwd, names, lang = 'zh-CN' }, disable) {
+async function toggleSkills({ cwd, names, dryRun = false, 'dry-run': dashedDryRun = false, lang = 'zh-CN' }, disable) {
+  dryRun = Boolean(dryRun || dashedDryRun);
   const roots = [
     { dir: CLAUDE_SKILLS_DIR, label: 'claude/user' },
     { dir: path.join(cwd, '.claude', 'skills'), label: 'claude/project' },
@@ -62,6 +63,11 @@ async function toggleSkills({ cwd, names, lang = 'zh-CN' }, disable) {
         console.error(tr(lang, 'toggle.skipTargetExists', { label: r.label, name, target: to }));
         continue;
       }
+      if (dryRun) {
+        console.log(tr(lang, 'toggle.skillWouldChange', { action: tr(lang, disable ? 'toggle.actionDisable' : 'toggle.actionEnable'), label: r.label, name, target: to }));
+        changed++;
+        continue;
+      }
       fs.renameSync(from, to);
       changed++;
       console.log(tr(lang, 'toggle.skillDone', { action: tr(lang, disable ? 'toggle.skillDisabled' : 'toggle.skillEnabled'), label: r.label, name }));
@@ -72,21 +78,25 @@ async function toggleSkills({ cwd, names, lang = 'zh-CN' }, disable) {
       else console.error(tr(lang, 'toggle.notFound', { name, disabled: disable }));
     }
   }
-  if (changed) {
+  if (dryRun && changed) {
+    console.log(`\n${tr(lang, 'toggle.dryRun')}`);
+  } else if (changed) {
     console.log(`\n${tr(lang, 'toggle.rescan')}`);
     runScan({ cwd, lang });
   }
 }
 
-async function toggleMcp({ cwd, names, yes, lang = 'zh-CN' }, disable) {
+async function toggleMcp({ cwd, names, yes, dryRun = false, 'dry-run': dashedDryRun = false, lang = 'zh-CN' }, disable) {
+  dryRun = Boolean(dryRun || dashedDryRun);
   if (!names.length) {
     console.error(disable ? tr(lang, 'toggle.disableUsage') : tr(lang, 'toggle.enableUsage'));
     process.exitCode = 1;
     return;
   }
   const action = tr(lang, disable ? 'toggle.actionDisable' : 'toggle.actionEnable');
-  console.log(tr(lang, 'toggle.mcpPlan', { action, names: names.join(lang === 'en' ? ', ' : '、'), dir: BACKUP_DIR }));
-  if (!(await confirm(tr(lang, 'toggle.confirm'), confirmOptions(yes, lang)))) return;
+  const joinedNames = names.join(lang === 'en' ? ', ' : '、');
+  console.log(tr(lang, dryRun ? 'toggle.mcpDryRunPlan' : 'toggle.mcpPlan', { action, names: joinedNames, dir: BACKUP_DIR }));
+  if (!dryRun && !(await confirm(tr(lang, 'toggle.confirm'), confirmOptions(yes, lang)))) return;
 
   let touchedAny = false;
   for (const name of names) {
@@ -97,34 +107,46 @@ async function toggleMcp({ cwd, names, yes, lang = 'zh-CN' }, disable) {
       const store = loadStore();
       const config = JSON.parse(fs.readFileSync(CLAUDE_CONFIG_FILE, 'utf8'));
       if (disable && config.mcpServers?.[name]) {
-        const backupPath = backupFile(CLAUDE_CONFIG_FILE, `claude.json.${name}`);
-        store.claude[name] = config.mcpServers[name];
-        delete config.mcpServers[name];
-        fs.writeFileSync(CLAUDE_CONFIG_FILE, JSON.stringify(config, null, 2));
-        saveStore(store);
-        console.log(tr(lang, 'toggle.claudeRemoved', { name, store: MCP_STORE, backup: backupPath }));
+        if (dryRun) {
+          console.log(tr(lang, 'toggle.claudeWouldRemove', { name }));
+        } else {
+          const backupPath = backupFile(CLAUDE_CONFIG_FILE, `claude.json.${name}`);
+          store.claude[name] = config.mcpServers[name];
+          delete config.mcpServers[name];
+          fs.writeFileSync(CLAUDE_CONFIG_FILE, JSON.stringify(config, null, 2));
+          saveStore(store);
+          console.log(tr(lang, 'toggle.claudeRemoved', { name, store: MCP_STORE, backup: backupPath }));
+        }
         touched = true;
         touchedAny = true;
       } else if (!disable && store.claude[name]) {
         // 用户已手动重新添加过同名配置时不覆盖；若两者内容一致则顺手清理暂存，避免残留
         if (config.mcpServers?.[name]) {
           if (JSON.stringify(config.mcpServers[name]) === JSON.stringify(store.claude[name])) {
-            delete store.claude[name];
-            saveStore(store);
-            console.log(tr(lang, 'toggle.claudeStoreCleaned', { name }));
+            if (dryRun) {
+              console.log(tr(lang, 'toggle.claudeWouldCleanStore', { name }));
+            } else {
+              delete store.claude[name];
+              saveStore(store);
+              console.log(tr(lang, 'toggle.claudeStoreCleaned', { name }));
+            }
           } else {
             console.error(tr(lang, 'toggle.claudeConflict', { name, store: MCP_STORE }));
           }
           touched = true;
           touchedAny = true;
         } else {
-          const backupPath = backupFile(CLAUDE_CONFIG_FILE, `claude.json.${name}`);
-          config.mcpServers ??= {};
-          config.mcpServers[name] = store.claude[name];
-          delete store.claude[name];
-          fs.writeFileSync(CLAUDE_CONFIG_FILE, JSON.stringify(config, null, 2));
-          saveStore(store);
-          console.log(tr(lang, 'toggle.claudeRestored', { name, backup: backupPath }));
+          if (dryRun) {
+            console.log(tr(lang, 'toggle.claudeWouldRestore', { name }));
+          } else {
+            const backupPath = backupFile(CLAUDE_CONFIG_FILE, `claude.json.${name}`);
+            config.mcpServers ??= {};
+            config.mcpServers[name] = store.claude[name];
+            delete store.claude[name];
+            fs.writeFileSync(CLAUDE_CONFIG_FILE, JSON.stringify(config, null, 2));
+            saveStore(store);
+            console.log(tr(lang, 'toggle.claudeRestored', { name, backup: backupPath }));
+          }
           touched = true;
           touchedAny = true;
         }
@@ -136,9 +158,13 @@ async function toggleMcp({ cwd, names, yes, lang = 'zh-CN' }, disable) {
       const text = fs.readFileSync(CODEX_CONFIG_FILE, 'utf8');
       const result = toggleTomlSection(text, name, disable);
       if (result.touched > 0) {
-        const backupPath = backupFile(CODEX_CONFIG_FILE, `config.toml.${name}`);
-        fs.writeFileSync(CODEX_CONFIG_FILE, result.text);
-        console.log(tr(lang, 'toggle.codexTouched', { action, name, count: result.touched, backup: backupPath }));
+        if (dryRun) {
+          console.log(tr(lang, 'toggle.codexWouldTouch', { action, name, count: result.touched }));
+        } else {
+          const backupPath = backupFile(CODEX_CONFIG_FILE, `config.toml.${name}`);
+          fs.writeFileSync(CODEX_CONFIG_FILE, result.text);
+          console.log(tr(lang, 'toggle.codexTouched', { action, name, count: result.touched, backup: backupPath }));
+        }
         touched = true;
         touchedAny = true;
       }
@@ -146,7 +172,9 @@ async function toggleMcp({ cwd, names, yes, lang = 'zh-CN' }, disable) {
 
     if (!touched) console.error(tr(lang, 'toggle.mcpNotFound', { name, disabled: disable }));
   }
-  if (touchedAny) {
+  if (dryRun && touchedAny) {
+    console.log(`\n${tr(lang, 'toggle.dryRun')}`);
+  } else if (touchedAny) {
     console.log(`\n${tr(lang, 'toggle.rescan')}`);
     try {
       runScan({ cwd, lang });
@@ -154,7 +182,7 @@ async function toggleMcp({ cwd, names, yes, lang = 'zh-CN' }, disable) {
       console.error(tr(lang, 'toggle.rescanFailed', { message: e.message }));
     }
   }
-  console.log(`\n${tr(lang, 'toggle.mcpRestartNote')}`);
+  if (!dryRun) console.log(`\n${tr(lang, 'toggle.mcpRestartNote')}`);
 }
 
 // 注释/取消注释 [mcp_servers.<name>] 及其子表（如 .env）的所有行

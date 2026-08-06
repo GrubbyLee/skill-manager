@@ -97,6 +97,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm doctor` | 只读环境诊断 |
 | `skm risks` | 风险报告，不修改 AIDE 数据 |
 | `skm report` | 一页式总览报告 |
+| `skm web` | 启动本地只读 Web 工作台，支持赛博朋克 / 宇宙星系 / 蓝天白云三主题 |
 | `skm scan` | 扫描 skill / MCP，重建目录，然后展示同一份治理总览 |
 | `skm outdated` | 检查上游版本线索；`--online` 比对 GitHub/Gitee 或 git remote |
 | `skm sources` | 管理缺少来源 metadata 的 skill 上游地址 |
@@ -194,6 +195,15 @@ skm report --format html --output skm-report.html --anonymize
 
 报告会把健康分、风险项、使用频率、上下文开销、MCP schema 估算、会话日志、图谱摘要和下一步命令放到一页本地 HTML。对外分享前建议加 `--anonymize`。详细说明见 [docs/report.md](docs/report.md)。
 
+## Web 工作台
+
+```bash
+skm web
+skm web --port 17362
+```
+
+`skm web` 会在 `127.0.0.1` 启动本地只读工作台，把总览、治理分域、skill 清单、知识图谱预览、推荐入口和命令中心放到一个现代科技感页面里。页面内置真实 3D 立体加载动画，并支持赛博朋克、宇宙星系、蓝天白云三种主题切换。第一阶段不在网页内执行写操作；“安装、更新、回滚、禁用、恢复”等能力只展示可复制的 dry-run 命令。工作台在缺少事实或手动刷新时，可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，不会执行 skill/MCP，也不会读取 MCP `env` 值。
+
 ## 四格小漫画
 
 | 工具间太满了 | 扫描贴标签 |
@@ -230,7 +240,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-排查时先用 `skm scan` 刷新事实；扫描结束后会直接显示治理总览。之后单独运行 `skm` 不会强制重扫，而是基于已有 catalog、使用统计和会话索引，按基础子命令分域提示问题在哪里、下一步该运行什么。`skm state plan` 适合在发现 skill 太多时先做降载方案，而不是直接删除。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要建立生命周期基线时，用 `skm lock` 固化当前清单，用 `skm lock diff` 查看后续漂移，用 `skm lock verify` 在脚本或 CI 中校验是否偏离基线，用 `skm policy check` 检查是否超过治理阈值，用 `skm eval --all` 找出最需要整理的 skill。需要发到社区或 Issue 时用匿名导出；真正清理前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+排查时先用 `skm scan` 刷新事实；扫描结束后会直接显示治理总览。之后单独运行 `skm` 不会强制重扫，而是基于已有 catalog、使用统计和会话索引，按基础子命令分域提示问题在哪里、下一步该运行什么。`skm state plan` 适合在发现 skill 太多时先做降载方案，而不是直接删除。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要建立生命周期基线时，用 `skm lock` 固化当前清单，用 `skm lock diff` 查看后续漂移，用 `skm lock verify` 在脚本或 CI 中校验是否偏离基线，用 `skm policy check` 检查是否超过治理阈值，用 `skm eval --all` 找出最需要整理的 skill。需要发到社区或 Issue 时用匿名导出；运行写操作前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
 
 ### skill 全生命周期治理
 
@@ -310,8 +320,8 @@ CLI 内只有以下动作会修改 AIDE 文件：
 | `profile apply <名称>` | 写入 Claude Code `skillOverrides` | 只写 Claude Code 用户级设置；修改前备份；默认需确认；支持 `--dry-run` |
 | `state set <skill>` | 写入 Claude Code `skillOverrides` | 仅支持 Claude 原生状态；自动备份；需确认；支持 `--dry-run` |
 | `sessions --clean` | 删除会话日志文件 | 必须给保留策略；先打印计划；交互确认或 `--yes`；24 小时内活跃会话永不删；删除前聚合统计 |
-| `disable/enable <skill>` | 重命名 skill 目录 | 完全可逆，不删除文件；插件 skill 拒绝处理 |
-| `disable/enable --mcp` | 修改 `~/.claude.json` / `config.toml` | 自动备份；需确认；恢复时不覆盖用户手动重建的同名配置 |
+| `disable/enable <skill>` | 重命名 skill 目录 | 完全可逆，不删除文件；插件 skill 拒绝处理；支持 `--dry-run` |
+| `disable/enable --mcp` | 修改 `~/.claude.json` / `config.toml` | 自动备份；需确认；恢复时不覆盖用户手动重建的同名配置；支持 `--dry-run` |
 
 更完整的写操作边界见 [docs/safety.md](docs/safety.md)。
 
@@ -355,7 +365,7 @@ npm test
 npm pack --dry-run --registry=https://registry.npmmirror.com
 ```
 
-`skm help`、参数校验、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`list`、`search`、`recommend`、`ask`、`outdated`、`sources`、`state`、`install`、`update`、`rollback`、`lock`、`policy`、`profile`、`eval`、`history`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
+`skm help`、参数校验、`doctor`、`scan`、`setup`、`status`、`risks`、`report`、`web`、`list`、`search`、`recommend`、`ask`、`outdated`、`sources`、`state`、`install`、`update`、`rollback`、`lock`、`policy`、`profile`、`eval`、`history`、`graph`、`dupes`、`audit`、`sessions`、`disable`、`enable` 和本地安装脚本已支持英文 / 简体中文输出。
 
 可使用 `--lang en`、`--lang zh-CN`，或环境变量 `SKM_LANG=en`。JSON 字段名保持稳定。
 

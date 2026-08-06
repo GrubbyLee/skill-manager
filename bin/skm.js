@@ -18,6 +18,7 @@ import { runSetup } from '../src/commands/setup.js';
 import { runOutdated } from '../src/commands/outdated.js';
 import { runSources } from '../src/commands/sources.js';
 import { runState } from '../src/commands/state.js';
+import { runWeb } from '../src/commands/web.js';
 import { runPolicy, runProfile, runSkillEval, runSkillHistory, runSkillInstall, runSkillLock, runSkillRollback, runSkillUpdate } from '../src/commands/lifecycle.js';
 import { detectLang, langFromArgv, tr } from '../src/i18n.js';
 
@@ -33,6 +34,7 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   doctor          只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI
   risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、MCP schema 估算、日志体积
   report          生成一页式总览报告（summary/json/html），汇总健康、风险、审计、会话与图谱概览
+  web             启动本地只读 Web 工作台（127.0.0.1，三主题，含 3D 加载动画）
   scan            扫描 Claude Code、Codex、Cursor、Gemini，生成 catalog 后展示同一份治理总览
   outdated        检查 skill 上游版本线索；--online 才访问 GitHub/Gitee 或 git remote
   sources         管理本机补充的 skill 上游地址（list/missing/add/remove/check/wizard）
@@ -54,8 +56,8 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   dupes           重复检测：同名安装 / 内容相同 / 同类多实现 / 文本相似
   audit           健康审计：使用频率、僵尸 skill、MCP 使用、上下文开销、静态安全审计（--history 看归档）
   sessions        按工作区展示会话日志分布；--clean 按保留策略清理
-  disable <名>    禁用 skill（目录加 _disabled- 前缀，可逆）；--mcp 禁用 MCP（改配置，先备份）
-  enable [名]     恢复被禁用的 skill / MCP；不带参数列出已禁用项
+  disable <名>    禁用 skill（目录加 _disabled- 前缀，可逆，支持 --dry-run）；--mcp 禁用 MCP（改配置，先备份）
+  enable [名]     恢复被禁用的 skill / MCP（支持 --dry-run）；不带参数列出已禁用项
   help            显示本帮助
 
 通用选项：
@@ -119,6 +121,9 @@ report 选项：
   --output <文件>          写入文件；可按扩展名自动推断格式
   --anonymize              脱敏报告中的本机路径、工作区和 MCP 启动命令
 
+web 选项：
+  --port <端口>            本地监听端口（默认 17361；仅监听 127.0.0.1）
+
 graph 选项：
   --format <summary|json|html|mermaid>  导出格式；不指定时显示图谱摘要
   --output <文件>               写入文件；可按扩展名自动推断格式
@@ -129,6 +134,11 @@ sessions 选项：
   --days <N>              保留 N 天以内的会话（与 --keep 取并集）
   --dry-run               只显示清理计划，不删除
   --yes                   跳过交互确认（脚本模式）
+
+disable / enable 选项：
+  --mcp                   处理 MCP server 而非 skill 目录
+  --dry-run               只显示将执行的禁用/恢复计划，不改目录、不写配置
+  --yes                   跳过 MCP 交互确认（脚本模式；skill 目录禁用不需要确认）
 
 示例：
   skm scan
@@ -148,6 +158,8 @@ sessions 选项：
   skm doctor
   skm risks
   skm report --format html --output skm-report.html
+  skm web
+  skm web --port 17362
   skm list --category ppt
   skm search 转 markdown
   skm recommend "把网页转成 markdown"
@@ -156,8 +168,8 @@ sessions 选项：
   skm graph --format html --output skill-graph.html
   skm audit
   skm sessions --clean --days 30 --keep 3 --dry-run
-  skm disable gsap-plugins
-  skm disable --mcp drawio
+  skm disable gsap-plugins --dry-run
+  skm disable --mcp drawio --dry-run
   skm dupes --json`;
 
 const HELP_EN = `skm — AIDE skill / MCP inventory and governance CLI
@@ -172,6 +184,7 @@ Commands:
   doctor            Read-only diagnostics: Node, directories, catalog, advisor CLI, macOS/Windows CI
   risks             Risk report: duplicates, idle MCP, context cost, MCP schema estimate, log size
   report            One-page overview report (summary/json/html): health, risks, usage, sessions, graph summary
+  web               Start the local read-only Web dashboard (127.0.0.1, three themes, 3D loading animation)
   scan              Scan Claude Code, Codex, Cursor, and Gemini, write the catalog, then show the same governance overview
   outdated          Check skill upstream freshness; --online accesses GitHub/Gitee or git remotes
   sources           Manage local skill upstream sources (list/missing/add/remove/check/wizard)
@@ -193,8 +206,8 @@ Commands:
   dupes             Duplicate detection: same name / same content / same category / text similarity
   audit             Usage audit: skill/MCP frequency, zombie skills, context cost, static security audit (--history for snapshots)
   sessions          Show session logs by workspace; --clean applies a retention policy
-  disable <name>    Disable skills by renaming directories; --mcp disables MCP servers with backups
-  enable [name]     Restore disabled skills / MCP servers; without names, list disabled items
+  disable <name>    Disable skills by renaming directories (supports --dry-run); --mcp disables MCP servers with backups
+  enable [name]     Restore disabled skills / MCP servers (supports --dry-run); without names, list disabled items
   help              Show this help
 
 Global options:
@@ -258,6 +271,9 @@ report options:
   --output <file>         Write to file; format can be inferred from extension
   --anonymize             Redact local paths, workspaces, and MCP launch commands
 
+web options:
+  --port <port>           Local port (default 17361; listens on 127.0.0.1 only)
+
 graph options:
   --format <summary|json|html|mermaid>  Export format; omitted means summary
   --output <file>               Write to file; format can be inferred from extension
@@ -268,6 +284,11 @@ sessions options:
   --days <N>              Keep sessions newer than N days
   --dry-run               Print cleanup plan without deleting
   --yes                   Skip interactive confirmation
+
+disable / enable options:
+  --mcp                   Target MCP servers instead of skill directories
+  --dry-run               Preview disable/restore actions without renaming directories or writing configs
+  --yes                   Skip MCP confirmation for scripts; skill directory toggles do not ask for confirmation
 
 Examples:
   skm scan
@@ -288,6 +309,8 @@ Examples:
   skm doctor
   skm risks
   skm report --format html --output skm-report.html
+  skm web
+  skm web --port 17362
   skm list --category ppt
   skm search markdown
   skm recommend "convert a web page to markdown"
@@ -296,8 +319,8 @@ Examples:
   skm graph --format html --output skill-graph.html
   skm audit
   skm sessions --clean --days 30 --keep 3 --dry-run
-  skm disable gsap-plugins
-  skm disable --mcp drawio
+  skm disable gsap-plugins --dry-run
+  skm disable --mcp drawio --dry-run
   skm dupes --json`;
 
 const initialLang = langFromArgv(process.argv.slice(2));
@@ -326,6 +349,7 @@ try {
       format: { type: 'string' },
       output: { type: 'string' },
       export: { type: 'string' },
+      port: { type: 'string' },
       source: { type: 'string' },
       repository: { type: 'string' },
       homepage: { type: 'string' },
@@ -374,6 +398,10 @@ if (values.top != null && !/^\d+$/.test(values.top)) {
   console.error(tr(lang, 'cli.topInvalid', { value: values.top }));
   process.exit(1);
 }
+if (values.port != null && (!/^\d+$/.test(values.port) || Number(values.port) < 1 || Number(values.port) > 65535)) {
+  console.error(lang === 'en' ? `--port must be an integer from 1 to 65535, received: ${values.port}` : `--port 必须是 1-65535 的整数，收到：${values.port}`);
+  process.exit(1);
+}
 if (values.format && !['summary', 'json', 'html', 'mermaid'].includes(values.format)) {
   console.error(tr(lang, 'cli.formatInvalid', { value: values.format }));
   process.exit(1);
@@ -388,7 +416,7 @@ if (values.export && values.export !== 'json') {
 }
 
 const cmd = positionals[0] || 'status';
-const ctx = { cwd: process.cwd(), ...values, lang };
+const ctx = { cwd: process.cwd(), ...values, dryRun: values['dry-run'], lang };
 
 async function main() {
   if (values.help || cmd === 'help') console.log(lang === 'en' ? HELP_EN : HELP_ZH);
@@ -396,6 +424,7 @@ async function main() {
   else if (cmd === 'doctor') runDoctor(ctx);
   else if (cmd === 'risks') runRisks(ctx);
   else if (cmd === 'report') runReport(ctx);
+  else if (cmd === 'web') runWeb(ctx);
   else if (cmd === 'scan') runScan(ctx);
   else if (cmd === 'outdated') await runOutdated(ctx);
   else if (cmd === 'sources') await runSources(ctx, positionals.slice(1));
