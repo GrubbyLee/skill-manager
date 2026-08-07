@@ -208,7 +208,7 @@ skm web
 skm web --port 17362
 ```
 
-`web` 会启动 `127.0.0.1` 本地只读工作台，页面包含总览、治理分域、skill 清单、知识图谱预览、推荐入口和命令中心。它使用 Node.js 内置 `http` 与原生 HTML/CSS/JS，不引入第三方依赖；页面支持赛博朋克、宇宙星系、蓝天白云三种主题和 3D 立体加载动画。第一阶段不在网页内执行写操作，涉及安装、更新、回滚、禁用、恢复的能力只提供 dry-run 命令复制。工作台在缺少事实或手动刷新时，可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，不会执行 skill/MCP，也不会读取 MCP `env` 值。
+`web` 会启动 `127.0.0.1` 本地只读工作台，页面包含总览、支持使用次数/上下文排序与上下双端分页的 skill 清单、可行动的 3D 知识图谱、推荐入口和命令中心。图谱会汇总前缀套件、功能重叠、可串联流程和 MCP 依赖，可按具体套件、平台或分类聚焦；选中节点后可聚焦一跳关系、查看带置信度的关系证据、复制建议命令，并定位回 Skill 清单。Skill 清单里的名称支持悬浮查看描述，来源地址也支持悬浮查看。只读命令可在卡片终端中直接运行，写操作仍只提供可复制的 dry-run 建议。它使用 Node.js 内置 `http` 与原生 HTML/CSS/JS，不引入第三方依赖；页面支持赛博朋克、宇宙星系、蓝天白云三种主题和 3D 立体加载动画。工作台在缺少事实或手动刷新时，可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，不会执行 skill/MCP，也不会读取 MCP `env` 值。
 
 ## outdated
 
@@ -357,7 +357,7 @@ skm state plan --json
 skm state list
 skm state set baoyu-image-gen --tool claude --mode name-only
 skm state set old-skill --tool claude --mode off --scope user
-skm state set old-skill --tool claude --mode user-only --dry-run
+skm state set old-skill --tool claude --mode user-invocable-only --dry-run
 ```
 
 `state` 用于处理“skill 太多”的生命周期治理问题。它不会删除 skill。推荐顺序是：先用 `state plan` 看降载建议，再对 Claude Code 使用原生状态；AIDE 原生状态不可用时，才考虑 `skm disable <skill>` 这种目录级软禁用兜底。
@@ -365,11 +365,11 @@ skm state set old-skill --tool claude --mode user-only --dry-run
 `state plan` 会根据以下信号给出建议：
 
 - 重复安装且从未使用：优先 `off`
-- 从未使用且上下文开销高：优先 `user-only`
+- 从未使用且上下文开销高：优先 `user-invocable-only`
 - 长期未用或偶尔用：优先 `name-only`
 - 常用且无明显负担：保持 `on`
 
-Claude Code 支持自动写入 `skillOverrides`。`user-only` 会按官方配置值保存为 `user-invocable-only`；写入前会备份设置文件，默认要求输入 `yes` 确认。Codex 当前建议继续使用内置 `/skills` -> Enable/Disable Skills 交互界面，skm 不猜测或改写未稳定公开的状态文件。
+Claude Code 支持自动写入 `skillOverrides`。官方状态名是 `user-invocable-only`；写入前会备份设置文件，默认要求输入 `yes` 确认。Codex 当前建议继续使用内置 `/skills` -> Enable/Disable Skills 交互界面，skm 不猜测或改写未稳定公开的状态文件。
 
 ## sessions
 

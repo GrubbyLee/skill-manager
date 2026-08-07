@@ -35,6 +35,7 @@ skm outdated
 skm lock
 skm lock verify
 skm policy check
+skm web
 skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
@@ -71,11 +72,12 @@ SKM_LANG=zh-CN skm doctor
 | Which skill should I use for this task? | `skm ask "task"` | Best match, reasons, alternatives |
 | Which skills are duplicated? | `skm dupes` | Same name, same content, same category, text similarity |
 | Which skills were never really used? | `skm audit` | Real usage frequency from Claude Code / Codex sessions, plus static skill/MCP security findings |
-| Too many skills, but you do not want to delete them? | `skm state plan` | Suggested `on` / `name-only` / `user-only` / `off` downshifts |
+| Too many skills, but you do not want to delete them? | `skm state plan` | Suggested `on` / `name-only` / `user-invocable-only` / `off` downshifts |
 | Are GitHub/Gitee skills still current? | `skm outdated --online` | Version / commit freshness check; read-only and cached |
 | Too many skills show unknown freshness? | `skm sources wizard` | Add missing upstream URLs into skm's local source map |
 | Can installs, updates, and rollback be governed? | `skm lock` / `skm lock verify` / `skm policy check` | Create a local skill lock file, detect drift from the baseline, and check lifecycle policy baselines |
 | How healthy is one skill? | `skm eval <skill>` | Score description, source metadata, duplication, usage, and safety signals |
+| Too many commands to remember? | `skm web` | A local read-only Web dashboard for overview, inventory, graph, recommendations, and command center |
 | How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
 | What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
 | Can I share one local overview? | `skm report --format html` | Single-file overview with health, risks, usage, sessions, graph summary |
@@ -176,7 +178,7 @@ The HTML graph is a zero-dependency single file. Open it in a browser and filter
 
 ![skm skill knowledge graph](docs/graphic.png)
 
-Current relationship types include same family, same category, duplicate, strong/weak alternative, workflow, upstream/downstream, shared input/output format, reverse conversion, shared platform, same-platform action, and uses MCP. Details are in [docs/graph.en.md](docs/graph.en.md).
+Current relationship types include suite membership, category membership, duplicate, strong/weak alternative, workflow, upstream/downstream, shared input/output format, reverse conversion, platform membership, platform role overlap, and uses MCP. Details are in [docs/graph.en.md](docs/graph.en.md).
 
 ## Overview Report
 
@@ -194,7 +196,9 @@ skm web
 skm web --port 17362
 ```
 
-`skm web` starts a local read-only dashboard on `127.0.0.1`. It brings overview, governance domains, skill inventory, knowledge graph preview, recommendation entry, and command center into one modern technical interface. The page includes a real CSS 3D loading cube and three switchable themes: Cyberpunk, Galaxy, and Sky. Phase 1 does not execute write actions in the browser: install, update, rollback, disable, and enable are shown as copyable dry-run commands. The dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files when facts are missing or manually refreshed, but it does not modify AIDE data, execute skills/MCP servers, or read MCP `env` values.
+`skm web` starts a local read-only dashboard on `127.0.0.1`. It brings overview, skill inventory, knowledge graph, recommendation entry, and command center into one modern technical interface. The top-right controls now include Chinese/English switching, defaulting to the CLI startup language and persisting the user's browser choice locally, alongside Cyberpunk, Galaxy, and Sky themes. The skill inventory defaults to descending usage, can sort by usage or context cost, provides pagination above and below the table, and exposes recorded upstream addresses on hover; skill names also show descriptions on hover. The 3D graph turns relationships into actions with suite/overlap/workflow/MCP insights, concrete suite/platform/category scopes, one-hop focus, confidence-tagged evidence, suggested commands, and direct navigation back to the inventory. Read-only commands can run locally and return output in embedded terminals; write-capable commands such as install, update, rollback, disable, and enable remain copy-only dry-run suggestions. The page includes a real CSS 3D loading cube. The dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files when facts are missing or manually refreshed, but it does not modify AIDE data, execute skills/MCP servers, or read MCP `env` values.
+
+![skm Web dashboard real-machine screenshot](docs/web-dashboard.en.png)
 
 ## Visual Story
 
@@ -281,7 +285,7 @@ skm state plan --json
 |---|---|---|
 | `on` | Fully enabled | Frequently or recently used skills |
 | `name-only` | Keep name-level visibility | Occasionally used skills with long descriptions |
-| `user-only` | Only available when explicitly named by the user | Never-used high-context skills you do not want to fully turn off |
+| `user-invocable-only` | Only available when explicitly named by the user | Never-used high-context skills you do not want to fully turn off |
 | `off` | Native off state | Duplicate and never-used skills, or skills you confirmed unused |
 | Directory soft-disable | `skm disable <skill>` renames the directory to `_disabled-*` | Reversible fallback when native AIDE state is unavailable |
 
@@ -293,7 +297,7 @@ skm state set baoyu-image-gen --tool claude --mode name-only
 skm state set old-skill --tool claude --mode off --scope user
 ```
 
-`state set` writes Claude Code `skillOverrides`, backs up the settings file first, and asks for confirmation by default. `--dry-run` prints the intended write only. Claude Code's menu label `user-only` is stored as the official `user-invocable-only` value. For Codex, use the built-in `/skills` -> Enable/Disable Skills UI for now; skm does not guess or rewrite an unstable state file.
+`state set` writes Claude Code `skillOverrides`, backs up the settings file first, and asks for confirmation by default. `--dry-run` prints the intended write only. Claude Code's official state name is `user-invocable-only`. For Codex, use the built-in `/skills` -> Enable/Disable Skills UI for now; skm does not guess or rewrite an unstable state file.
 
 ## Safety Boundaries
 

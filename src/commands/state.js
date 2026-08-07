@@ -304,7 +304,7 @@ function formatUsage(row, lang) {
 }
 
 function displayMode(mode) {
-  return mode === USER_MODE_VALUE ? USER_MODE_ALIAS : mode;
+  return mode === USER_MODE_ALIAS ? USER_MODE_VALUE : mode;
 }
 
 function isStale(lastUsed) {

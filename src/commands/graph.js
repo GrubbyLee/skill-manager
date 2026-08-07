@@ -17,8 +17,8 @@ const EDGE_LIMITS = {
 };
 
 const EDGE_LABELS = {
-  same_family: '同源',
-  same_category: '同类',
+  same_family: '套件归属',
+  same_category: '分类归属',
   duplicate: '重复',
   strong_alternative: '强替代',
   weak_alternative: '弱替代',
@@ -26,14 +26,14 @@ const EDGE_LABELS = {
   upstream_downstream: '上下游',
   reverse_transform: '反向转换',
   shared_io_format: '共享格式',
-  same_platform_action: '同平台动作',
-  shared_platform: '共享平台',
+  same_platform_action: '平台内分工',
+  shared_platform: '平台归属',
   uses_mcp: '使用 MCP',
 };
 
 const EDGE_LABELS_EN = {
-  same_family: 'same family',
-  same_category: 'same category',
+  same_family: 'suite membership',
+  same_category: 'category membership',
   duplicate: 'duplicate',
   strong_alternative: 'strong alternative',
   weak_alternative: 'weak alternative',
@@ -41,38 +41,38 @@ const EDGE_LABELS_EN = {
   upstream_downstream: 'upstream/downstream',
   reverse_transform: 'reverse conversion',
   shared_io_format: 'shared I/O format',
-  same_platform_action: 'same-platform action',
-  shared_platform: 'shared platform',
+  same_platform_action: 'platform role overlap',
+  shared_platform: 'platform membership',
   uses_mcp: 'uses MCP',
 };
 
 const EDGE_DESCRIPTIONS = {
-  same_family: '同源：目录名前缀相同，通常表示同一作者、同一套工具包或同一组能力，例如 baoyu-*、lark-*。适合观察成组安装与套件边界。',
-  same_category: '同类：根据分类规则归入同一业务类别，表示用途相近但不一定互相依赖。该关系数量通常较多，适合做全局盘点。',
+  same_family: '套件归属：根据目录名前缀推断 skill 属于某个套件，例如 baoyu-* 或 lark-*。它适合观察成组安装，但不等于已证明同一作者或同一仓库来源。',
+  same_category: '分类归属：skill 连接到分类规则产生的具体分类节点。它表示用途归类，不代表同分类 skill 互相依赖。',
   duplicate: '重复：不同安装记录的 SKILL.md 内容哈希完全相同，表示实质上是同一份 skill。适合清理重复安装和降低上下文开销。',
-  strong_alternative: '强替代：同分类下名称或描述高度相似，且不是同源套件成员。通常表示两个 skill 能覆盖非常接近的任务。',
+  strong_alternative: '强替代：同分类下名称或描述高度相似，且不属于同一前缀套件。通常表示两个 skill 能覆盖非常接近的任务。',
   weak_alternative: '弱替代：同分类下有一定相似度，但证据弱于强替代。适合人工浏览，不建议直接清理。',
   pipeline: '流程：一个 skill 的输出格式可以作为另一个 skill 的输入格式，例如 URL 转 Markdown 后再转 HTML。适合发现可串联的工作流。',
   upstream_downstream: '上下游：一个 skill 的产物可能流向另一个 skill，强调先后顺序和任务链路。',
   reverse_transform: '反向转换：两个 skill 的转换方向相反，例如 Markdown 转 HTML 与 HTML 转 Markdown。适合识别互补工具。',
   shared_io_format: '共享格式：两个 skill 处理相同输入或输出格式，例如 Markdown、HTML、PDF、图片。适合按材料形态整理工具。',
-  same_platform_action: '同平台动作：同一外部平台下的不同操作，例如飞书文档、飞书任务、飞书会议。适合观察平台生态内的能力分工。',
-  shared_platform: '共享平台：名称或描述命中同一外部平台关键词，例如 GitHub、飞书、Notion。该关系数量通常较多，适合按平台查看生态。',
+  same_platform_action: '平台内分工：根据关键词推断同一外部平台下的互补动作，例如飞书文档、飞书任务、飞书会议。属于推断线索，需要人工确认。',
+  shared_platform: '平台归属：skill 名称或描述命中一个具体平台节点，例如 GitHub、飞书或 Notion。每个平台均为独立节点，可分别查看。',
   uses_mcp: '使用 MCP：skill 描述中同时命中 MCP 与具体 MCP server 名称，表示它可能依赖或调用该 MCP 能力。当前属于推断关系。',
 };
 
 const EDGE_DESCRIPTIONS_EN = {
-  same_family: 'Same family: directory name prefixes match, usually meaning the same author, toolkit, or capability suite, such as baoyu-* or lark-*.',
-  same_category: 'Same category: classification rules put these skills into the same business category. They are related by use case, not necessarily dependent.',
+  same_family: 'Suite membership: a directory-name prefix suggests that a skill belongs to a suite such as baoyu-* or lark-*. This does not prove common authorship or repository origin.',
+  same_category: 'Category membership: a skill links to one category produced by classification rules. This is not a dependency or a direct link between every skill in that category.',
   duplicate: 'Duplicate: SKILL.md content hashes are identical across install records. Useful for cleaning duplicate installs and reducing context cost.',
-  strong_alternative: 'Strong alternative: highly similar names or descriptions within the same category, excluding same-family suites.',
+  strong_alternative: 'Strong alternative: highly similar names or descriptions within the same category, excluding the same prefix-inferred suite.',
   weak_alternative: 'Weak alternative: related candidates with weaker similarity evidence. Useful for browsing, not automatic cleanup.',
   pipeline: 'Workflow: one skill output can be another skill input, such as URL to Markdown followed by Markdown to HTML.',
   upstream_downstream: 'Upstream/downstream: one skill can feed another, emphasizing order in a workflow chain.',
   reverse_transform: 'Reverse conversion: two skills convert in opposite directions, such as Markdown to HTML and HTML to Markdown.',
   shared_io_format: 'Shared I/O format: two skills process the same input or output format, such as Markdown, HTML, PDF, or images.',
-  same_platform_action: 'Same-platform action: different actions in the same external platform ecosystem, such as Lark Docs, Tasks, and Meetings.',
-  shared_platform: 'Shared platform: names or descriptions match the same external platform keyword, such as GitHub, Lark, or Notion.',
+  same_platform_action: 'Platform role overlap: keywords suggest complementary actions in one platform ecosystem. This is inferred evidence and should be reviewed manually.',
+  shared_platform: 'Platform membership: a skill name or description matches one concrete platform node such as GitHub, Lark, or Notion. Each platform is represented separately.',
   uses_mcp: 'Uses MCP: a skill description mentions both MCP and a specific MCP server name. This is inferred, not guaranteed.',
 };
 
@@ -1188,7 +1188,7 @@ function edgeLabel(type, lang = 'zh-CN') {
   return (lang === 'en' ? EDGE_LABELS_EN : EDGE_LABELS)[type] || type;
 }
 
-function edgeReason(edge, lang = 'zh-CN') {
+export function edgeReason(edge, lang = 'zh-CN') {
   const reason = String(edge.reason || '');
   if (lang !== 'en' || !reason) return reason;
 

@@ -33,6 +33,7 @@ skm outdated
 skm lock
 skm lock verify
 skm policy check
+skm web
 skm report --format html --output skm-report.html
 skm graph --format html --output skill-graph.html
 ```
@@ -77,11 +78,12 @@ SKM_LANG=zh-CN skm doctor
 | 做某件事该用哪个 skill？ | `skm ask "任务"` | 首选 skill、理由、备选 |
 | 哪些 skill 重复了？ | `skm dupes` | 同名、同内容、同类多实现、文本相似 |
 | 哪些从未真正用过？ | `skm audit` | 使用频率、僵尸 skill、MCP 调用记录、静态安全发现 |
-| skill 太多但不想删除？ | `skm state plan` | 给出 `on` / `name-only` / `user-only` / `off` 降载建议 |
+| skill 太多但不想删除？ | `skm state plan` | 给出 `on` / `name-only` / `user-invocable-only` / `off` 降载建议 |
 | 来自 GitHub/Gitee 的 skill 是否最新？ | `skm outdated --online` | 版本 / commit 新旧检查；只读并缓存 |
 | 太多 skill 显示无法判断版本？ | `skm sources wizard` | 把缺失的上游地址补到 skm 本地来源表 |
 | 能否形成安装、更新、回滚闭环？ | `skm lock` / `skm lock verify` / `skm policy check` | 生成本机 skill 锁定文件，对比当前环境是否漂移，并按策略检查治理基线 |
 | 某个 skill 质量如何？ | `skm eval <skill>` | 从描述、来源、重复、使用、安全信号给出评分 |
+| 命令太多，想直接可视化查看？ | `skm web` | 本地只读 Web 工作台，集中查看总览、清单、图谱、推荐和命令中心 |
 | skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
 | 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
 | 能否导出一页总览？ | `skm report --format html` | 健康、风险、使用、会话、图谱摘要汇总 |
@@ -184,7 +186,7 @@ skm graph --format html --output skill-graph.html
 
 ![skm skill 知识图谱示意图](docs/graphic.png)
 
-支持的关系包括同源、同类、重复、强/弱替代、流程、上下游、共享输入输出格式、反向转换、共享平台、同平台动作、使用 MCP。关系含义和交互说明见 [docs/graph.md](docs/graph.md)。
+支持的关系包括套件归属、分类归属、重复、强/弱替代、流程、上下游、共享输入输出格式、反向转换、平台归属、平台内分工、使用 MCP。关系含义和交互说明见 [docs/graph.md](docs/graph.md)。
 
 ## 总览报告
 
@@ -202,7 +204,9 @@ skm web
 skm web --port 17362
 ```
 
-`skm web` 会在 `127.0.0.1` 启动本地只读工作台，把总览、治理分域、skill 清单、知识图谱预览、推荐入口和命令中心放到一个现代科技感页面里。页面内置真实 3D 立体加载动画，并支持赛博朋克、宇宙星系、蓝天白云三种主题切换。第一阶段不在网页内执行写操作；“安装、更新、回滚、禁用、恢复”等能力只展示可复制的 dry-run 命令。工作台在缺少事实或手动刷新时，可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，不会执行 skill/MCP，也不会读取 MCP `env` 值。
+`skm web` 会在 `127.0.0.1` 启动本地只读工作台，把总览、skill 清单、知识图谱、推荐入口和命令中心放到一个现代科技感页面里。页面右上角支持中英文切换，默认跟随 CLI 启动语言，并把用户选择保存在浏览器本地；同时保留赛博朋克、宇宙星系、蓝天白云三种主题切换。Skill 清单默认按使用次数降序，支持按使用次数或上下文开销切换排序、上下双端分页，并可在悬浮时查看已记录的上游地址；技能名称悬浮还会显示描述。3D 图谱不再只做展示：它会汇总前缀套件、功能重叠、可串联流程和 MCP 依赖，可按具体套件、平台或分类聚焦，并支持一跳关系、置信度证据、建议命令及清单定位。只读命令可在网页内运行并在卡片终端返回结果；安装、更新、回滚、禁用、恢复等写操作仍只提供可复制的 dry-run 建议。页面内置真实 3D 立体加载动画。工作台在缺少事实或手动刷新时，可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，不会执行 skill/MCP，也不会读取 MCP `env` 值。
+
+![skm Web 工作台真机截图](docs/web-dashboard.zh-CN.png)
 
 ## 四格小漫画
 
@@ -289,7 +293,7 @@ skm state plan --json
 |---|---|---|
 | `on` | 正常启用 | 常用、近期用过、无明显上下文负担 |
 | `name-only` | 只保留名称级可见性 | 偶尔用、但描述较长或长期未用 |
-| `user-only` | 仅用户明确点名时可用 | 从未用过且上下文开销高，但还不想彻底关掉 |
+| `user-invocable-only` | 仅用户明确点名时可用 | 从未用过且上下文开销高，但还不想彻底关掉 |
 | `off` | 原生关闭 | 重复安装且从未使用，或你确认不用 |
 | 目录软禁用 | `skm disable <skill>` 把目录改名为 `_disabled-*` | AIDE 原生状态不可用时的可逆兜底 |
 
@@ -301,7 +305,7 @@ skm state set baoyu-image-gen --tool claude --mode name-only
 skm state set old-skill --tool claude --mode off --scope user
 ```
 
-写入时会修改 Claude Code 的 `skillOverrides`，修改前备份，默认需要输入 `yes` 确认；`--dry-run` 只看计划。Claude Code 菜单里的 `user-only` 会按官方配置值写成 `user-invocable-only`。Codex 当前建议继续使用内置 `/skills` 里的 Enable/Disable Skills 交互界面，skm 不猜测或改写未稳定公开的状态文件。
+写入时会修改 Claude Code 的 `skillOverrides`，修改前备份，默认需要输入 `yes` 确认；`--dry-run` 只看计划。Claude Code 的官方状态名是 `user-invocable-only`。Codex 当前建议继续使用内置 `/skills` 里的 Enable/Disable Skills 交互界面，skm 不猜测或改写未稳定公开的状态文件。
 
 ## 安全边界
 

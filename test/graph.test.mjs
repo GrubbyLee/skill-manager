@@ -98,7 +98,7 @@ test('知识图谱 HTML：关系说明与节点拖拽保持单文件实现', () 
   const html = renderGraph(graph, 'html');
 
   assert.match(html, /class="edge-help"/);
-  assert.match(html, /同源：目录名前缀相同/);
+  assert.match(html, /套件归属：根据目录名前缀推断/);
   assert.match(html, /反向转换：两个 skill 的转换方向相反/);
   assert.match(html, /data-x="/);
   assert.match(html, /function setNodePosition/);
@@ -159,9 +159,9 @@ test('知识图谱 HTML / Mermaid：支持英文展示文案', () => {
   assert.match(html, /Relationship Filters/);
   assert.match(html, /Node limit/);
   assert.match(html, /Showing __NODES__ node\(s\) \/ __EDGES__ relationship\(s\)/);
-  assert.match(html, /Same family: directory name prefixes match/);
+  assert.match(html, /Suite membership: a directory-name prefix suggests/);
   assert.match(html, /shared I\/O format/);
-  assert.match(mermaid, /workflow|same family/);
+  assert.match(mermaid, /workflow|suite membership/);
   assert.doesNotMatch(html, /输出|接收|共享格式：|同分类且名称\/描述相似度/);
   assert.doesNotMatch(json, /输出|接收|共享格式：|同分类且名称\/描述相似度/);
   assert.doesNotMatch(html, /搜索 skill \/ 分类 \/ 平台/);

@@ -19,16 +19,16 @@ The HTML graph is a zero-dependency single file with inline SVG, CSS, and JavaSc
 |---|---|
 | `skill` | Merged skill capability with category, tool source, usage, recency, and context estimate |
 | `mcp` | MCP server with tool source, transport, and usage |
-| `category` | Category cluster |
-| `family` | Prefix family, such as `baoyu-*`, `lark-*`, `gsap-*` |
-| `platform` | Shared platform, such as GitHub, Lark, WeChat, X / Twitter, OpenAI |
+| `category` | A concrete category and its member skills |
+| `family` | Suite inferred from a directory prefix, such as `baoyu-*`, `lark-*`, or `gsap-*`; this does not prove common authorship or repository origin |
+| `platform` | A concrete platform such as GitHub, Lark, WeChat, X / Twitter, or OpenAI; each platform has a separate node |
 
 ## Relationship Types
 
 | Relationship | Meaning |
 |---|---|
-| same family | Same directory prefix; usually same author, toolkit, or suite |
-| same category | Same classification category; related use case |
+| suite membership | Skill-to-suite membership inferred from a directory prefix; it does not assert common authorship or repository origin |
+| category membership | Skill-to-category membership produced by classification rules; it does not imply dependencies between member skills |
 | duplicate | Identical `SKILL.md` content hash across install records |
 | strong alternative | Similar name/description in the same category but different family, with stronger similarity evidence |
 | weak alternative | Similar name/description in the same category but lower confidence than strong alternative |
@@ -36,15 +36,15 @@ The HTML graph is a zero-dependency single file with inline SVG, CSS, and JavaSc
 | upstream/downstream | One skill appears to collect/read/extract/generate input while another publishes/writes/uploads/renders output |
 | shared I/O format | Skills share formats such as Markdown, HTML, PDF, JSON, CSV, PNG, or MP4 |
 | reverse conversion | Opposite conversion directions, such as Markdown to HTML and HTML to Markdown |
-| shared platform | Same external platform keyword |
-| same-platform action | Skills target the same platform but perform different actions, such as search, publish, summarize, or download |
+| platform membership | A name or description matches one concrete external platform node |
+| platform role overlap | Keywords suggest different roles in one platform, such as search, publish, summarize, or download; review this inferred signal manually |
 | uses MCP | Skill description mentions MCP and a specific MCP server |
 
 ## Graph Summaries
 
 JSON and HTML graph output includes summary entries:
 
-- densest suite: the family with the most same-family relationships
+- densest suite: the suite with the most membership relationships
 - duplicate core: areas with identical content or duplicate physical installs
 - platform ecosystem: capability groups around GitHub, Lark, WeChat, Notion, and similar platforms
 - potential workflow: combinations inferred from workflow, upstream/downstream, and shared I/O-format edges
@@ -64,7 +64,9 @@ JSON and HTML graph output includes summary entries:
 
 ## Reading Tips
 
-- For suites, keep only same family.
+- For suites, keep only suite membership.
 - For workflows, enable workflow, upstream/downstream, shared I/O format, and reverse conversion.
-- For platform ecosystems, enable shared platform and search for `github`, `lark`, `notion`, or `wechat`.
-- If the graph is dense, set the node limit to High-signal top 60/100, disable same category/shared platform, enable important-node mode or hide never-used skills, then fit view.
+- For platform ecosystems, enable platform membership and search for `github`, `lark`, `notion`, or `wechat`.
+- If the graph is dense, set the node limit to High-signal top 60/100, disable category/platform membership, enable important-node mode or hide never-used skills, then fit view.
+
+The `skm web` dashboard adds a **Focus scope** selector for concrete suites, platforms, and categories. Selecting `baoyu-*` isolates that suite; selecting `GitHub` isolates GitHub members and their currently enabled internal relationships. Relationship evidence is marked as explicit, structural, or inferred so directory-prefix and keyword signals are not mistaken for verified facts.

@@ -366,8 +366,8 @@ function localizedToolLabel(tools, lang) {
 
 function edgeName(type, lang) {
   const en = {
-    same_family: 'same family',
-    same_category: 'same category',
+    same_family: 'suite membership',
+    same_category: 'category membership',
     duplicate: 'duplicate',
     alternative: 'alternative',
     strong_alternative: 'strong alternative',
@@ -376,13 +376,13 @@ function edgeName(type, lang) {
     upstream_downstream: 'upstream/downstream',
     reverse_transform: 'reverse conversion',
     shared_io_format: 'shared I/O format',
-    same_platform_action: 'same-platform action',
-    shared_platform: 'shared platform',
+    same_platform_action: 'platform role overlap',
+    shared_platform: 'platform membership',
     uses_mcp: 'uses MCP',
   };
   const zh = {
-    same_family: '同源',
-    same_category: '同类',
+    same_family: '套件归属',
+    same_category: '分类归属',
     duplicate: '重复',
     alternative: '替代',
     strong_alternative: '强替代',
@@ -391,8 +391,8 @@ function edgeName(type, lang) {
     upstream_downstream: '上下游',
     reverse_transform: '反向转换',
     shared_io_format: '共享格式',
-    same_platform_action: '同平台动作',
-    shared_platform: '共享平台',
+    same_platform_action: '平台内分工',
+    shared_platform: '平台归属',
     uses_mcp: '使用 MCP',
   };
   return (lang === 'en' ? en : zh)[type] || type;

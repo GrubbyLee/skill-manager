@@ -1,0 +1,900 @@
+(() => {
+  'use strict';
+
+  const LANG_STORAGE_KEY = 'skm-web-lang';
+  const state = {
+    data: null,
+    labels: {},
+    lang: 'zh-CN',
+    skillFilter: '',
+    skillUsageFilter: 'all',
+    skillPage: 1,
+    skillPageSize: 10,
+    skillSortKey: 'usage',
+    skillSortDirection: 'desc',
+    sourceTooltipTimer: 0,
+    graph: {
+      enabledTypes: new Set(),
+      positions: new Map(),
+      projected: [],
+      query: '',
+      selectedId: null,
+      focusId: null,
+      scopeId: null,
+      rotationX: -0.18,
+      rotationY: 0.35,
+      zoom: 1,
+      pointer: null,
+      frame: 0,
+    },
+  };
+  const initialLang = normalizeLang(document.documentElement.lang) || 'zh-CN';
+  const url = new URL(window.location.href);
+  const urlLang = normalizeLang(url.searchParams.get('lang'));
+  const storedLang = normalizeLang(readStorage(LANG_STORAGE_KEY));
+  if (!urlLang && storedLang && storedLang !== initialLang) {
+    url.searchParams.set('lang', storedLang);
+    window.location.replace(url.toString());
+    return;
+  }
+  state.lang = urlLang || storedLang || initialLang;
+  if (urlLang || !storedLang) writeStorage(LANG_STORAGE_KEY, state.lang);
+  const initialLabel = (zhText, enText) => (state.lang === 'en' ? enText : zhText);
+
+  const $ = (id) => document.getElementById(id);
+  function readStorage(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return '';
+    }
+  }
+
+  function writeStorage(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // 本地存储不可用时仍允许页面以当前 URL 的语言和主题继续运行。
+    }
+  }
+
+  function normalizeLang(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (text === 'en' || text.startsWith('en-')) return 'en';
+    if (text === 'zh' || text === 'zh-cn' || text.startsWith('zh-')) return 'zh-CN';
+    return null;
+  }
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[ch]);
+  const fmtDate = (value) => {
+    if (!value) return '-';
+    try { return new Date(value).toLocaleString(); } catch { return '-'; }
+  };
+  const pill = (text, cls = '') => `<span class="pill ${cls}">${esc(text)}</span>`;
+
+  function setTheme(theme) {
+    document.body.dataset.theme = theme;
+    writeStorage('skm-web-theme', theme);
+    document.querySelectorAll('.theme-btn').forEach((button) => {
+      button.classList.toggle('active', button.dataset.themeTarget === theme);
+      button.setAttribute('aria-pressed', String(button.dataset.themeTarget === theme));
+    });
+    scheduleGraph();
+  }
+
+  function setLanguage(lang) {
+    const next = normalizeLang(lang) || 'zh-CN';
+    if (next === state.lang) return;
+    writeStorage(LANG_STORAGE_KEY, next);
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set('lang', next);
+    window.location.assign(nextUrl.toString());
+  }
+
+  function toast(message) {
+    const element = $('toast');
+    element.textContent = message;
+    element.classList.add('show');
+    window.setTimeout(() => element.classList.remove('show'), 1800);
+  }
+
+  async function copy(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(state.labels.copied);
+    } catch {
+      toast(text);
+    }
+  }
+
+  async function loadDashboard(refresh = false) {
+    const labels = state.labels;
+    $('loader-title').textContent = refresh ? labels.refreshingTitle || initialLabel('正在刷新清单', 'Refreshing inventory') : labels.loadingTitle || initialLabel('正在读取本机治理数据', 'Loading local governance data');
+    $('loader-text').textContent = refresh ? labels.refreshingText || initialLabel('正在运行与 skm scan 相同的只读扫描路径。', 'Running the same read-only scan path as skm scan.') : labels.loadingText || initialLabel('正在读取 catalog、使用缓存、会话索引和图谱信号。不会修改 AIDE 文件。', 'Reading catalog, usage cache, session index, and graph signals. No AIDE files are modified.');
+    const response = await fetch(apiUrl('/api/dashboard', refresh ? { refresh: '1' } : {}));
+    if (!response.ok) throw new Error(await response.text());
+    state.data = await response.json();
+    state.labels = state.data.labels || {};
+    initializeGraph();
+    renderAll();
+  }
+
+  function apiUrl(path, params = {}) {
+    const url = new URL(path, window.location.origin);
+    url.searchParams.set('lang', state.lang);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value == null || value === '') return;
+      url.searchParams.set(key, value);
+    });
+    return `${url.pathname}${url.search}`;
+  }
+
+  function renderAll() {
+    renderTerminal();
+    renderMetrics();
+    renderSkills();
+    renderGraphInsights();
+    renderGraphFilters();
+    renderGraphDetail();
+    renderCommands();
+    scheduleGraph();
+  }
+
+  function renderTerminal() {
+    const data = state.data;
+    $('terminal-lines').textContent = [
+      '$ skm web',
+      `> ${state.labels.terminalScore || initialLabel('得分', 'score')} ${data.overview.score}/100 · ${state.labels.terminalSkills || initialLabel('skill', 'skills')} ${data.overview.skills} · ${state.labels.terminalMcp || initialLabel('MCP', 'MCP')} ${data.overview.mcpServers}`,
+      `> ${state.labels.terminalCatalog || initialLabel('目录', 'catalog')} ${fmtDate(data.catalog.scannedAt)}`,
+      `> ${state.labels.localOnly}`,
+    ].join('\n');
+    $('loader-title').textContent = state.labels.readyTitle;
+    $('loader-text').textContent = state.labels.readyText;
+  }
+
+  function metric(title, value, note, cls = '') {
+    return `<article class="card metric"><b class="${cls}">${esc(value)}</b><span>${esc(title)}</span><p>${esc(note || '')}</p></article>`;
+  }
+
+  function renderMetrics() {
+    const data = state.data;
+    const health = data.report.health;
+    const labels = state.labels;
+    $('overview').innerHTML = [
+      metric(labels.healthScore, `${data.overview.score} / 100`, labels.scoreNote, data.overview.score >= 80 ? 'good' : data.overview.score >= 60 ? 'warn' : 'bad'),
+      metric(labels.skillMetricTitle || initialLabel('Skill 总量', 'Skills'), data.overview.skills, labels.skillMetric),
+      metric(labels.mcpMetricTitle || initialLabel('MCP 总量', 'MCP servers'), data.overview.mcpServers, labels.mcpMetric),
+      metric(labels.neverUsed, health.neverUsed, labels.neverUsedNote),
+      metric(labels.duplicates, health.duplicateInstalls, labels.duplicateNote),
+      metric(labels.sessionBytes, bytes(health.sessionBytes), labels.sessionNote),
+      metric(labels.reclaimable, bytes(health.reclaimableBytes), labels.reclaimNote),
+      metric(labels.security, [data.catalog.security.high, data.catalog.security.medium, data.catalog.security.low].join(' / '), labels.securityNote),
+    ].join('');
+  }
+
+  function bytes(value) {
+    const size = Number(value) || 0;
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 ** 2) return `${(size / 1024).toFixed(1)} KB`;
+    if (size < 1024 ** 3) return `${(size / 1024 ** 2).toFixed(1)} MB`;
+    return `${(size / 1024 ** 3).toFixed(1)} GB`;
+  }
+
+  function renderSkills() {
+    const query = state.skillFilter.toLowerCase();
+    const filtered = state.data.skills.filter((skill) => {
+      const usageMatches = state.skillUsageFilter === 'used'
+        ? (Number(skill.usageCount) || 0) > 0
+        : state.skillUsageFilter === 'unused'
+          ? (Number(skill.usageCount) || 0) === 0
+          : true;
+      const queryMatches = !query || [
+        skill.name, skill.category, skill.description, ...(skill.tools || []),
+      ].join(' ').toLowerCase().includes(query);
+      return usageMatches && queryMatches;
+    }).map((skill, index) => ({ skill, index }));
+    const direction = state.skillSortDirection === 'asc' ? 1 : -1;
+    const valueOf = state.skillSortKey === 'context'
+      ? (skill) => Number(skill.descTokens) || 0
+      : (skill) => Number(skill.usageCount) || 0;
+    filtered.sort((a, b) => {
+      const difference = (valueOf(a.skill) - valueOf(b.skill)) * direction;
+      return difference || a.skill.name.localeCompare(b.skill.name) || a.index - b.index;
+    });
+    const totalPages = Math.max(1, Math.ceil(filtered.length / state.skillPageSize));
+    state.skillPage = Math.min(Math.max(1, state.skillPage), totalPages);
+    const start = (state.skillPage - 1) * state.skillPageSize;
+    const rows = filtered.slice(start, start + state.skillPageSize).map(({ skill }) => skill);
+    $('skill-rows').innerHTML = rows.map((skill) => `<tr>
+      <td><button class="skill-name" data-skill-name="${esc(skill.name)}">${esc(skill.name)}</button></td>
+      <td>${esc(skill.category)}</td>
+      <td>${(skill.tools || []).map((tool) => pill(tool)).join('')}</td>
+      <td>${esc(skill.usageCount)}<br><span class="muted">${esc(fmtDate(skill.lastUsed))}</span></td>
+      <td>${esc(skill.descTokens)} token</td>
+      <td>${skill.hasSource
+        ? `<button class="source-status" data-source-skill="${esc(skill.name)}">${esc(state.labels.hasSource)}</button>`
+        : `<span class="source-status missing">${esc(state.labels.noSource)}</span>`}</td>
+    </tr>`).join('') || `<tr><td colspan="6">${esc(query ? state.labels.noMatch : state.labels.noSkills)}</td></tr>`;
+    document.querySelectorAll('.skill-page-summary').forEach((element) => {
+      element.textContent = `${state.labels.totalPrefix} ${filtered.length} ${state.labels.pageSummary} ${state.skillPage} ${state.labels.pageOf} ${totalPages}${state.labels.pageEnd}`;
+    });
+    document.querySelectorAll('[data-skill-page="prev"]').forEach((button) => { button.disabled = state.skillPage <= 1; });
+    document.querySelectorAll('[data-skill-page="next"]').forEach((button) => { button.disabled = state.skillPage >= totalPages; });
+    document.querySelectorAll('[data-skill-sort]').forEach((button) => {
+      const active = button.dataset.skillSort === state.skillSortKey;
+      const heading = button.closest('th');
+      heading.setAttribute('aria-sort', active ? (state.skillSortDirection === 'desc' ? 'descending' : 'ascending') : 'none');
+      button.classList.toggle('active', active);
+      button.querySelector('.sort-indicator').textContent = active ? (state.skillSortDirection === 'desc' ? '↓' : '↑') : '↕';
+    });
+  }
+
+  function showSourceTooltip(target) {
+    window.clearTimeout(state.sourceTooltipTimer);
+    const skill = state.data.skills.find((item) => item.name === target.dataset.sourceSkill);
+    if (!skill?.sources?.length) return;
+    const tooltip = $('source-tooltip');
+    tooltip.innerHTML = `<strong>${esc(state.labels.sourceTooltipTitle)}</strong>${skill.sources.map((source) => {
+      const safeUrl = /^https?:\/\//i.test(source);
+      return safeUrl ? `<a href="${esc(source)}" target="_blank" rel="noreferrer">${esc(source)}</a>` : `<code>${esc(source)}</code>`;
+    }).join('')}`;
+    tooltip.classList.remove('hidden');
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const left = Math.max(12, Math.min(window.innerWidth - tooltipRect.width - 12, rect.right - tooltipRect.width));
+    const below = rect.bottom + 8;
+    const top = below + tooltipRect.height <= window.innerHeight - 12 ? below : Math.max(12, rect.top - tooltipRect.height - 8);
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
+
+  function showSkillTooltip(target) {
+    window.clearTimeout(state.sourceTooltipTimer);
+    const skill = state.data.skills.find((item) => item.name === target.dataset.skillName);
+    if (!skill) return;
+    const tooltip = $('source-tooltip');
+    tooltip.innerHTML = `<strong>${esc(state.labels.skillDescriptionTitle)}</strong><p>${esc(skill.description || state.labels.skillNoDescription || '-')}</p>`;
+    tooltip.classList.remove('hidden');
+    positionTooltip(target, tooltip);
+  }
+
+  function positionTooltip(target, tooltip) {
+    const rect = target.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const left = Math.max(12, Math.min(window.innerWidth - tooltipRect.width - 12, rect.right - tooltipRect.width));
+    const below = rect.bottom + 8;
+    const top = below + tooltipRect.height <= window.innerHeight - 12 ? below : Math.max(12, rect.top - tooltipRect.height - 8);
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
+
+  function scheduleSourceTooltipHide() {
+    window.clearTimeout(state.sourceTooltipTimer);
+    state.sourceTooltipTimer = window.setTimeout(() => $('source-tooltip').classList.add('hidden'), 240);
+  }
+
+  function initializeGraph() {
+    const graph = state.data.graph;
+    state.graph.enabledTypes = new Set(Object.entries(graph.edgeTypes || {})
+      .filter(([, meta]) => meta.defaultVisible).map(([type]) => type));
+    state.graph.positions.clear();
+    const total = Math.max(1, graph.nodes.length);
+    graph.nodes.forEach((node, index) => {
+      const y = 1 - (index / Math.max(1, total - 1)) * 2;
+      const radius = Math.sqrt(Math.max(0, 1 - y * y));
+      const angle = index * Math.PI * (3 - Math.sqrt(5));
+      const spread = 185 + Math.min(90, Math.sqrt(total) * 5);
+      state.graph.positions.set(node.id, {
+        x: Math.cos(angle) * radius * spread,
+        y: y * spread,
+        z: Math.sin(angle) * radius * spread,
+      });
+    });
+  }
+
+  function renderGraphInsights() {
+    const labels = state.labels;
+    const graph = state.data.graph;
+    const definitions = [
+      { types: ['same_family'], title: labels.graphInsightSuite, hint: labels.graphInsightSuiteHint },
+      { types: ['strong_alternative', 'weak_alternative', 'duplicate'], title: labels.graphInsightOverlap, hint: labels.graphInsightOverlapHint },
+      { types: ['pipeline', 'upstream_downstream', 'reverse_transform'], title: labels.graphInsightFlow, hint: labels.graphInsightFlowHint },
+      { types: ['uses_mcp'], title: labels.graphInsightDependency, hint: labels.graphInsightDependencyHint },
+    ];
+    $('graph-insights').innerHTML = definitions.map((item) => {
+      const count = item.types.reduce((sum, type) => sum + (graph.stats.edgeTypes?.[type] || 0), 0);
+      return `<button class="graph-insight" data-focus-types="${esc(item.types.join(','))}"><strong>${esc(item.title)}</strong><small>${esc(item.hint)}</small><b>${count}</b></button>`;
+    }).join('');
+  }
+
+  function renderGraphFilters() {
+    const graph = state.data.graph;
+    const relationGroups = [
+      { label: state.labels.graphGroupMembership, types: ['same_family', 'same_category', 'shared_platform'] },
+      { label: state.labels.graphGroupRisk, types: ['duplicate', 'strong_alternative', 'weak_alternative'] },
+      { label: state.labels.graphGroupWorkflow, types: ['pipeline', 'upstream_downstream', 'reverse_transform', 'shared_io_format'] },
+      { label: state.labels.graphGroupDependency, types: ['same_platform_action', 'uses_mcp'] },
+    ];
+    const options = graphScopeOptions(graph);
+    const scopeSelect = `<label class="graph-scope-label" for="graph-scope-select">${esc(state.labels.graphScopeFilter)}</label>
+      <select class="graph-scope-select" id="graph-scope-select">
+        <option value="">${esc(state.labels.graphScopeAll)}</option>
+        ${['family', 'platform', 'category'].map((type) => {
+          const items = options.filter((item) => item.type === type);
+          if (!items.length) return '';
+          const groupLabel = type === 'family' ? state.labels.graphScopeSuites : type === 'platform' ? state.labels.graphScopePlatforms : state.labels.graphScopeCategories;
+          return `<optgroup label="${esc(groupLabel)}">${items.map((item) => `<option value="${esc(item.id)}"${item.id === state.graph.scopeId ? ' selected' : ''}>${esc(item.label)} (${item.count})</option>`).join('')}</optgroup>`;
+        }).join('')}
+      </select><small class="graph-scope-hint">${esc(state.labels.graphScopeHint)}</small>`;
+    const relationFilters = relationGroups.map((group) => {
+      const controls = group.types.filter((type) => graph.edgeTypes?.[type]).map((type) => {
+        const meta = graph.edgeTypes[type];
+        const count = graph.stats.edgeTypes?.[type] || 0;
+        const checked = state.graph.enabledTypes.has(type) ? ' checked' : '';
+        return `<label class="relation-option"><input type="checkbox" data-edge-type="${esc(type)}"${checked}><span class="relation-swatch" style="background:${esc(meta.color)}"></span><span class="relation-help" tabindex="0" data-help="${esc(meta.description)}">${esc(meta.label)} <small>${count}</small></span></label>`;
+      }).join('');
+      return controls ? `<div class="relation-group"><b>${esc(group.label)}</b>${controls}</div>` : '';
+    }).join('');
+    $('graph-filters').innerHTML = `${scopeSelect}<strong>${esc(state.labels.graphEdgeFilter)}</strong>${relationFilters}`;
+  }
+
+  function graphScopeOptions(graph) {
+    const membershipType = { family: 'same_family', category: 'same_category', platform: 'shared_platform' };
+    return graph.nodes.filter((node) => membershipType[node.type]).map((node) => ({
+      id: node.id,
+      label: node.label,
+      type: node.type,
+      count: graph.edges.filter((edge) => edge.type === membershipType[node.type] && (edge.source === node.id || edge.target === node.id)).length,
+    })).filter((item) => item.count > 0)
+      .sort((a, b) => a.type.localeCompare(b.type) || b.count - a.count || a.label.localeCompare(b.label));
+  }
+
+  function visibleGraph() {
+    const graph = state.data.graph;
+    const enabled = state.graph.enabledTypes;
+    let edges = graph.edges.filter((edge) => enabled.has(edge.type));
+    if (state.graph.scopeId) {
+      const scope = graph.nodes.find((node) => node.id === state.graph.scopeId);
+      const membershipType = { family: 'same_family', category: 'same_category', platform: 'shared_platform' }[scope?.type];
+      const membershipEdges = graph.edges.filter((edge) => edge.type === membershipType
+        && (edge.source === state.graph.scopeId || edge.target === state.graph.scopeId));
+      const scopeIds = new Set([state.graph.scopeId]);
+      membershipEdges.forEach((edge) => {
+        scopeIds.add(edge.source);
+        scopeIds.add(edge.target);
+      });
+      edges = edges.filter((edge) => scopeIds.has(edge.source) && scopeIds.has(edge.target));
+    }
+    const query = state.graph.query.trim().toLowerCase();
+    let matched = null;
+    if (query) {
+      matched = new Set(graph.nodes.filter((node) => [node.label, node.category, node.description, node.type]
+        .join(' ').toLowerCase().includes(query)).map((node) => node.id));
+      edges = edges.filter((edge) => matched.has(edge.source) || matched.has(edge.target));
+    }
+    if (state.graph.focusId) {
+      edges = edges.filter((edge) => edge.source === state.graph.focusId || edge.target === state.graph.focusId);
+    }
+    const ids = new Set();
+    edges.forEach((edge) => { ids.add(edge.source); ids.add(edge.target); });
+    if (matched) matched.forEach((id) => ids.add(id));
+    if (state.graph.focusId) ids.add(state.graph.focusId);
+    return { edges, nodes: graph.nodes.filter((node) => ids.has(node.id)) };
+  }
+
+  function scheduleGraph() {
+    if (state.graph.frame) return;
+    state.graph.frame = requestAnimationFrame(() => {
+      state.graph.frame = 0;
+      drawGraph();
+    });
+  }
+
+  function drawGraph() {
+    if (!state.data) return;
+    const canvas = $('graph-canvas');
+    const box = $('graph-box');
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const width = Math.max(320, box.clientWidth);
+    const height = Math.max(420, box.clientHeight);
+    if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+    }
+    const context = canvas.getContext('2d');
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.clearRect(0, 0, width, height);
+    const visible = visibleGraph();
+    const styles = getComputedStyle(document.body);
+    const textColor = styles.getPropertyValue('--text').trim() || '#fff';
+    const muted = styles.getPropertyValue('--muted').trim() || '#94a3b8';
+    drawGraphBackdrop(context, width, height, styles, visible);
+    const projected = visible.nodes.map((node) => projectNode(node, width, height)).sort((a, b) => a.z - b.z);
+    const byId = new Map(projected.map((node) => [node.id, node]));
+    state.graph.projected = projected;
+    visible.edges.forEach((edge) => {
+      const source = byId.get(edge.source);
+      const target = byId.get(edge.target);
+      if (!source || !target) return;
+      const depthGap = Math.abs(source.z - target.z);
+      const edgeAlpha = Math.max(0.16, Math.min(0.62, 0.48 - depthGap / 880));
+      context.beginPath();
+      context.moveTo(source.screenX, source.screenY);
+      context.lineTo(target.screenX, target.screenY);
+      context.strokeStyle = colorWithAlpha(state.data.graph.edgeTypes[edge.type]?.color || muted, edgeAlpha);
+      context.lineWidth = Math.max(0.7, Math.min(2.6, (source.scale + target.scale) * 0.72));
+      context.shadowColor = colorWithAlpha(state.data.graph.edgeTypes[edge.type]?.color || muted, edgeAlpha * 0.8);
+      context.shadowBlur = 6;
+      context.stroke();
+    });
+    context.shadowBlur = 0;
+    projected.forEach((node) => drawNode(context, node, textColor));
+    $('graph-stats').textContent = `${state.labels.graphNodes} ${projected.length} · ${state.labels.graphEdges} ${visible.edges.length}`;
+    $('graph-empty').classList.toggle('hidden', projected.length > 0);
+  }
+
+  function drawGraphBackdrop(context, width, height, styles, visible) {
+    const accent = styles.getPropertyValue('--accent').trim() || '#00f5ff';
+    const accent2 = styles.getPropertyValue('--accent-2').trim() || '#ff2bd6';
+    const base = context.createLinearGradient(0, 0, 0, height);
+    base.addColorStop(0, 'rgba(3,7,18,.16)');
+    base.addColorStop(0.48, colorWithAlpha(accent, 0.04));
+    base.addColorStop(1, 'rgba(2,6,23,.62)');
+    context.fillStyle = base;
+    context.fillRect(0, 0, width, height);
+
+    const glow = context.createRadialGradient(width * 0.5, height * 0.36, 10, width * 0.5, height * 0.42, Math.max(width, height) * 0.78);
+    glow.addColorStop(0, colorWithAlpha(accent, 0.2));
+    glow.addColorStop(0.4, colorWithAlpha(accent2, 0.08));
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    context.fillStyle = glow;
+    context.fillRect(0, 0, width, height);
+
+    context.save();
+    context.lineWidth = 1;
+    context.strokeStyle = colorWithAlpha(accent, 0.1);
+    const horizon = height * 0.45;
+    for (let row = 0; row <= 7; row++) {
+      const ratio = row / 7;
+      const y = horizon + Math.pow(ratio, 1.8) * (height - horizon - 16);
+      context.globalAlpha = 0.07 + ratio * 0.08;
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(width, y);
+      context.stroke();
+    }
+    const vanishX = width * 0.5;
+    for (let column = -7; column <= 7; column++) {
+      const offset = column * width * 0.08;
+      context.globalAlpha = 0.04 + Math.abs(column) * 0.004;
+      context.beginPath();
+      context.moveTo(vanishX + offset * 0.14, horizon);
+      context.lineTo(vanishX + offset, height);
+      context.stroke();
+    }
+    context.restore();
+
+    const particles = visible.nodes.slice(0, Math.min(48, visible.nodes.length));
+    particles.forEach((node, index) => {
+      const hash = hashText(node.id) + index * 131;
+      const x = (hash % 997) / 996 * width;
+      const y = ((hash >> 2) % 811) / 810 * height * 0.74;
+      const alpha = 0.03 + ((hash >> 5) % 100) / 1000;
+      context.fillStyle = colorWithAlpha(nodeColor(node), alpha);
+      context.beginPath();
+      context.arc(x, y, 0.8 + ((hash >> 7) % 3) * 0.35, 0, Math.PI * 2);
+      context.fill();
+    });
+  }
+
+  function projectNode(node, width, height) {
+    const point = state.graph.positions.get(node.id) || { x: 0, y: 0, z: 0 };
+    const cosY = Math.cos(state.graph.rotationY);
+    const sinY = Math.sin(state.graph.rotationY);
+    const x1 = point.x * cosY - point.z * sinY;
+    const z1 = point.x * sinY + point.z * cosY;
+    const cosX = Math.cos(state.graph.rotationX);
+    const sinX = Math.sin(state.graph.rotationX);
+    const y2 = point.y * cosX - z1 * sinX;
+    const z2 = point.y * sinX + z1 * cosX;
+    const perspective = 520 / Math.max(220, 520 - z2 * 0.48);
+    const scale = perspective * state.graph.zoom;
+    return {
+      ...node, z: z2, scale,
+      screenX: width / 2 + x1 * scale,
+      screenY: height / 2 + y2 * scale,
+    };
+  }
+
+  function drawNode(context, node, textColor) {
+    const base = node.type === 'mcp' ? 8 : node.type === 'skill' ? 7 : 9;
+    const radius = Math.max(4, Math.min(18, (base + Math.sqrt(node.usageCount || 0)) * node.scale));
+    const selected = node.id === state.graph.selectedId;
+    const color = nodeColor(node);
+    const halo = radius * (selected ? 2.1 : 1.6);
+    const glow = context.createRadialGradient(node.screenX - radius * 0.35, node.screenY - radius * 0.4, 1, node.screenX, node.screenY, radius);
+    glow.addColorStop(0, '#ffffff');
+    glow.addColorStop(0.22, color);
+    glow.addColorStop(1, '#07111f');
+    context.save();
+    context.shadowColor = color;
+    context.shadowBlur = selected ? 30 : 14;
+    context.beginPath();
+    context.arc(node.screenX, node.screenY, halo, 0, Math.PI * 2);
+    context.strokeStyle = colorWithAlpha(color, selected ? 0.24 : 0.12);
+    context.lineWidth = selected ? 1.8 : 1.1;
+    context.stroke();
+    context.beginPath();
+    context.arc(node.screenX, node.screenY, radius, 0, Math.PI * 2);
+    context.fillStyle = glow;
+    context.fill();
+    context.lineWidth = selected ? 3 : 1;
+    context.strokeStyle = selected ? '#ffffff' : color;
+    context.stroke();
+    context.restore();
+    if (node.scale > 0.68 && (state.graph.projected.length < 90 || node.usageCount || selected)) {
+      context.font = `${selected ? 600 : 500} 11px ui-sans-serif, system-ui`;
+      context.fillStyle = textColor;
+      context.shadowColor = '#000000';
+      context.shadowBlur = 4;
+      context.fillText(short(node.label, 20), node.screenX + radius + 5, node.screenY + 4);
+      context.shadowBlur = 0;
+    }
+  }
+
+  function nodeColor(node) {
+    if (node.type === 'mcp') return '#f472b6';
+    if (node.type === 'category') return '#fbbf24';
+    if (node.type === 'family') return '#a78bfa';
+    if (node.type === 'platform') return '#34d399';
+    return '#22d3ee';
+  }
+
+  function colorWithAlpha(color, alpha) {
+    if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+    const value = Number.parseInt(color.slice(1), 16);
+    return `rgba(${value >> 16}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+  }
+
+  function hashText(value) {
+    let hash = 0;
+    for (const char of String(value || '')) {
+      hash = Math.imul(31, hash) + char.codePointAt(0);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  }
+
+  function short(value, max) {
+    const text = String(value || '');
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+  }
+
+  function renderGraphDetail() {
+    const panel = $('graph-detail');
+    const graph = state.data.graph;
+    const node = graph.nodes.find((item) => item.id === state.graph.selectedId);
+    if (!node) {
+      panel.innerHTML = `<div class="detail-empty">${esc(state.labels.graphDetailEmpty)}</div>`;
+      return;
+    }
+    const related = graph.edges.filter((edge) => edge.source === node.id || edge.target === node.id);
+    const commands = suggestedGraphCommands(node, related);
+    panel.innerHTML = `<span class="pill">${esc(graphNodeLabel(node.type))}</span><h4>${esc(node.label)}</h4>
+      <p>${esc(node.description || node.category || '-')}</p>
+      <dl><dt>${esc(state.labels.usage)}</dt><dd>${esc(node.usageCount || 0)}</dd><dt>${esc(state.labels.graphRelated)}</dt><dd>${related.length}</dd></dl>
+      <div class="graph-actions">
+        <button class="primary" data-focus-node="${esc(node.id)}">${esc(state.labels.graphFocusNeighbors)}</button>
+        ${node.type === 'skill' ? `<button data-locate-skill="${esc(node.label)}">${esc(state.labels.graphLocateSkill)}</button>` : ''}
+      </div>
+      <strong>${esc(state.labels.graphSuggestedCommands)}</strong>
+      <div class="graph-actions">${commands.map((command) => `<button data-copy="${esc(command)}">${esc(command)}</button>`).join('')}</div>
+      <strong>${esc(state.labels.graphRelationshipEvidence)}</strong>
+      <div class="detail-relations">${related.slice().sort((a, b) => confidenceRank(a.confidence) - confidenceRank(b.confidence)).slice(0, 16).map((edge) => {
+        const otherId = edge.source === node.id ? edge.target : edge.source;
+        const other = graph.nodes.find((item) => item.id === otherId);
+        return `<button data-select-node="${esc(otherId)}"><span style="background:${esc(graph.edgeTypes[edge.type]?.color)}"></span><b>${esc(graph.edgeTypes[edge.type]?.label)} · ${esc(other?.label || otherId)}</b><em>${esc(confidenceLabel(edge.confidence))}</em>${edge.reason ? `<small>${esc(edge.reason)}</small>` : ''}</button>`;
+      }).join('')}</div>`;
+  }
+
+  function confidenceRank(value) {
+    return value === 'explicit' ? 0 : value === 'structural' ? 1 : 2;
+  }
+
+  function confidenceLabel(value) {
+    if (value === 'explicit') return state.labels.graphConfidenceExplicit;
+    if (value === 'structural') return state.labels.graphConfidenceStructural;
+    return state.labels.graphConfidenceInferred;
+  }
+
+  function graphNodeLabel(type) {
+    if (type === 'skill') return state.labels.graphNodeSkill || initialLabel('Skill', 'Skill');
+    if (type === 'mcp') return state.labels.graphNodeMcp || initialLabel('MCP', 'MCP');
+    if (type === 'category') return state.labels.graphNodeCategory || initialLabel('分类', 'Category');
+    if (type === 'family') return state.labels.graphNodeFamily || initialLabel('套件', 'Suite');
+    if (type === 'platform') return state.labels.graphNodePlatform || initialLabel('平台', 'Platform');
+    return type;
+  }
+
+  function suggestedGraphCommands(node, related) {
+    const value = quoteCliArg(node.label);
+    const commands = [];
+    if (node.type === 'skill') {
+      commands.push(`skm eval ${value}`, `skm search ${value}`);
+      if (related.some((edge) => ['duplicate', 'strong_alternative', 'weak_alternative'].includes(edge.type))) commands.push('skm dupes');
+      const skill = state.data.skills.find((item) => item.name === node.label);
+      if (!skill?.hasSource) commands.push('skm sources missing');
+    } else if (node.type === 'category') commands.push(`skm list --category ${value}`);
+    else if (node.type === 'mcp') commands.push('skm list --mcp', 'skm audit');
+    else if (node.type === 'family') commands.push(`skm search ${quoteCliArg(node.label.replace(/\*$/, ''))}`);
+    else commands.push(`skm search ${value}`);
+    return [...new Set(commands)].slice(0, 3);
+  }
+
+  function quoteCliArg(value) {
+    const text = String(value || '');
+    return /^[a-z0-9._-]+$/i.test(text) ? text : `"${text.replace(/["\\]/g, '\\$&')}"`;
+  }
+
+  function focusGraphTypes(types) {
+    state.graph.enabledTypes = new Set(types.filter((type) => state.data.graph.edgeTypes[type]));
+    state.graph.query = '';
+    state.graph.focusId = null;
+    state.graph.scopeId = null;
+    state.graph.selectedId = null;
+    $('graph-search').value = '';
+    renderGraphFilters();
+    renderGraphDetail();
+    scheduleGraph();
+  }
+
+  function resetGraph() {
+    initializeGraph();
+    state.graph.query = '';
+    state.graph.selectedId = null;
+    state.graph.focusId = null;
+    state.graph.scopeId = null;
+    state.graph.rotationX = -0.18;
+    state.graph.rotationY = 0.35;
+    state.graph.zoom = 1;
+    $('graph-search').value = '';
+    renderGraphFilters();
+    renderGraphDetail();
+    scheduleGraph();
+  }
+
+  function renderCommands() {
+    const labels = state.labels;
+    $('command-list').innerHTML = state.data.commands.map((item) => {
+      const examples = (item.examples || []).map((example) => `<code>${esc(example)}</code>`).join('');
+      const runButton = item.executable ? `<button class="action-btn primary" data-run-command="${esc(item.id)}">${esc(labels.cmdRun)}</button>` : '';
+    return `<article class="card command-card" data-command-card="${esc(item.id)}">
+        <div class="command-head"><strong>${esc(item.id)} ${item.mode === 'dry-run' ? pill(labels.dryRunBadge || 'dry-run', 'dry') : pill(labels.readonly)}</strong><button class="icon-button" data-copy="${esc(item.command)}" title="${esc(labels.copyCommand)}">⧉</button></div>
+        <p>${esc(item.description)}</p>
+        <button class="command-line" data-command-click="${esc(item.id)}">${esc(item.command)}</button>
+        <label class="parameter-label">${esc(labels.cmdParameters)}<input data-command-args="${esc(item.id)}" placeholder="${esc(item.params || labels.cmdNoParameters)}" ${item.params ? '' : 'disabled'}></label>
+        <details><summary>${esc(labels.cmdHelp)}</summary><p>${esc(item.hint)}</p><div class="command-examples">${examples}</div></details>
+        <div class="command-actions">${runButton}<button class="action-btn" data-copy-command="${esc(item.id)}">${esc(labels.copyCommand)}</button></div>
+        <div class="cmd-terminal hidden" data-terminal="${esc(item.id)}"><div class="dots"><span></span><span></span><span></span></div><pre></pre></div>
+      </article>`;
+    }).join('');
+  }
+
+  async function runCommand(id) {
+    const item = state.data.commands.find((command) => command.id === id);
+    if (!item?.executable) return copy(commandText(item));
+    const terminal = document.querySelector(`[data-terminal="${cssEscape(id)}"]`);
+    const output = terminal.querySelector('pre');
+    terminal.classList.remove('hidden');
+    output.textContent = `$ ${commandText(item)}\n\n${state.labels.cmdLoading}`;
+    const args = document.querySelector(`[data-command-args="${cssEscape(id)}"]`)?.value.trim() || '';
+    const response = await fetch(apiUrl('/api/run', { cmd: id, args }));
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || result.error || state.labels.cmdError);
+    const body = result.isJson ? JSON.stringify(result.data, null, 2) : (result.stdout || state.labels.cmdNoOutput);
+    output.textContent = `$ ${result.command}\n[exit ${result.exitCode ?? 1}]\n\n${body}${result.stderr ? `\n\n--- stderr ---\n${result.stderr}` : ''}`;
+  }
+
+  function commandText(item) {
+    if (!item) return '';
+    const args = document.querySelector(`[data-command-args="${cssEscape(item.id)}"]`)?.value.trim() || '';
+    return `${item.command.replace(/\s*<[^>]+>/g, '')}${args ? ` ${args}` : ''}`.trim();
+  }
+
+  function cssEscape(value) {
+    return window.CSS?.escape ? window.CSS.escape(value) : String(value).replace(/[^a-z0-9_-]/gi, '\\$&');
+  }
+
+  async function recommend() {
+    const query = $('recommend-input').value.trim();
+    if (!query) return toast(state.labels.needQuery);
+    const response = await fetch(apiUrl('/api/recommend', { q: query, top: '6' }));
+    const data = await response.json();
+    $('recommend-rows').innerHTML = data.items.map((item) => `<tr><td><strong>${esc(item.name)}</strong><br><span class="muted">${esc(item.description).slice(0, 130)}</span></td><td>${esc(item.category)}<br>${(item.tools || []).map((tool) => pill(tool)).join('')}</td><td>${esc(item.score)}</td><td>${esc((item.reasons || []).join(' · '))}</td></tr>`).join('') || `<tr><td colspan="4">${esc(state.labels.noRecommendation)}</td></tr>`;
+  }
+
+  function graphPointerDown(event) {
+    const rect = $('graph-canvas').getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const hit = [...state.graph.projected].reverse().find((node) => Math.hypot(node.screenX - x, node.screenY - y) < 16);
+    state.graph.pointer = { id: event.pointerId, x, y, nodeId: hit?.id || null, moved: false };
+    $('graph-canvas').setPointerCapture(event.pointerId);
+  }
+
+  function graphPointerMove(event) {
+    const pointer = state.graph.pointer;
+    if (!pointer || pointer.id !== event.pointerId) return;
+    const rect = $('graph-canvas').getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const dx = x - pointer.x;
+    const dy = y - pointer.y;
+    pointer.moved ||= Math.abs(dx) + Math.abs(dy) > 2;
+    if (pointer.nodeId) {
+      const point = state.graph.positions.get(pointer.nodeId);
+      point.x += dx / state.graph.zoom;
+      point.y += dy / state.graph.zoom;
+    } else {
+      state.graph.rotationY += dx * 0.007;
+      state.graph.rotationX = Math.max(-1.25, Math.min(1.25, state.graph.rotationX + dy * 0.007));
+    }
+    pointer.x = x;
+    pointer.y = y;
+    scheduleGraph();
+  }
+
+  function graphPointerUp(event) {
+    const pointer = state.graph.pointer;
+    if (!pointer || pointer.id !== event.pointerId) return;
+    if (pointer.nodeId && !pointer.moved) {
+      state.graph.selectedId = pointer.nodeId;
+      const node = state.data.graph.nodes.find((item) => item.id === pointer.nodeId);
+      if (['family', 'platform', 'category'].includes(node?.type)) setGraphScope(pointer.nodeId, false);
+      renderGraphDetail();
+      scheduleGraph();
+    }
+    state.graph.pointer = null;
+  }
+
+  function setGraphScope(scopeId, clearSelection = true) {
+    state.graph.scopeId = scopeId || null;
+    const scope = state.data.graph.nodes.find((node) => node.id === state.graph.scopeId);
+    const membershipType = { family: 'same_family', category: 'same_category', platform: 'shared_platform' }[scope?.type];
+    if (membershipType) state.graph.enabledTypes.add(membershipType);
+    state.graph.query = '';
+    state.graph.focusId = null;
+    if (clearSelection) state.graph.selectedId = scopeId || null;
+    $('graph-search').value = '';
+    renderGraphFilters();
+    renderGraphDetail();
+    scheduleGraph();
+  }
+
+  document.addEventListener('click', (event) => {
+    const sourceButton = event.target.closest('[data-source-skill]');
+    const skillButton = event.target.closest('[data-skill-name]');
+    if (sourceButton) showSourceTooltip(sourceButton);
+    else if (skillButton) showSkillTooltip(skillButton);
+    else if (!event.target.closest('#source-tooltip')) $('source-tooltip').classList.add('hidden');
+    const theme = event.target.closest('[data-theme-target]');
+    if (theme) setTheme(theme.dataset.themeTarget);
+    const language = event.target.closest('[data-lang-target]');
+    if (language) setLanguage(language.dataset.langTarget);
+    const sortButton = event.target.closest('[data-skill-sort]');
+    if (sortButton) {
+      const key = sortButton.dataset.skillSort;
+      if (state.skillSortKey === key) state.skillSortDirection = state.skillSortDirection === 'desc' ? 'asc' : 'desc';
+      else {
+        state.skillSortKey = key;
+        state.skillSortDirection = 'desc';
+      }
+      state.skillPage = 1;
+      renderSkills();
+    }
+    const pageButton = event.target.closest('[data-skill-page]');
+    if (pageButton && !pageButton.disabled) {
+      state.skillPage += pageButton.dataset.skillPage === 'next' ? 1 : -1;
+      renderSkills();
+      document.querySelector('.skill-pagination.top')?.scrollIntoView({ block: 'nearest' });
+    }
+    const copyButton = event.target.closest('[data-copy]');
+    if (copyButton) copy(copyButton.dataset.copy);
+    const copyCommand = event.target.closest('[data-copy-command]');
+    if (copyCommand) {
+      const item = state.data.commands.find((command) => command.id === copyCommand.dataset.copyCommand);
+      copy(commandText(item));
+    }
+    const runButton = event.target.closest('[data-run-command], [data-command-click]');
+    if (runButton) runCommand(runButton.dataset.runCommand || runButton.dataset.commandClick).catch((error) => toast(error.message));
+    const insight = event.target.closest('[data-focus-types]');
+    if (insight) focusGraphTypes(insight.dataset.focusTypes.split(','));
+    const selected = event.target.closest('[data-select-node]');
+    if (selected) {
+      state.graph.selectedId = selected.dataset.selectNode;
+      const node = state.data.graph.nodes.find((item) => item.id === state.graph.selectedId);
+      if (['family', 'platform', 'category'].includes(node?.type)) setGraphScope(node.id, false);
+      renderGraphDetail();
+      scheduleGraph();
+    }
+    const focusNode = event.target.closest('[data-focus-node]');
+    if (focusNode) {
+      state.graph.focusId = focusNode.dataset.focusNode;
+      scheduleGraph();
+    }
+    const locateSkill = event.target.closest('[data-locate-skill]');
+    if (locateSkill) {
+      state.skillFilter = locateSkill.dataset.locateSkill;
+      state.skillPage = 1;
+      $('skill-filter').value = state.skillFilter;
+      renderSkills();
+      $('skills').scrollIntoView({ block: 'start' });
+    }
+  });
+
+  document.addEventListener('pointerover', (event) => {
+    const source = event.target.closest('[data-source-skill]');
+    if (source) showSourceTooltip(source);
+    const skill = event.target.closest('[data-skill-name]');
+    if (skill) showSkillTooltip(skill);
+    if (event.target.closest('#source-tooltip')) window.clearTimeout(state.sourceTooltipTimer);
+  });
+
+  document.addEventListener('pointerout', (event) => {
+    if (event.target.closest('[data-source-skill], [data-skill-name], #source-tooltip')) scheduleSourceTooltipHide();
+  });
+
+  document.addEventListener('focusin', (event) => {
+    const source = event.target.closest('[data-source-skill]');
+    if (source) showSourceTooltip(source);
+    const skill = event.target.closest('[data-skill-name]');
+    if (skill) showSkillTooltip(skill);
+  });
+
+  document.addEventListener('focusout', (event) => {
+    if (event.target.closest('[data-source-skill], [data-skill-name]')) scheduleSourceTooltipHide();
+  });
+
+  document.addEventListener('change', (event) => {
+    if (event.target.id === 'graph-scope-select') {
+      setGraphScope(event.target.value);
+      return;
+    }
+    const type = event.target.dataset.edgeType;
+    if (!type) return;
+    if (event.target.checked) state.graph.enabledTypes.add(type);
+    else state.graph.enabledTypes.delete(type);
+    state.graph.selectedId = null;
+    renderGraphDetail();
+    scheduleGraph();
+  });
+
+  $('refresh-btn').addEventListener('click', () => loadDashboard(true).catch((error) => toast(error.message)));
+  $('skill-filter').addEventListener('input', (event) => { state.skillFilter = event.target.value; state.skillPage = 1; renderSkills(); });
+  $('skill-usage-filter').addEventListener('change', (event) => { state.skillUsageFilter = event.target.value; state.skillPage = 1; renderSkills(); });
+  $('graph-search').addEventListener('input', (event) => { state.graph.query = event.target.value; scheduleGraph(); });
+  $('graph-reset').addEventListener('click', resetGraph);
+  $('recommend-btn').addEventListener('click', () => recommend().catch((error) => toast(error.message)));
+  $('recommend-input').addEventListener('keydown', (event) => { if (event.key === 'Enter') recommend().catch((error) => toast(error.message)); });
+  $('graph-canvas').addEventListener('pointerdown', graphPointerDown);
+  $('graph-canvas').addEventListener('pointermove', graphPointerMove);
+  $('graph-canvas').addEventListener('pointerup', graphPointerUp);
+  $('graph-canvas').addEventListener('pointercancel', graphPointerUp);
+  $('graph-canvas').addEventListener('wheel', (event) => {
+    event.preventDefault();
+    state.graph.zoom = Math.max(0.45, Math.min(2.5, state.graph.zoom * (event.deltaY > 0 ? 0.9 : 1.1)));
+    scheduleGraph();
+  }, { passive: false });
+  window.addEventListener('resize', scheduleGraph);
+  window.addEventListener('scroll', scheduleSourceTooltipHide, { passive: true });
+
+  setTheme(readStorage('skm-web-theme') || 'cyberpunk');
+  loadDashboard().catch((error) => {
+    $('loader-title').textContent = state.labels.loadFailed || initialLabel('加载失败', 'Load failed');
+    $('loader-text').textContent = error.message;
+    toast(error.message);
+  });
+})();

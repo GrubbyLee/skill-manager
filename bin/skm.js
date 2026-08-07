@@ -91,7 +91,7 @@ sources 选项：
 state 选项：
   skm state plan            只读生成治理建议，不修改 skill
   skm state list            查看 Claude Code skillOverrides 当前状态
-  skm state set <skill> --tool claude --mode <on|name-only|user-only|off>
+  skm state set <skill> --tool claude --mode <on|name-only|user-invocable-only|off>
                             写入 Claude Code 原生 skill 状态；修改前备份，默认需确认
   --scope <user|project>    指定写入用户级或项目级 Claude 设置
   --dry-run                 只显示将写入的状态
@@ -147,7 +147,7 @@ disable / enable 选项：
   skm sources missing
   skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
   skm state plan
-  skm state set gsap-plugins --tool claude --mode user-only
+  skm state set gsap-plugins --tool claude --mode user-invocable-only
   skm install ./my-skill --tool claude --dry-run
   skm update baoyu-image-gen --dry-run
   skm lock
@@ -241,7 +241,7 @@ sources options:
 state options:
   skm state plan            Generate a read-only state governance plan
   skm state list            List current Claude Code skillOverrides states
-  skm state set <skill> --tool claude --mode <on|name-only|user-only|off>
+  skm state set <skill> --tool claude --mode <on|name-only|user-invocable-only|off>
                             Write Claude Code native skill state with backup and confirmation
   --scope <user|project>    Write user-level or project-level Claude settings
   --dry-run                 Show the intended state write without changing files
@@ -297,7 +297,7 @@ Examples:
   skm sources missing
   skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
   skm state plan
-  skm state set gsap-plugins --tool claude --mode user-only
+  skm state set gsap-plugins --tool claude --mode user-invocable-only
   skm install ./my-skill --tool claude --dry-run
   skm update baoyu-image-gen --dry-run
   skm lock

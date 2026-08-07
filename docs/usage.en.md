@@ -159,7 +159,7 @@ skm web
 skm web --port 17362
 ```
 
-`web` starts a local read-only dashboard on `127.0.0.1`. The page includes overview, governance domains, skill inventory, knowledge graph preview, recommendation entry, and command center. It uses Node.js built-in `http` plus native HTML/CSS/JS, keeping the project dependency-free. The interface includes Cyberpunk, Galaxy, and Sky themes plus a 3D loading cube. Phase 1 does not execute write actions in the browser; install, update, rollback, disable, and enable capabilities are exposed as copyable dry-run commands. When facts are missing or manually refreshed, the dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files. It does not modify AIDE data, execute skills/MCP servers, or read MCP `env` values.
+`web` starts a local read-only dashboard on `127.0.0.1`. The page includes overview, a skill inventory with usage/context sorting, pagination above and below the table, and upstream-address tooltips, plus skill-description hover cards, an actionable 3D knowledge graph, recommendation entry, and command center. Graph insights expose suites, overlaps, workflows, and inferred MCP links; concrete suite/platform/category scopes isolate useful subgraphs, while node details show one-hop focus, confidence-tagged evidence, suggested commands, and inventory navigation. Read-only commands can run locally in embedded terminals, while write-capable commands remain copy-only dry-run suggestions. It uses Node.js built-in `http` plus native HTML/CSS/JS, keeping the project dependency-free. The interface includes Cyberpunk, Galaxy, and Sky themes plus a 3D loading cube. When facts are missing or manually refreshed, the dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files. It does not modify AIDE data, execute skills/MCP servers, or read MCP `env` values.
 
 ## outdated
 
@@ -267,7 +267,7 @@ skm state plan --json
 skm state list
 skm state set baoyu-image-gen --tool claude --mode name-only
 skm state set old-skill --tool claude --mode off --scope user
-skm state set old-skill --tool claude --mode user-only --dry-run
+skm state set old-skill --tool claude --mode user-invocable-only --dry-run
 ```
 
 `state` handles the lifecycle problem behind "too many skills". It does not delete skills. The recommended order is: use `state plan` first, apply native Claude Code states when appropriate, and use `skm disable <skill>` only as a reversible directory-level fallback when native AIDE state is unavailable.
@@ -275,11 +275,11 @@ skm state set old-skill --tool claude --mode user-only --dry-run
 `state plan` uses these signals:
 
 - Duplicate and never used: prefer `off`
-- Never used with high context cost: prefer `user-only`
+- Never used with high context cost: prefer `user-invocable-only`
 - Stale or occasional usage: prefer `name-only`
 - Frequently used with no obvious load issue: keep `on`
 
-Claude Code can be written automatically through `skillOverrides`. `user-only` is stored as the official `user-invocable-only` value. skm backs up the settings file before writing and asks for `yes` by default. For Codex, use the built-in `/skills` -> Enable/Disable Skills UI for now; skm does not guess or rewrite an unstable state file.
+Claude Code can be written automatically through `skillOverrides`. The official state name is `user-invocable-only`; `user-only` is kept only as a compatibility alias. skm backs up the settings file before writing and asks for `yes` by default. For Codex, use the built-in `/skills` -> Enable/Disable Skills UI for now; skm does not guess or rewrite an unstable state file.
 
 ## sessions
 

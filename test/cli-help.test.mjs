@@ -26,6 +26,7 @@ test('CLI help：支持英文输出', () => {
   assert.match(r.stdout, /--anonymize/);
   assert.match(r.stdout, /--tool <claude\|codex\|cursor\|gemini>/);
   assert.match(r.stdout, /skm state plan/);
+  assert.match(r.stdout, /user-invocable-only/);
   assert.match(r.stdout, /skm install \.\/my-skill --tool claude --dry-run/);
   assert.match(r.stdout, /skm policy check/);
   assert.match(r.stdout, /skm eval --all/);
@@ -58,6 +59,16 @@ test('CLI 参数：非法语言 fail fast', () => {
 
   assert.equal(r.status, 1);
   assert.match(r.stderr, /--lang must be zh-CN\|en/);
+});
+
+test('CLI 参数：state mode 提示包含 user-invocable-only', () => {
+  const zh = spawnSync(process.execPath, ['bin/skm.js', 'state', 'set', 'demo', '--tool', 'claude', '--mode', 'bad'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  assert.equal(zh.status, 1);
+  assert.match(zh.stderr, /user-invocable-only/);
+  assert.match(zh.stderr, /--mode 取值应为|--mode must be/);
 });
 
 test('安装脚本：非法语言在 help 前 fail fast 且报告真实值', () => {
