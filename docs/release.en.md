@@ -19,27 +19,33 @@ Enable Trusted Publisher in the npm package settings:
 
 ## Automatic Publishing
 
-`.github/workflows/npm-publish.yml` runs on `main` pushes that affect package contents:
+`.github/workflows/npm-publish.yml` runs only when a `v*` tag is pushed:
 
-1. Uses Node.js 24 and the official npm registry.
-2. Runs `npm install --ignore-scripts`, `npm run check`, and `npm test`.
-3. Runs `npm pack --dry-run --registry=https://registry.npmjs.org`.
-4. Checks whether the current `package.json` version already exists on npm.
-5. Publishes with `npm publish --provenance --registry=https://registry.npmjs.org` if the version is new.
-6. Skips cleanly if the same version is already published.
+1. Verifies that the `v<version>` tag exactly matches the version in `package.json`; if not, the workflow fails and publish is blocked.
+2. Uses Node.js 24 and the official npm registry.
+3. Runs `npm install --ignore-scripts`, `npm run check`, and `npm test`.
+4. Runs `npm pack --dry-run --registry=https://registry.npmjs.org`.
+5. Checks whether the current `package.json` version already exists on npm.
+6. Publishes with `npm publish --provenance --registry=https://registry.npmjs.org` if the version is new.
+7. Skips cleanly if the same version is already published.
+
+Tag-based publishing keeps releases explicit: a normal commit or documentation change never triggers a new npm version by accident.
 
 ## Daily Release
 
 ```bash
+# Bump the version first
 npm version patch
 git push origin main --tags
 ```
 
-A normal commit without a `package.json` version bump will not overwrite npm. This keeps commit-driven publishing practical while avoiding repeated same-version publish failures.
+`npm version` updates `package.json`, creates a `v<version>` git tag, and commits locally. After the push, GitHub Actions publishes to npm automatically.
+
+Pushing code without a tag does not trigger a release.
 
 ## Manual Trigger
 
-Use the GitHub Actions page and run “发布到 npm” manually. `force_publish` only bypasses the version-query skip; npm still refuses to overwrite an already published version.
+Use the GitHub Actions page and run "发布到 npm" manually. `force_publish` only bypasses the version-query skip; npm still refuses to overwrite an already published version.
 
 ## Safety Boundaries
 
@@ -47,3 +53,4 @@ Use the GitHub Actions page and run “发布到 npm” manually. `force_publish
 - No committed `.npmrc`.
 - GitHub-hosted runner only; self-hosted runners are not supported for Trusted Publishing.
 - `package.json` `repository.url` must continue to point to `https://github.com/GrubbyLee/skill-manager`.
+- Publishing is gated on git tags, so regular commits cannot accidentally publish.
