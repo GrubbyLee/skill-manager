@@ -946,7 +946,7 @@ tr:last-child td { border-bottom:0; }
 }
 
 .glass-terminal-wrap {
-  position:relative; width:min(900px, 88vw); max-width:92vw;
+  position:relative; width:min(1200px, 94vw); max-width:95vw;
   animation:glassSlideUp .3s cubic-bezier(.2,.8,.2,1);
   /* 外层柔光 */
   filter: drop-shadow(0 0 60px rgba(34,211,238,.08)) drop-shadow(0 20px 60px rgba(0,0,0,.5));
@@ -969,7 +969,7 @@ tr:last-child td { border-bottom:0; }
     0 -1px 0 rgba(0,0,0,.3) inset,
     0 40px 100px rgba(0,0,0,.6);
   display:flex; flex-direction:column;
-  max-height:82vh;
+  max-height:88vh;
 }
 /* 玻璃内部噪点 */
 .glass-terminal::before {
@@ -1015,10 +1015,10 @@ tr:last-child td { border-bottom:0; }
 .glass-term-close:hover, .glass-term-copy-btn:hover {
   color:#fff; border-color:rgba(255,255,255,.25); background:rgba(255,255,255,.08);
 }
-.glass-term-body { position:relative; z-index:2; flex:1; overflow:auto; min-height:220px; max-height:calc(82vh - 100px); }
+.glass-term-body { position:relative; z-index:2; flex:1; overflow:auto; min-height:300px; max-height:calc(88vh - 110px); }
 .glass-term-body pre {
-  margin:0; padding:20px 24px;
-  font:13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin:0; padding:28px 36px;
+  font:14px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color:#d1fae5; white-space:pre-wrap; overflow-wrap:anywhere;
   text-shadow:0 0 20px rgba(34,197,94,.08);
 }
