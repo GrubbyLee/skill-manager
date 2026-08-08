@@ -13,6 +13,10 @@
     skillSortKey: 'usage',
     skillSortDirection: 'desc',
     sourceTooltipTimer: 0,
+    cmdQuery: '',
+    cmdGroup: 'all',
+    cmdFavorites: new Set(),
+    cmdTerminals: new Map(), // id -> { status, output }
     graph: {
       enabledTypes: new Set(),
       positions: new Map(),
@@ -117,6 +121,7 @@
     state.data = await response.json();
     state.labels = state.data.labels || {};
     initializeGraph();
+    loadCmdFavorites();
     renderAll();
   }
 
@@ -666,47 +671,367 @@
     scheduleGraph();
   }
 
-  function renderCommands() {
+  // ── 命令中心 ──────────────────────────────────────────────────
+
+  const CMD_ICONS = {
+    dashboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+    radar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/><path d="M12 3v18M3 12h18M5.5 5.5l13 13M18.5 5.5l-13 13"/></svg>',
+    stethoscope: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3v6a4 4 0 0 0 8 0V3"/><circle cx="6" cy="3" r="1.5"/><circle cx="14" cy="3" r="1.5"/><path d="M10 13v3a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="14" r="1.5"/></svg>',
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
+    list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="5" cy="6" r="1" fill="currentColor"/><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="5" cy="18" r="1" fill="currentColor"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+    sparkles: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.5L18 9l-4.2 1.5L12 15l-1.8-4.5L6 9l4.2-1.5L12 3z"/><path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"/><path d="M5 15l.6 1.5 1.5.6-1.5.6-.6 1.5-.6-1.5-1.5-.6 1.5-.6.6-1.5z"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7L11.5 7"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7L12.5 17"/></svg>',
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>',
+    undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v1"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4l14 8-14 8V4z"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+    sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h6M14 6h6M4 12h4M16 12h4M4 18h8M16 18h4"/><circle cx="12" cy="6" r="2"/><circle cx="14" cy="12" r="2"/><circle cx="14" cy="18" r="2"/></svg>',
+    star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.9 6.3 6.9.7-5.2 4.6 1.5 6.6L12 17.8 5.9 21.2l1.5-6.6L2.2 10l6.9-.7L12 3z"/></svg>',
+    graph: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="18" r="2"/><circle cx="18" cy="16" r="2"/><circle cx="12" cy="6" r="2"/><path d="M7.5 16.5 11 7.5M13 7.5l3.5 7"/></svg>',
+    file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6z"/><path d="M14 3v6h6"/></svg>',
+  };
+
+  const CMD_GROUPS = [
+    { key: 'all', labelKey: 'cmdAll' },
+    { key: 'diagnosis', labelKey: 'cmdGroupDiagnosis' },
+    { key: 'explore', labelKey: 'cmdGroupExplore' },
+    { key: 'audit', labelKey: 'cmdGroupAudit' },
+    { key: 'lifecycle', labelKey: 'cmdGroupLifecycle' },
+  ];
+
+  const CMD_WORKFLOWS = [
+    {
+      id: 'quick-check',
+      steps: [
+        { cmd: 'status', label: '1. 健康体检' },
+        { cmd: 'risks', label: '2. 风险扫描' },
+        { cmd: 'doctor', label: '3. 环境诊断' },
+      ],
+    },
+    {
+      id: 'deep-audit',
+      steps: [
+        { cmd: 'audit', label: '1. 使用审计' },
+        { cmd: 'dupes', label: '2. 重复检测' },
+        { cmd: 'outdated', label: '3. 版本检查' },
+      ],
+    },
+    {
+      id: 'cleanup',
+      steps: [
+        { cmd: 'sessions', label: '1. 会话清理计划' },
+        { cmd: 'disable', label: '2. 软禁用预览' },
+        { cmd: 'policy', label: '3. 策略检查' },
+      ],
+    },
+  ];
+
+  function loadCmdFavorites() {
+    try {
+      const raw = localStorage.getItem('skm-cmd-favorites');
+      if (raw) state.cmdFavorites = new Set(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }
+
+  function saveCmdFavorites() {
+    try {
+      localStorage.setItem('skm-cmd-favorites', JSON.stringify([...state.cmdFavorites]));
+    } catch { /* ignore */ }
+  }
+
+  function toggleFavorite(id) {
+    if (state.cmdFavorites.has(id)) state.cmdFavorites.delete(id);
+    else state.cmdFavorites.add(id);
+    saveCmdFavorites();
+    renderCommands();
+  }
+
+  function filteredCommands() {
+    const all = state.data.commands || [];
+    const q = state.cmdQuery.trim().toLowerCase();
+    let list = all;
+    if (state.cmdGroup === 'favorites') {
+      list = all.filter((c) => state.cmdFavorites.has(c.id));
+    } else if (state.cmdGroup !== 'all') {
+      list = all.filter((c) => c.group === state.cmdGroup);
+    }
+    if (q) {
+      list = list.filter((c) =>
+        c.id.toLowerCase().includes(q) ||
+        c.command.toLowerCase().includes(q) ||
+        (c.description || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }
+
+  function renderCmdFilterTabs() {
     const labels = state.labels;
-    $('command-list').innerHTML = state.data.commands.map((item) => {
-      const examples = (item.examples || []).map((example) => `<code>${esc(example)}</code>`).join('');
-      const runButton = item.executable ? `<button class="action-btn primary" data-run-command="${esc(item.id)}">${esc(labels.cmdRun)}</button>` : '';
-    return `<article class="card command-card" data-command-card="${esc(item.id)}">
-        <div class="command-head"><strong>${esc(item.id)} ${item.mode === 'dry-run' ? pill(labels.dryRunBadge || 'dry-run', 'dry') : pill(labels.readonly)}</strong><button class="icon-button" data-copy="${esc(item.command)}" title="${esc(labels.copyCommand)}">⧉</button></div>
-        <p>${esc(item.description)}</p>
-        <button class="command-line" data-command-click="${esc(item.id)}">${esc(item.command)}</button>
-        <label class="parameter-label">${esc(labels.cmdParameters)}<input data-command-args="${esc(item.id)}" placeholder="${esc(item.params || labels.cmdNoParameters)}" ${item.params ? '' : 'disabled'}></label>
-        <details><summary>${esc(labels.cmdHelp)}</summary><p>${esc(item.hint)}</p><div class="command-examples">${examples}</div></details>
-        <div class="command-actions">${runButton}<button class="action-btn" data-copy-command="${esc(item.id)}">${esc(labels.copyCommand)}</button></div>
-        <div class="cmd-terminal hidden" data-terminal="${esc(item.id)}"><div class="dots"><span></span><span></span><span></span></div><pre></pre></div>
-      </article>`;
+    const tabs = [...CMD_GROUPS, { key: 'favorites', labelKey: 'cmdFavorites' }];
+    $('cmd-filter-tabs').innerHTML = tabs.map((tab) => {
+      const active = state.cmdGroup === tab.key ? 'active' : '';
+      return `<button class="cmd-tab ${active}" data-cmd-group="${esc(tab.key)}">${esc(labels[tab.labelKey] || tab.key)}</button>`;
     }).join('');
   }
 
-  async function runCommand(id) {
-    const item = state.data.commands.find((command) => command.id === id);
-    if (!item?.executable) return copy(commandText(item));
-    const terminal = document.querySelector(`[data-terminal="${cssEscape(id)}"]`);
-    const output = terminal.querySelector('pre');
-    terminal.classList.remove('hidden');
-    output.textContent = `$ ${commandText(item)}\n\n${state.labels.cmdLoading}`;
-    const args = document.querySelector(`[data-command-args="${cssEscape(id)}"]`)?.value.trim() || '';
-    const response = await fetch(apiUrl('/api/run', { cmd: id, args }));
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || result.error || state.labels.cmdError);
-    const body = result.isJson ? JSON.stringify(result.data, null, 2) : (result.stdout || state.labels.cmdNoOutput);
-    output.textContent = `$ ${result.command}\n[exit ${result.exitCode ?? 1}]\n\n${body}${result.stderr ? `\n\n--- stderr ---\n${result.stderr}` : ''}`;
+  function renderWorkflows() {
+    const labels = state.labels;
+    const items = [
+      { key: 'quick-check', label: labels.cmdWorkflowQuickCheck, cmds: ['status', 'risks', 'doctor'] },
+      { key: 'deep-audit', label: labels.cmdWorkflowDeepAudit, cmds: ['audit', 'dupes', 'outdated'] },
+      { key: 'cleanup', label: labels.cmdWorkflowCleanup, cmds: ['sessions', 'disable', 'policy'] },
+    ];
+    $('cmd-workflows').innerHTML = `
+      <div class="cmd-workflows-header"><span>${esc(labels.cmdWorkflows)}</span></div>
+      <div class="cmd-workflows-list">
+        ${items.map((w) => `
+          <div class="workflow-card">
+            <div class="workflow-title">${esc(w.label)}</div>
+            <div class="workflow-steps">
+              ${w.cmds.map((cmd, i) => {
+                const item = (state.data.commands || []).find((c) => c.id === cmd);
+                if (!item) return '';
+                return `<button class="workflow-step" data-workflow-step="${esc(cmd)}">
+                  <span class="step-index">${i + 1}</span>
+                  <span class="step-cmd">${esc(item.command.replace(/\s*<[^>]+>/g, ''))}</span>
+                </button>`;
+              }).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderCommands() {
+    const labels = state.labels;
+    renderCmdFilterTabs();
+    renderWorkflows();
+
+    const list = filteredCommands();
+    const groups = {};
+    for (const item of list) {
+      const g = item.group || 'other';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(item);
+    }
+
+    const groupOrder = ['diagnosis', 'explore', 'audit', 'lifecycle', 'other'];
+    let html = '';
+    for (const gkey of groupOrder) {
+      const items = groups[gkey];
+      if (!items?.length) continue;
+      const groupLabel = labels[`cmdGroup${gkey.charAt(0).toUpperCase() + gkey.slice(1)}`] || gkey;
+      html += `<div class="cmd-group">
+        <h4 class="cmd-group-title">${esc(groupLabel)} <span class="cmd-group-count">${items.length}</span></h4>
+        <div class="cmd-grid">${items.map(renderCommandCard).join('')}</div>
+      </div>`;
+    }
+    if (!list.length) html = `<div class="cmd-empty">${esc(labels.noResults || '无结果')}</div>`;
+    $('command-list').innerHTML = html;
+  }
+
+  function renderCommandCard(item) {
+    const labels = state.labels;
+    const icon = CMD_ICONS[item.icon] || CMD_ICONS.star;
+    const isFav = state.cmdFavorites.has(item.id);
+    const modeBadge = item.mode === 'dry-run'
+      ? pill(labels.dryRunBadge || 'dry-run', 'dry')
+      : item.mode === 'write'
+      ? pill(labels.writeBadge || 'write', 'write')
+      : pill(labels.readonly, 'read');
+
+    const paramsHtml = (item.params || []).map((p) => {
+      const isBool = p.type === 'bool' || p.type === 'subcommand';
+      const hasValues = p.values && p.values.length;
+      return `<div class="param-chip" data-param="${esc(item.id)}:${esc(p.flag)}" title="${esc(p.hint || '')}">
+        <span class="param-name">${esc(p.flag)}</span>
+        ${isBool ? '' : hasValues
+          ? `<select class="param-select" data-param-select="${esc(item.id)}:${esc(p.flag)}">
+              <option value="">—</option>
+              ${p.values.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}
+            </select>`
+          : `<input class="param-input" data-param-input="${esc(item.id)}:${esc(p.flag)}" placeholder="${esc(p.label || '')}" size="6">`}
+      </div>`;
+    }).join('');
+
+    const examplesHtml = (item.examples || []).map((ex) =>
+      `<button class="example-chip" data-example="${esc(item.id)}" data-example-text="${esc(ex)}" title="${esc(labels.cmdClickToFill || '')}">${esc(ex)}</button>`
+    ).join('');
+
+    const runButton = item.executable
+      ? `<button class="action-btn primary" data-run-command="${esc(item.id)}">${esc(labels.cmdRun)}</button>`
+      : '';
+
+    const favTitle = isFav ? (labels.cmdUnfavorite || '取消收藏') : (labels.cmdFavorite || '收藏');
+    const favIcon = isFav ? '★' : '☆';
+
+    return `<article class="card command-card" data-command-card="${esc(item.id)}">
+      <div class="command-head">
+        <div class="cmd-title-wrap">
+          <span class="cmd-icon" aria-hidden="true">${icon}</span>
+          <div class="cmd-title-text">
+            <strong>${esc(item.id)}</strong>
+            ${modeBadge}
+          </div>
+        </div>
+        <div class="cmd-head-actions">
+          <button class="icon-button cmd-fav-btn ${isFav ? 'active' : ''}" data-fav="${esc(item.id)}" title="${esc(favTitle)}">${favIcon}</button>
+          <button class="icon-button" data-copy="${esc(item.command)}" title="${esc(labels.copyCommand)}">⧉</button>
+        </div>
+      </div>
+      <p class="cmd-desc">${esc(item.description)}</p>
+      <button class="command-line" data-command-click="${esc(item.id)}">${esc(item.command)}</button>
+      <div class="cmd-params-block">
+        <div class="cmd-params-label">${esc(labels.cmdParameters)}</div>
+        <div class="param-chips">${paramsHtml || `<span class="muted">${esc(labels.cmdNoParameters)}</span>`}</div>
+      </div>
+      <details class="cmd-details">
+        <summary>${esc(labels.cmdHelp)}</summary>
+        <p class="cmd-hint">${esc(item.hint)}</p>
+        <div class="cmd-examples-label">${esc(labels.cmdExamples)}</div>
+        <div class="command-examples">${examplesHtml}</div>
+      </details>
+      <div class="command-actions">
+        ${runButton}
+        <button class="action-btn" data-copy-command="${esc(item.id)}">${esc(labels.copyCommand)}</button>
+      </div>
+      <div class="cmd-terminal hidden" data-terminal="${esc(item.id)}">
+        <div class="cmd-terminal-bar">
+          <span class="dots"><span></span><span></span><span></span></span>
+          <span class="cmd-term-title"></span>
+          <button class="cmd-term-copy" title="${esc(labels.cmdCopyOutput || '')}">⧉</button>
+        </div>
+        <pre></pre>
+      </div>
+    </article>`;
+  }
+
+  function fillExample(id, text) {
+    const item = state.data.commands.find((c) => c.id === id);
+    if (!item) return;
+    // 提取 base command 和额外参数
+    const base = item.command.replace(/\s*<[^>]+>/g, '').trim();
+    const extra = text.slice(base.length).trim();
+    const input = document.querySelector(`[data-command-args="${cssEscape(id)}"]`);
+    if (input) {
+      input.value = extra;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    // 更新命令行显示
+    const lineBtn = document.querySelector(`[data-command-click="${cssEscape(id)}"]`);
+    if (lineBtn) lineBtn.textContent = text;
   }
 
   function commandText(item) {
     if (!item) return '';
-    const args = document.querySelector(`[data-command-args="${cssEscape(item.id)}"]`)?.value.trim() || '';
-    return `${item.command.replace(/\s*<[^>]+>/g, '')}${args ? ` ${args}` : ''}`.trim();
+    const params = item.params || [];
+    const parts = [];
+    for (const p of params) {
+      if (p.type === 'positional') {
+        const input = document.querySelector(`[data-param-input="${cssEscape(item.id)}:${cssEscape(p.flag)}"]`);
+        if (input?.value) parts.push(quoteArg(input.value.trim()));
+      } else if (p.type === 'bool') {
+        const chip = document.querySelector(`[data-param="${cssEscape(item.id)}:${cssEscape(p.flag)}"]`);
+        if (chip?.classList.contains('active')) parts.push(p.flag);
+      } else if (p.type === 'subcommand') {
+        const chip = document.querySelector(`[data-param="${cssEscape(item.id)}:${cssEscape(p.flag)}"]`);
+        if (chip?.classList.contains('active')) parts.push(p.flag.replace(/^--/, ''));
+      } else {
+        const select = document.querySelector(`[data-param-select="${cssEscape(item.id)}:${cssEscape(p.flag)}"]`);
+        const input = document.querySelector(`[data-param-input="${cssEscape(item.id)}:${cssEscape(p.flag)}"]`);
+        let val = '';
+        if (select && select.value) val = select.value;
+        else if (input && input.value) val = input.value.trim();
+        if (val) parts.push(`${p.flag} ${quoteArg(val)}`);
+      }
+    }
+    const base = item.command.replace(/\s*<[^>]+>/g, '').trim();
+    return `${base} ${parts.join(' ')}`.trim();
+  }
+
+  function quoteArg(value) {
+    if (/^[a-z0-9._=/:-]+$/i.test(value)) return value;
+    return `"${String(value).replace(/"/g, '\\"')}"`;
+  }
+
+  async function runCommand(id) {
+    const item = state.data.commands.find((command) => command.id === id);
+    if (!item?.executable) {
+      copy(commandText(item));
+      return;
+    }
+    const terminal = document.querySelector(`[data-terminal="${cssEscape(id)}"]`);
+    const output = terminal.querySelector('pre');
+    const title = terminal.querySelector('.cmd-term-title');
+    terminal.classList.remove('hidden');
+    terminal.classList.remove('error');
+    terminal.classList.add('running');
+
+    const fullCmd = commandText(item);
+    title.textContent = fullCmd;
+    output.textContent = '';
+
+    // 打字机效果显示命令行
+    await typeText(output, `$ ${fullCmd}\n\n`, 15);
+    output.textContent += state.labels.cmdLoading;
+
+    const argsInput = document.querySelector(`[data-command-args="${cssEscape(id)}"]`);
+    // 从当前参数芯片拼装 args 字符串
+    const base = item.command.replace(/\s*<[^>]+>/g, '').trim();
+    const argsStr = fullCmd.slice(base.length).trim();
+
+    try {
+      const response = await fetch(apiUrl('/api/run', { cmd: id, args: argsStr }));
+      const result = await response.json();
+      output.textContent = `$ ${result.command}\n`;
+      if (!response.ok) {
+        terminal.classList.add('error');
+        output.textContent += `\n[error] ${result.message || result.error || state.labels.cmdError}`;
+      } else {
+        const body = result.isJson ? JSON.stringify(result.data, null, 2) : (result.stdout || state.labels.cmdNoOutput);
+        const fullOutput = `\n[exit ${result.exitCode ?? 0}]\n\n${body}${result.stderr ? `\n\n--- stderr ---\n${result.stderr}` : ''}`;
+        await typeText(output, fullOutput, 3, output.textContent);
+        if ((result.exitCode ?? 0) !== 0) terminal.classList.add('error');
+      }
+    } catch (err) {
+      terminal.classList.add('error');
+      output.textContent += `\n\n[error] ${err.message || state.labels.cmdError}`;
+    }
+    terminal.classList.remove('running');
+  }
+
+  async function typeText(target, text, speedMs = 5, prefix = '') {
+    return new Promise((resolve) => {
+      let i = 0;
+      const total = text.length;
+      const step = Math.max(1, Math.floor(total / 200));
+      function tick() {
+        if (i >= total) {
+          target.textContent = prefix + text;
+          resolve();
+          return;
+        }
+        i += step;
+        target.textContent = prefix + text.slice(0, Math.min(i, total));
+        target.scrollTop = target.scrollHeight;
+        setTimeout(tick, speedMs);
+      }
+      tick();
+    });
   }
 
   function cssEscape(value) {
     return window.CSS?.escape ? window.CSS.escape(value) : String(value).replace(/[^a-z0-9_-]/gi, '\\$&');
   }
+
 
   async function recommend() {
     const query = $('recommend-input').value.trim();
@@ -808,6 +1133,46 @@
       const item = state.data.commands.find((command) => command.id === copyCommand.dataset.copyCommand);
       copy(commandText(item));
     }
+    const cmdGroupBtn = event.target.closest('[data-cmd-group]');
+    if (cmdGroupBtn) { state.cmdGroup = cmdGroupBtn.dataset.cmdGroup; renderCommands(); }
+    const favBtn = event.target.closest('[data-fav]');
+    if (favBtn) toggleFavorite(favBtn.dataset.fav);
+    const exampleBtn = event.target.closest('[data-example]');
+    if (exampleBtn) fillExample(exampleBtn.dataset.example, exampleBtn.dataset.exampleText);
+    const paramChip = event.target.closest('[data-param]');
+    if (paramChip && event.target.tagName !== 'INPUT' && event.target.tagName !== 'SELECT') {
+      const paramData = paramChip.dataset.param;
+      const chip = document.querySelector(`[data-param="${cssEscape(paramData)}"]`);
+      if (chip) {
+        // 仅 bool / subcommand 类型可整体点击切换
+        const [cid, pflag] = paramData.split(':', 2);
+        const item = state.data.commands.find((c) => c.id === cid);
+        const p = (item?.params || []).find((x) => x.flag === pflag);
+        if (p && (p.type === 'bool' || p.type === 'subcommand')) {
+          chip.classList.toggle('active');
+          const lineBtn = document.querySelector(`[data-command-click="${cssEscape(cid)}"]`);
+          if (lineBtn) lineBtn.textContent = commandText(item);
+        }
+      }
+    }
+    const termCopy = event.target.closest('.cmd-term-copy');
+    if (termCopy) {
+      const terminal = termCopy.closest('.cmd-terminal');
+      const pre = terminal?.querySelector('pre');
+      if (pre) copy(pre.textContent);
+    }
+    const workflowStep = event.target.closest('[data-workflow-step]');
+    if (workflowStep) {
+      const cmd = workflowStep.dataset.workflowStep;
+      // 滚动到对应命令卡片并高亮
+      const card = document.querySelector(`[data-command-card="${cssEscape(cmd)}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.transition = 'box-shadow 0.4s';
+        card.style.boxShadow = '0 0 0 2px var(--accent-1), 0 8px 30px rgba(0,0,0,.3)';
+        setTimeout(() => { card.style.boxShadow = ''; }, 1200);
+      }
+    }
     const runButton = event.target.closest('[data-run-command], [data-command-click]');
     if (runButton) runCommand(runButton.dataset.runCommand || runButton.dataset.commandClick).catch((error) => toast(error.message));
     const insight = event.target.closest('[data-focus-types]');
@@ -869,6 +1234,13 @@
     else state.graph.enabledTypes.delete(type);
     state.graph.selectedId = null;
     renderGraphDetail();
+    const paramSelect = event.target.closest('[data-param-select]');
+    if (paramSelect) {
+      const [cid] = paramSelect.dataset.paramSelect.split(':', 1);
+      const item = state.data.commands.find((c) => c.id === cid);
+      const lineBtn = document.querySelector(`[data-command-click="${cssEscape(cid)}"]`);
+      if (lineBtn && item) lineBtn.textContent = commandText(item);
+    }
     scheduleGraph();
   });
 
@@ -879,6 +1251,18 @@
   $('graph-reset').addEventListener('click', resetGraph);
   $('recommend-btn').addEventListener('click', () => recommend().catch((error) => toast(error.message)));
   $('recommend-input').addEventListener('keydown', (event) => { if (event.key === 'Enter') recommend().catch((error) => toast(error.message)); });
+  const cmdSearch = $('cmd-search');
+  if (cmdSearch) cmdSearch.addEventListener('input', (e) => { state.cmdQuery = e.target.value; renderCommands(); });
+  // 参数输入框实时更新命令行显示
+  document.addEventListener('input', (event) => {
+    const paramInput = event.target.closest('[data-param-input]');
+    if (paramInput) {
+      const [cid] = paramInput.dataset.paramInput.split(':', 1);
+      const item = state.data.commands.find((c) => c.id === cid);
+      const lineBtn = document.querySelector(`[data-command-click="${cssEscape(cid)}"]`);
+      if (lineBtn && item) lineBtn.textContent = commandText(item);
+    }
+  });
   $('graph-canvas').addEventListener('pointerdown', graphPointerDown);
   $('graph-canvas').addEventListener('pointermove', graphPointerMove);
   $('graph-canvas').addEventListener('pointerup', graphPointerUp);

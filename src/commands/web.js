@@ -299,30 +299,217 @@ function graphEdgeMeta(lang) {
 function commandCatalog(lang) {
   const en = lang === "en";
   return [
-    { id: "scan", command: "skm scan", description: en ? "Refresh inventory facts and show the governance overview" : "\u5237\u65b0\u4e8b\u5b9e\u6e05\u5355\u5e76\u5c55\u793a\u6cbb\u7406\u603b\u89c8", mode: "read", executable: true, params: "[--verbose]", examples: ["skm scan", "skm scan --verbose"], hint: en ? "Rebuilds the catalog from AIDE skill / MCP directories and refreshes the governance overview." : "\u4ece AIDE skill/MCP \u76ee\u5f55\u91cd\u5efa catalog\uff0c\u5e76\u5237\u65b0\u6cbb\u7406\u603b\u89c8\u3002" },
-    { id: "status", command: "skm", description: en ? "Show the grouped governance overview" : "\u67e5\u770b\u603b\u5206\u7ed3\u6784\u6cbb\u7406\u603b\u89c8", mode: "read", executable: true, params: "", examples: ["skm"], hint: en ? "Reads the existing catalog, usage cache, and session index to show a domain-by-domain summary." : "\u8bfb\u53d6\u5df2\u6709 catalog\u3001\u4f7f\u7528\u7f13\u5b58\u548c\u4f1a\u8bdd\u7d22\u5f15\uff0c\u6309\u6cbb\u7406\u5206\u57df\u5c55\u793a\u6458\u8981\u3002" },
-    { id: "list", command: "skm list", description: en ? "List all skills by category" : "\u6309\u5206\u7c7b\u67e5\u770b\u6240\u6709 skill", mode: "read", executable: true, params: "[--tool claude|codex|cursor|gemini] [--category keyword] [--mcp] [--raw]", examples: ["skm list", "skm list --tool claude", "skm list --mcp"], hint: en ? "Supports filtering by tool, category, and scope. Use --mcp to list MCP servers instead." : "\u652f\u6301\u6309\u5de5\u5177\u3001\u5206\u7c7b\u3001\u8303\u56f4\u8fc7\u6ee4\uff1b--mcp \u5217\u51fa MCP server\u3002" },
-    { id: "search", command: "skm search <keyword>", description: en ? "Search skills by name, category, and description" : "\u6309\u540d\u79f0\u3001\u5206\u7c7b\u548c\u63cf\u8ff0\u641c\u7d22 skill", mode: "read", executable: true, params: "<keyword> [more keywords]", examples: ["skm search markdown"], hint: en ? "Fuzzy matches against skill name, category, and description; results are sorted by relevance." : "\u5728\u540d\u79f0\u3001\u5206\u7c7b\u3001\u63cf\u8ff0\u4e2d\u6a21\u7cca\u5339\u914d\uff0c\u6309\u76f8\u5173\u5ea6\u6392\u5e8f\u3002" },
-    { id: "risks", command: "skm risks", description: en ? "Inspect duplicate, idle, context, and log risks" : "\u67e5\u770b\u91cd\u590d\u3001\u95f2\u7f6e\u3001\u4e0a\u4e0b\u6587\u548c\u65e5\u5fd7\u98ce\u9669", mode: "read", executable: true, params: "[--json]", examples: ["skm risks"], hint: en ? "Read-only risk report: duplicates, idle skills, context cost, MCP schema estimate, and session log size." : "\u53ea\u8bfb\u98ce\u9669\u62a5\u544a\uff1a\u91cd\u590d\u3001\u95f2\u7f6e skill\u3001\u4e0a\u4e0b\u6587\u5f00\u9500\u3001MCP schema \u4f30\u7b97\u3001\u4f1a\u8bdd\u65e5\u5fd7\u4f53\u79ef\u3002" },
-    { id: "audit", command: "skm audit", description: en ? "Audit usage frequency and static safety findings" : "\u5ba1\u8ba1\u771f\u5b9e\u4f7f\u7528\u9891\u7387\u548c\u9759\u6001\u5b89\u5168\u53d1\u73b0", mode: "read", executable: true, params: "[--json] [--history]", examples: ["skm audit", "skm audit --json"], hint: en ? "Usage frequency, zombie skills, MCP usage, context cost, and static security audit." : "\u4f7f\u7528\u9891\u7387\u3001\u50f5\u5c38 skill\u3001MCP \u4f7f\u7528\u3001\u4e0a\u4e0b\u6587\u5f00\u9500\u3001\u9759\u6001\u5b89\u5168\u5ba1\u8ba1\uff1b\u5feb\u7167\u81ea\u52a8\u5f52\u6863\u3002" },
-    { id: "sessions", command: "skm sessions", description: en ? "Show session log distribution" : "\u67e5\u770b\u4f1a\u8bdd\u65e5\u5fd7\u5206\u5e03", mode: "read", executable: true, params: "[--clean --days N --keep N --dry-run]", examples: ["skm sessions", "skm sessions --clean --days 30 --keep 3 --dry-run"], hint: en ? "Read-only by default. Cleanup parameters are accepted in the Web console only when --dry-run is present." : "\u9ed8\u8ba4\u53ea\u8bfb\uff1bWeb \u5de5\u4f5c\u53f0\u53ea\u5141\u8bb8\u5e26 --dry-run \u7684\u6e05\u7406\u53c2\u6570\uff0c\u4ec5\u751f\u6210\u9884\u89c8\u8ba1\u5212\u3002" },
-    { id: "doctor", command: "skm doctor", description: en ? "Diagnose environment and local prerequisites" : "\u8bca\u65ad\u73af\u5883\u548c\u672c\u673a\u4f9d\u8d56\u72b6\u6001", mode: "read", executable: true, params: "[--json]", examples: ["skm doctor"], hint: en ? "Checks Node version, zero-dependency integrity, data directories, and optional advisor CLI availability." : "\u68c0\u67e5 Node \u7248\u672c\u3001\u96f6\u4f9d\u8d56\u5b8c\u6574\u6027\u3001\u6570\u636e\u76ee\u5f55\u3001\u53ef\u9009 advisor CLI \u53ef\u7528\u6027\u3002" },
-    { id: "recommend", command: "skm ask \"task\"", description: en ? "Recommend skills for a natural-language task" : "\u6309\u81ea\u7136\u8bed\u8a00\u4efb\u52a1\u63a8\u8350 skill", mode: "read", executable: false, params: "<task description>", examples: ["skm ask \"convert web page to markdown\""], hint: en ? "Use the Recommendation section above for interactive recommendations." : "\u63a8\u8350\u529f\u80fd\u5728\u9875\u9762\u4e0a\u65b9\u7684\u63a8\u8350\u533a\u76f4\u63a5\u4ea4\u4e92\u5373\u53ef\u3002" },
-    { id: "outdated", command: "skm outdated --online", description: en ? "Check upstream freshness online" : "\u8054\u7f51\u68c0\u67e5\u4e0a\u6e38\u7248\u672c\u7ebf\u7d22", mode: "read", executable: false, params: "[--online] [--refresh]", examples: ["skm outdated", "skm outdated --online"], hint: en ? "Read-only; never auto-updates skills." : "\u53ea\u8bfb\uff0c\u4e0d\u4f1a\u81ea\u52a8\u66f4\u65b0\uff1b\u79bb\u7ebf\u6a21\u5f0f\u53ea\u770b\u672c\u5730 metadata\u3002" },
-    { id: "sources", command: "skm sources missing", description: en ? "List skills missing upstream sources" : "\u5217\u51fa\u7f3a\u5c11\u4e0a\u6e38\u6765\u6e90\u7684 skill", mode: "read", executable: false, params: "list | missing | add | remove | check | wizard", examples: ["skm sources missing"], hint: en ? "Skills without source cannot be checked for freshness." : "\u7f3a\u5c11 source \u7684 skill \u65e0\u6cd5\u5224\u65ad\u7248\u672c\u3002" },
-    { id: "state", command: "skm state plan", description: en ? "Generate a read-only state governance plan" : "\u751f\u6210\u53ea\u8bfb\u964d\u8f7d\u6cbb\u7406\u8ba1\u5212", mode: "read", executable: false, params: "plan | list | set", examples: ["skm state plan"], hint: en ? "Plan is always read-only. state set requires confirmation and supports --dry-run on CLI." : "plan \u6c38\u8fdc\u53ea\u8bfb\uff1bset \u64cd\u4f5c\u9700\u8981\u786e\u8ba4\uff0c\u547d\u4ee4\u884c\u652f\u6301 --dry-run\u3002" },
-    { id: "lock", command: "skm lock diff / verify", description: en ? "Compare or verify lifecycle baselines" : "\u5bf9\u6bd4\u6216\u6821\u9a8c\u751f\u547d\u5468\u671f\u57fa\u7ebf", mode: "read", executable: false, params: "[--json] | diff [file] | verify [file]", examples: ["skm lock diff", "skm lock verify"], hint: en ? "Use skm lock to write a baseline, then diff / verify to detect drift." : "\u5148\u5728\u547d\u4ee4\u884c\u7528 skm lock \u5efa\u57fa\u7ebf\uff0c\u518d diff/verify \u770b\u6f02\u79fb\u3002" },
-    { id: "policy", command: "skm policy check", description: en ? "Check lifecycle governance policy" : "\u68c0\u67e5\u751f\u547d\u5468\u671f\u6cbb\u7406\u7b56\u7565", mode: "read", executable: false, params: "init | check [--json]", examples: ["skm policy check"], hint: en ? "Run policy init once to create thresholds, then policy check." : "\u5148 policy init \u5efa\u9ed8\u8ba4\u9608\u503c\uff0c\u518d policy check \u68c0\u67e5\u3002" },
-    { id: "eval", command: "skm eval --all", description: en ? "Evaluate skill quality and cleanup priority" : "\u8bc4\u6d4b skill \u8d28\u91cf\u548c\u6574\u7406\u4f18\u5148\u7ea7", mode: "read", executable: false, params: "[skill] [--all] [--json]", examples: ["skm eval --all"], hint: en ? "Quality scoring: description completeness, freshness, usage, security findings." : "\u4ece\u63cf\u8ff0\u5b8c\u6574\u5ea6\u3001\u7248\u672c\u7ebf\u7d22\u3001\u4f7f\u7528\u9891\u7387\u3001\u5b89\u5168\u53d1\u73b0\u7b49\u7ef4\u5ea6\u6253\u5206\u3002" },
-    { id: "graph", command: "skm graph --format html", description: en ? "Export the full knowledge graph" : "\u5bfc\u51fa\u5b8c\u6574\u77e5\u8bc6\u56fe\u8c31", mode: "read", executable: false, params: "--format html --output <file>", examples: ["skm graph --format html --output skill-graph.html"], hint: en ? "The graph section above already supports filtering, search, and drag." : "\u9875\u9762\u4e0a\u65b9\u77e5\u8bc6\u56fe\u8c31\u5df2\u652f\u6301\u8fc7\u6ee4\u3001\u641c\u7d22\u3001\u62d6\u52a8\uff1b\u5b8c\u6574 HTML \u7528\u547d\u4ee4\u884c\u5bfc\u51fa\u3002" },
-    { id: "report", command: "skm report --format html", description: en ? "Export a one-page HTML report" : "\u5bfc\u51fa\u4e00\u9875\u5f0f HTML \u62a5\u544a", mode: "read", executable: false, params: "--format html|json|summary [--output <file>] [--anonymize]", examples: ["skm report --format html --output skm-report.html"], hint: en ? "Exports health, risks, usage, sessions, and graph summary to a single HTML page." : "\u628a\u5065\u5eb7\u5206\u3001\u98ce\u9669\u3001\u4f7f\u7528\u3001\u4f1a\u8bdd\u3001\u56fe\u8c31\u6c47\u603b\u5bfc\u51fa\u5230\u5355\u9875 HTML\u3002" },
-    { id: "install", command: "skm install <source> --dry-run", description: en ? "Preview a skill install plan" : "\u9884\u89c8 skill \u5b89\u88c5\u8ba1\u5212", mode: "dry-run", executable: false, params: "<source> --tool <tool> [--dry-run] [--yes]", examples: ["skm install ./my-skill --tool claude --dry-run"], hint: en ? "Write action. Always run with --dry-run first." : "\u5199\u64cd\u4f5c\u3002\u5148\u52a0 --dry-run \u770b\u8ba1\u5212\uff0c\u786e\u8ba4\u65e0\u8bef\u540e\u53bb\u6389\u518d\u6267\u884c\u3002" },
-    { id: "update", command: "skm update <skill> --dry-run", description: en ? "Preview a skill update plan" : "\u9884\u89c8 skill \u66f4\u65b0\u8ba1\u5212", mode: "dry-run", executable: false, params: "<skill> [--tool <tool>] [--dry-run] [--yes]", examples: ["skm update baoyu-image-gen --dry-run"], hint: en ? "Write action. Backs up old directory; --dry-run recommended first." : "\u5199\u64cd\u4f5c\u3002\u66f4\u65b0\u524d\u5907\u4efd\u65e7\u76ee\u5f55\uff1b\u5efa\u8bae\u5148 --dry-run\u3002" },
-    { id: "rollback", command: "skm rollback <skill> --dry-run", description: en ? "Preview a skill rollback plan" : "\u9884\u89c8 skill \u56de\u6eda\u8ba1\u5212", mode: "dry-run", executable: false, params: "<skill> [--tool <tool>] [--dry-run] [--yes]", examples: ["skm rollback baoyu-image-gen --dry-run"], hint: en ? "Write action. Restores from backup; backs up current state before rollback." : "\u5199\u64cd\u4f5c\u3002\u4ece skm \u5907\u4efd\u6062\u590d\uff1b\u56de\u6eda\u524d\u518d\u5907\u4efd\u5f53\u524d\u72b6\u6001\uff1b\u5148 --dry-run\u3002" },
-    { id: "disable", command: "skm disable <skill> --dry-run", description: en ? "Preview a soft-disable action" : "\u9884\u89c8\u8f6f\u7981\u7528\u64cd\u4f5c", mode: "dry-run", executable: false, params: "<skill> [--mcp <name>] [--dry-run]", examples: ["skm disable gsap-plugins --dry-run", "skm disable --mcp drawio --dry-run"], hint: en ? "Write action. Renames directories or edits MCP config. --dry-run shows plan only." : "\u5199\u64cd\u4f5c\u3002\u91cd\u547d\u540d\u76ee\u5f55\u6216\u4fee\u6539 MCP \u914d\u7f6e\uff1b--dry-run \u53ea\u770b\u8ba1\u5212\uff0c\u4e0d\u6539\u52a8\u3002" },
-    { id: "enable", command: "skm enable", description: en ? "List restorable disabled items" : "\u67e5\u770b\u53ef\u6062\u590d\u7684\u7981\u7528\u9879", mode: "read", executable: false, params: "[skill...] [--mcp <name>] [--dry-run]", examples: ["skm enable", "skm enable gsap-plugins --dry-run"], hint: en ? "Without arguments, lists disabled items. Named restore supports --dry-run on CLI." : "\u4e0d\u5e26\u53c2\u6570\u5217\u51fa\u5df2\u7981\u7528\u9879\uff1b\u5e26\u540d\u79f0\u6062\u590d\u65f6\uff0c\u547d\u4ee4\u884c\u652f\u6301 --dry-run\u3002" },
+    // ── 总览诊断 ──────────────────────────────────────
+    { id: "status", group: "diagnosis", icon: "dashboard", command: "skm",
+      description: en ? "Show the grouped governance overview" : "查看总分结构治理总览",
+      mode: "read", executable: true,
+      params: [],
+      examples: ["skm"],
+      hint: en ? "Reads the existing catalog, usage cache, and session index to show a domain-by-domain summary." : "读取已有 catalog、使用缓存和会话索引，按治理分域展示摘要。" },
+    { id: "scan", group: "diagnosis", icon: "radar", command: "skm scan",
+      description: en ? "Refresh inventory facts and rebuild the catalog" : "刷新事实清单并重建 catalog",
+      mode: "read", executable: true,
+      params: [
+        { flag: "--verbose", label: en ? "verbose" : "详细", type: "bool", hint: en ? "Show per-category breakdown" : "显示逐分类明细" }
+      ],
+      examples: ["skm scan", "skm scan --verbose"],
+      hint: en ? "Rebuilds the catalog from AIDE skill / MCP directories and refreshes the governance overview." : "从 AIDE skill/MCP 目录重建 catalog，并刷新治理总览。" },
+    { id: "doctor", group: "diagnosis", icon: "stethoscope", command: "skm doctor",
+      description: en ? "Diagnose environment and local prerequisites" : "诊断环境和本机依赖状态",
+      mode: "read", executable: true,
+      params: [
+        { flag: "--json", label: "JSON", type: "bool", hint: en ? "Machine-readable output" : "机器可读输出" }
+      ],
+      examples: ["skm doctor"],
+      hint: en ? "Checks Node version, zero-dependency integrity, data directories, and optional advisor CLI availability." : "检查 Node 版本、零依赖完整性、数据目录、可选 advisor CLI 可用性。" },
+    { id: "risks", group: "diagnosis", icon: "shield", command: "skm risks",
+      description: en ? "Inspect duplicate, idle, context, and log risks" : "查看重复、闲置、上下文和日志风险",
+      mode: "read", executable: true,
+      params: [
+        { flag: "--json", label: "JSON", type: "bool", hint: en ? "Machine-readable output" : "机器可读输出" }
+      ],
+      examples: ["skm risks"],
+      hint: en ? "Read-only risk report: duplicates, idle skills, context cost, MCP schema estimate, and session log size." : "只读风险报告：重复、闲置 skill、上下文开销、MCP schema 估算、会话日志体积。" },
+
+    // ── 探查检索 ──────────────────────────────────────
+    { id: "list", group: "explore", icon: "list", command: "skm list",
+      description: en ? "List all skills by category" : "按分类查看所有 skill",
+      mode: "read", executable: true,
+      params: [
+        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex", "cursor", "gemini"], hint: en ? "Filter by client tool" : "按客户端工具筛选" },
+        { flag: "--category", label: en ? "category" : "分类", type: "value", hint: en ? "Filter by category keyword" : "按分类关键词筛选" },
+        { flag: "--mcp", label: "MCP", type: "bool", hint: en ? "List MCP servers instead" : "列出 MCP server" },
+        { flag: "--raw", label: en ? "raw" : "原始", type: "bool", hint: en ? "Raw table output" : "原始表格输出" }
+      ],
+      examples: ["skm list", "skm list --tool claude", "skm list --mcp"],
+      hint: en ? "Supports filtering by tool, category, and scope. Use --mcp to list MCP servers instead." : "支持按工具、分类、范围过滤；--mcp 列出 MCP server。" },
+    { id: "search", group: "explore", icon: "search", command: "skm search <keyword>",
+      description: en ? "Search skills by name, category, and description" : "按名称、分类和描述搜索 skill",
+      mode: "read", executable: true,
+      params: [
+        { flag: "<keyword>", label: en ? "keyword" : "关键词", type: "positional", hint: en ? "One or more keywords" : "一个或多个关键词" }
+      ],
+      examples: ["skm search markdown"],
+      hint: en ? "Fuzzy matches against skill name, category, and description; results are sorted by relevance." : "在名称、分类、描述中模糊匹配，按相关度排序。" },
+    { id: "ask", group: "explore", icon: "sparkles", command: 'skm ask "task"',
+      description: en ? "Recommend skills for a natural-language task" : "按自然语言任务推荐 skill",
+      mode: "read", executable: false,
+      params: [
+        { flag: "<task>", label: en ? "task" : "任务", type: "positional", hint: en ? "Describe what you want to do" : "描述你想做什么" }
+      ],
+      examples: ['skm ask "convert web page to markdown"'],
+      hint: en ? "Use the Recommendation section above for interactive recommendations." : "推荐功能在页面上方「智能推荐」区，可直接交互。" },
+    { id: "dupes", group: "explore", icon: "copy", command: "skm dupes",
+      description: en ? "Detect duplicate and near-duplicate skills" : "检测重复和近似重复 skill",
+      mode: "read", executable: false,
+      params: [
+        { flag: "--json", label: "JSON", type: "bool", hint: en ? "Machine-readable output" : "机器可读输出" }
+      ],
+      examples: ["skm dupes"],
+      hint: en ? "Four levels: same-name, strong alternative, weak alternative, and same-category overlap." : "四级检测：同名、强备选、弱备选、同类重叠。" },
+
+    // ── 使用审计 ──────────────────────────────────────
+    { id: "audit", group: "audit", icon: "chart", command: "skm audit",
+      description: en ? "Audit usage frequency and static safety findings" : "审计真实使用频率和静态安全发现",
+      mode: "read", executable: true,
+      params: [
+        { flag: "--json", label: "JSON", type: "bool", hint: en ? "Machine-readable output" : "机器可读输出" },
+        { flag: "--history", label: en ? "history" : "历史", type: "bool", hint: en ? "Show trend snapshots" : "显示趋势快照" }
+      ],
+      examples: ["skm audit", "skm audit --json"],
+      hint: en ? "Usage frequency, zombie skills, MCP usage, context cost, and static security audit." : "使用频率、僵尸 skill、MCP 使用、上下文开销、静态安全审计；快照自动归档。" },
+    { id: "sessions", group: "audit", icon: "clock", command: "skm sessions",
+      description: en ? "Show session log distribution and cleanup plan" : "查看会话日志分布和清理计划",
+      mode: "read", executable: true,
+      params: [
+        { flag: "--clean", label: en ? "clean" : "清理", type: "bool", hint: en ? "Run cleanup (use with --dry-run first)" : "执行清理（先 --dry-run）" },
+        { flag: "--days", label: en ? "days" : "天数", type: "value", hint: en ? "Keep sessions within N days" : "保留 N 天内的会话" },
+        { flag: "--keep", label: en ? "keep" : "保留", type: "value", hint: en ? "Min sessions per workspace" : "每个工作区最少保留数" },
+        { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" }
+      ],
+      examples: ["skm sessions", "skm sessions --clean --days 30 --keep 3 --dry-run"],
+      hint: en ? "Read-only by default. Cleanup parameters are accepted in the Web console only when --dry-run is present." : "默认只读；Web 工作台只允许带 --dry-run 的清理参数，仅生成预览计划。" },
+    { id: "sources", group: "audit", icon: "link", command: "skm sources",
+      description: en ? "List upstream sources for installed skills" : "列出已安装 skill 的上游来源",
+      mode: "read", executable: false,
+      params: [
+        { flag: "missing", label: en ? "missing" : "缺失", type: "subcommand", hint: en ? "Show skills without a known source" : "显示来源不明的 skill" }
+      ],
+      examples: ["skm sources", "skm sources missing"],
+      hint: en ? "Tracks GitHub URLs, npm packages, and local paths recorded at install time." : "追踪安装时记录的 GitHub 地址、npm 包、本地路径。" },
+    { id: "outdated", group: "audit", icon: "download", command: "skm outdated",
+      description: en ? "Check for newer versions of installed skills" : "检查已安装 skill 的新版本",
+      mode: "read", executable: false,
+      params: [
+        { flag: "--json", label: "JSON", type: "bool", hint: en ? "Machine-readable output" : "机器可读输出" }
+      ],
+      examples: ["skm outdated"],
+      hint: en ? "Compares local version clues against upstream registry / repository." : "对比本地版本线索与上游仓库/注册表。" },
+
+    // ── 生命周期治理 ──────────────────────────────────
+    { id: "install", group: "lifecycle", icon: "plus", command: "skm install <source> --dry-run",
+      description: en ? "Preview a skill install plan" : "预览 skill 安装计划",
+      mode: "dry-run", executable: false,
+      params: [
+        { flag: "<source>", label: en ? "source" : "来源", type: "positional", hint: en ? "URL, npm path, or local directory" : "URL、npm 包或本地目录" },
+        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex"], hint: en ? "Target client tool" : "目标客户端" },
+        { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" },
+        { flag: "--yes", label: "yes", type: "bool", hint: en ? "Skip confirmation" : "跳过确认" }
+      ],
+      examples: ["skm install ./my-skill --tool claude --dry-run"],
+      hint: en ? "Write action. Always run with --dry-run first." : "写操作。先加 --dry-run 看计划，确认无误后去掉再执行。" },
+    { id: "update", group: "lifecycle", icon: "refresh", command: "skm update <skill> --dry-run",
+      description: en ? "Preview a skill update plan" : "预览 skill 更新计划",
+      mode: "dry-run", executable: false,
+      params: [
+        { flag: "<skill>", label: "skill", type: "positional", hint: en ? "Skill name to update" : "要更新的 skill 名称" },
+        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex"], hint: en ? "Target client tool" : "目标客户端" },
+        { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" },
+        { flag: "--yes", label: "yes", type: "bool", hint: en ? "Skip confirmation" : "跳过确认" }
+      ],
+      examples: ["skm update baoyu-image-gen --dry-run"],
+      hint: en ? "Write action. Backs up old directory; --dry-run recommended first." : "写操作。更新前备份旧目录；建议先 --dry-run。" },
+    { id: "rollback", group: "lifecycle", icon: "undo", command: "skm rollback <skill> --dry-run",
+      description: en ? "Preview a skill rollback plan" : "预览 skill 回滚计划",
+      mode: "dry-run", executable: false,
+      params: [
+        { flag: "<skill>", label: "skill", type: "positional", hint: en ? "Skill name to roll back" : "要回滚的 skill 名称" },
+        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex"], hint: en ? "Target client tool" : "目标客户端" },
+        { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" },
+        { flag: "--yes", label: "yes", type: "bool", hint: en ? "Skip confirmation" : "跳过确认" }
+      ],
+      examples: ["skm rollback baoyu-image-gen --dry-run"],
+      hint: en ? "Write action. Restores from backup; backs up current state before rollback." : "写操作。从 skm 备份恢复；回滚前再备份当前状态；先 --dry-run。" },
+    { id: "disable", group: "lifecycle", icon: "pause", command: "skm disable <skill> --dry-run",
+      description: en ? "Preview a soft-disable action" : "预览软禁用操作",
+      mode: "dry-run", executable: false,
+      params: [
+        { flag: "<skill>", label: "skill", type: "positional", hint: en ? "Skill name to disable" : "要禁用的 skill 名称" },
+        { flag: "--mcp", label: "MCP", type: "value", hint: en ? "MCP server name" : "MCP server 名称" },
+        { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" }
+      ],
+      examples: ["skm disable gsap-plugins --dry-run", "skm disable --mcp drawio --dry-run"],
+      hint: en ? "Write action. Renames directories or edits MCP config. --dry-run shows plan only." : "写操作。重命名目录或修改 MCP 配置；--dry-run 只看计划，不改动。" },
+    { id: "enable", group: "lifecycle", icon: "play", command: "skm enable",
+      description: en ? "List restorable disabled items or restore one" : "查看可恢复的禁用项或恢复某项",
+      mode: "read", executable: false,
+      params: [
+        { flag: "[skill]", label: "skill", type: "positional", hint: en ? "Skill name to restore (optional)" : "要恢复的 skill 名称（可选）" },
+        { flag: "--mcp", label: "MCP", type: "value", hint: en ? "MCP server name" : "MCP server 名称" },
+        { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" }
+      ],
+      examples: ["skm enable", "skm enable gsap-plugins --dry-run"],
+      hint: en ? "Without arguments, lists disabled items. Named restore supports --dry-run on CLI." : "不带参数列出已禁用项；带名称恢复时，命令行支持 --dry-run。" },
+    { id: "lock", group: "lifecycle", icon: "lock", command: "skm lock",
+      description: en ? "Pin a skill to prevent accidental updates" : "锁定 skill 防止意外更新",
+      mode: "dry-run", executable: false,
+      params: [
+        { flag: "<skill>", label: "skill", type: "positional", hint: en ? "Skill name to lock/unlock" : "要锁定的 skill 名称" },
+        { flag: "--unlock", label: en ? "unlock" : "解锁", type: "bool", hint: en ? "Remove lock" : "移除锁定" }
+      ],
+      examples: ["skm lock baoyu-image-gen"],
+      hint: en ? "Locked skills are skipped by update and rollback commands." : "被锁定的 skill 在 update / rollback 时会被跳过。" },
+    { id: "policy", group: "lifecycle", icon: "sliders", command: "skm policy",
+      description: en ? "Define and check governance policy thresholds" : "定义和检查治理策略阈值",
+      mode: "read", executable: false,
+      params: [
+        { flag: "init", label: en ? "init" : "初始化", type: "subcommand", hint: en ? "Create default policy file" : "创建默认策略文件" },
+        { flag: "check", label: en ? "check" : "检查", type: "subcommand", hint: en ? "Validate against policy" : "按策略校验" }
+      ],
+      examples: ["skm policy check"],
+      hint: en ? "Run policy init once to create thresholds, then policy check." : "先 policy init 建默认阈值，再 policy check 检查。" },
+    { id: "eval", group: "lifecycle", icon: "star", command: "skm eval --all",
+      description: en ? "Evaluate skill quality and cleanup priority" : "评测 skill 质量和整理优先级",
+      mode: "read", executable: false,
+      params: [
+        { flag: "[skill]", label: "skill", type: "positional", hint: en ? "Single skill (optional)" : "单个 skill（可选）" },
+        { flag: "--all", label: en ? "all" : "全部", type: "bool", hint: en ? "Evaluate all skills" : "评测全部 skill" },
+        { flag: "--json", label: "JSON", type: "bool", hint: en ? "Machine-readable output" : "机器可读输出" }
+      ],
+      examples: ["skm eval --all"],
+      hint: en ? "Quality scoring: description completeness, freshness, usage, security findings." : "从描述完整度、版本线索、使用频率、安全发现等维度打分。" },
+    { id: "graph", group: "lifecycle", icon: "graph", command: "skm graph --format html",
+      description: en ? "Export the full knowledge graph" : "导出完整知识图谱",
+      mode: "read", executable: false,
+      params: [
+        { flag: "--format", label: en ? "format" : "格式", type: "value", values: ["html", "json"], hint: en ? "Output format" : "输出格式" },
+        { flag: "--output", label: en ? "output" : "输出", type: "value", hint: en ? "Output file path" : "输出文件路径" }
+      ],
+      examples: ["skm graph --format html --output skill-graph.html"],
+      hint: en ? "The graph section above already supports filtering, search, and drag." : "页面上方知识图谱已支持过滤、搜索、拖动；完整 HTML 用命令行导出。" },
+    { id: "report", group: "lifecycle", icon: "file", command: "skm report --format html",
+      description: en ? "Export a one-page HTML report" : "导出一页式 HTML 报告",
+      mode: "read", executable: false,
+      params: [
+        { flag: "--format", label: en ? "format" : "格式", type: "value", values: ["html", "json", "summary"], hint: en ? "Output format" : "输出格式" },
+        { flag: "--output", label: en ? "output" : "输出", type: "value", hint: en ? "Output file path" : "输出文件路径" },
+        { flag: "--anonymize", label: en ? "anonymize" : "脱敏", type: "bool", hint: en ? "Remove personal paths" : "移除个人路径信息" }
+      ],
+      examples: ["skm report --format html --output skm-report.html"],
+      hint: en ? "Exports health, risks, usage, sessions, and graph summary to a single HTML page." : "把健康分、风险、使用、会话、图谱汇总导出到单页 HTML。" },
   ];
 }
+
 
 const READONLY_COMMANDS = new Set(['scan', 'status', 'list', 'search', 'risks', 'audit', 'sessions', 'doctor']);
 
@@ -668,6 +855,73 @@ tr:last-child td { border-bottom:0; }
 @media (max-width:1180px) { .graph-layout { grid-template-columns:190px minmax(0,1fr); } .graph-detail { grid-column:1 / -1; } .graph-insights { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:1040px) { .hero { grid-template-columns:1fr; } .layout { grid-template-columns:1fr; } .rail { position:relative; top:auto; display:flex; overflow:auto; } .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:680px) { html { scroll-padding-top:12px; } .shell, .topbar, .hero, .layout, .content, .card { max-width:100vw; min-width:0; } .topbar { position:relative; top:auto; align-items:flex-start; flex-direction:column; overflow:hidden; } .controls { width:100%; min-width:0; display:grid; grid-template-columns:1fr; gap:8px; } .lang-btn, .theme-btn, .action-btn { width:100%; min-width:0; padding:0 6px; font-size:14px; } .hero { grid-template-columns:minmax(0,1fr); overflow:hidden; } .hero-main { padding:22px; min-width:0; } .grid, .domains, .graph-layout, .graph-insights { grid-template-columns:1fr; } .wide { grid-column:1 / -1; } .hero h2 { font-size:28px; line-height:1.04; white-space:normal; } .graph-filters { max-height:250px; overflow:auto; } .graph-detail { grid-column:auto; } .graph-toolbar { align-items:stretch; flex-direction:column; } .graph-stats { white-space:normal; } .pagination { justify-content:space-between; } }
+
+/* ── 命令中心 ──────────────────────────────────── */
+.pill.read { background:color-mix(in srgb, #10b981 18%, transparent); border-color:color-mix(in srgb, #10b981 30%, transparent); color:#6ee7b7; }
+.cmd-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.cmd-search { width:200px; height:32px; padding:0 10px; border:1px solid var(--line); border-radius:7px; background:var(--panel-strong); color:var(--text); font-size:12px; }
+.cmd-filter-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+.cmd-tab { padding:4px 11px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--muted); font-size:11px; cursor:pointer; transition:.2s; }
+.cmd-tab:hover { color:var(--text); border-color:var(--accent-3); }
+.cmd-tab.active { color:var(--accent-1); border-color:var(--accent-1); background:color-mix(in srgb, var(--accent-1) 12%, transparent); }
+.cmd-workflows { margin:14px 0 2px; }
+.cmd-workflows-header { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:7px; }
+.cmd-workflows-list { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:9px; }
+.workflow-card { padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:linear-gradient(135deg, color-mix(in srgb, var(--accent-1) 8%, transparent), transparent); }
+.workflow-title { font-weight:600; font-size:12px; margin-bottom:7px; color:var(--text); }
+.workflow-steps { display:flex; flex-direction:column; gap:4px; }
+.workflow-step { display:flex; align-items:center; gap:7px; padding:4px 7px; border:1px solid var(--line); border-radius:6px; background:var(--panel); color:var(--text); font-size:11px; cursor:pointer; text-align:left; transition:.15s; }
+.workflow-step:hover { border-color:var(--accent-1); color:var(--accent-1); }
+.step-index { display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; border-radius:50%; background:var(--accent-1); color:#fff; font-size:10px; font-weight:700; flex-shrink:0; }
+.step-cmd { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:10.5px; }
+.command-groups { display:grid; gap:16px; }
+.cmd-group { display:grid; gap:8px; }
+.cmd-group-title { font-size:11.5px; color:var(--muted); margin:0; display:flex; align-items:center; gap:5px; letter-spacing:.02em; }
+.cmd-group-count { font-size:10px; padding:1px 6px; border-radius:999px; background:var(--panel-strong); border:1px solid var(--line); color:var(--muted); }
+.cmd-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:9px; }
+.cmd-empty { padding:36px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:10px; }
+.command-card { min-height:0; gap:9px; position:relative; transition:.2s transform, .2s box-shadow; }
+.command-card:hover { transform:translateY(-1px); box-shadow:var(--shadow); }
+.cmd-title-wrap { display:flex; align-items:center; gap:8px; }
+.cmd-icon { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; background:linear-gradient(135deg, color-mix(in srgb, var(--accent-1) 20%, transparent), color-mix(in srgb, var(--accent-3) 15%, transparent)); color:var(--accent-1); flex-shrink:0; }
+.cmd-icon svg { width:15px; height:15px; }
+.cmd-title-text { display:flex; flex-direction:column; gap:2px; }
+.cmd-title-text strong { font-size:12.5px; }
+.cmd-head-actions { display:flex; gap:3px; }
+.cmd-fav-btn { color:var(--muted); }
+.cmd-fav-btn.active { color:gold; border-color:gold; }
+.cmd-desc { margin:0; font-size:11px; color:var(--muted); line-height:1.5; }
+.cmd-params-block { display:grid; gap:4px; }
+.cmd-params-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+.param-chips { display:flex; flex-wrap:wrap; gap:4px; }
+.param-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 6px; border:1px solid var(--line); border-radius:6px; background:var(--panel-strong); font-size:10px; cursor:pointer; transition:.15s; }
+.param-chip:hover { border-color:var(--accent-3); }
+.param-chip.active { border-color:var(--accent-1); background:color-mix(in srgb, var(--accent-1) 12%, transparent); color:var(--accent-1); }
+.param-chip .param-name { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:var(--accent-3); }
+.param-chip.active .param-name { color:var(--accent-1); }
+.param-chip input, .param-chip select { height:20px; padding:0 4px; border:1px solid var(--line); border-radius:4px; background:var(--panel); color:var(--text); font-size:10px; width:auto; min-width:36px; }
+.cmd-details { color:var(--muted); font-size:11px; }
+.cmd-details summary { cursor:pointer; padding:2px 0; }
+.cmd-hint { margin:5px 0; color:var(--muted); line-height:1.5; }
+.cmd-examples-label { font-size:10px; margin-bottom:3px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+.command-examples { display:flex; flex-wrap:wrap; gap:4px; }
+.example-chip { padding:3px 7px; border:1px solid var(--line); border-radius:6px; background:var(--panel-strong); color:var(--accent-3); font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:10px; cursor:pointer; transition:.15s; }
+.example-chip:hover { border-color:var(--accent-1); color:var(--accent-1); }
+.cmd-terminal { border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#030712; color:#d1fae5; max-height:0; opacity:0; transition:max-height .35s ease, opacity .25s ease, margin .25s ease; margin-top:0; }
+.cmd-terminal:not(.hidden) { max-height:420px; opacity:1; margin-top:3px; }
+.cmd-terminal.hidden { display:none; }
+.cmd-terminal.error { border-color:#ef4444; box-shadow:0 0 0 1px rgba(239,68,68,.2); }
+.cmd-terminal.running { border-color:var(--accent-2); }
+.cmd-terminal-bar { display:flex; align-items:center; gap:7px; padding:6px 9px; background:rgba(255,255,255,.04); border-bottom:1px solid rgba(255,255,255,.06); font-size:10px; }
+.cmd-terminal-bar .dots { display:flex; gap:4px; }
+.cmd-terminal-bar .dots span { width:8px; height:8px; border-radius:50%; background:#374151; }
+.cmd-terminal-bar .dots span:nth-child(1) { background:#ef4444; }
+.cmd-terminal-bar .dots span:nth-child(2) { background:#f59e0b; }
+.cmd-terminal-bar .dots span:nth-child(3) { background:#10b981; }
+.cmd-term-title { flex:1; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#9ca3af; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cmd-term-copy { margin-left:auto; background:transparent; border:none; color:#6b7280; cursor:pointer; font-size:12px; padding:1px 3px; }
+.cmd-term-copy:hover { color:#d1fae5; }
+.cmd-terminal pre { max-height:340px; overflow:auto; margin:0; padding:9px; white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 </style>
 </head>
 <body data-theme="cyberpunk">
@@ -730,7 +984,17 @@ tr:last-child td { border-bottom:0; }
         </div>
       </section>
       <section id="recommend" class="card full"><div class="section-head"><div><h3>${escapeHtml(labels.navRecommend)}</h3><p>${escapeHtml(labels.recommendHint)}</p></div></div><div class="searchbar"><input id="recommend-input" placeholder="${escapeHtml(labels.recommendPlaceholder)}"><button class="action-btn primary" id="recommend-btn">${escapeHtml(labels.recommendButton)}</button></div><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>${escapeHtml(labels.name)}</th><th>${escapeHtml(labels.category)}</th><th>${escapeHtml(labels.score)}</th><th>${escapeHtml(labels.reason)}</th></tr></thead><tbody id="recommend-rows"></tbody></table></div></section>
-      <section id="commands" class="card full"><div class="section-head"><div><h3>${escapeHtml(labels.navCommands)}</h3><p>${escapeHtml(labels.commandHint)}</p></div></div><div class="domains" id="command-list"></div></section>
+      <section id="commands" class="card full">
+        <div class="section-head">
+          <div><h3>${escapeHtml(labels.navCommands)}</h3><p>${escapeHtml(labels.commandHint)}</p></div>
+          <div class="cmd-toolbar">
+            <input class="cmd-search" id="cmd-search" placeholder="${escapeHtml(labels.cmdSearchPlaceholder)}">
+            <div class="cmd-filter-tabs" id="cmd-filter-tabs"></div>
+          </div>
+        </div>
+        <div class="cmd-workflows" id="cmd-workflows"></div>
+        <div class="command-groups" id="command-list"></div>
+      </section>
     </main>
   </div>
 </div>
@@ -844,6 +1108,22 @@ function webLabels(lang) {
     cmdLoading: en ? 'Running locally...' : '正在本机运行...',
     cmdNoOutput: en ? '(No output)' : '（无输出）',
     cmdError: en ? 'Command failed' : '命令执行失败',
+    cmdSearchPlaceholder: en ? 'Search commands...' : '搜索命令...',
+    cmdGroupDiagnosis: en ? 'Overview & Diagnosis' : '总览与诊断',
+    cmdGroupExplore: en ? 'Explore & Search' : '探查与检索',
+    cmdGroupAudit: en ? 'Usage & Audit' : '使用与审计',
+    cmdGroupLifecycle: en ? 'Lifecycle Governance' : '生命周期治理',
+    cmdAll: en ? 'All' : '全部',
+    cmdFavorites: en ? 'Favorites' : '收藏',
+    cmdWorkflows: en ? 'Quick workflows' : '快速工作流',
+    cmdWorkflowQuickCheck: en ? 'Quick check' : '快速体检',
+    cmdWorkflowDeepAudit: en ? 'Deep audit' : '深入审计',
+    cmdWorkflowCleanup: en ? 'Cleanup plan' : '清理优化',
+    cmdExamples: en ? 'Examples' : '常见用法',
+    cmdClickToFill: en ? 'Click to fill' : '点击填入',
+    cmdCopyOutput: en ? 'Copy output' : '复制输出',
+    cmdFavorite: en ? 'Favorite' : '收藏',
+    cmdUnfavorite: en ? 'Unfavorite' : '取消收藏',
     loadingFallbackTitle: en ? 'Loading local governance data' : '正在读取本机治理数据',
     loadingFallbackText: en ? 'Reading catalog, usage cache, session index, and graph signals. No AIDE files are modified.' : '正在读取 catalog、使用缓存、会话索引和图谱信号。不会修改 AIDE 文件。',
     refreshingFallbackTitle: en ? 'Refreshing inventory' : '正在刷新清单',
