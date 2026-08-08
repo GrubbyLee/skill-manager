@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- skill-navigator 增强：主入口切换为 `skm ask`，补充按工具筛选、目录过期刷新建议、错误降级策略，以及 Cursor / Gemini 手动安装说明。
 - v0.1.9：新增 `skm web` 本地只读工作台，支持中英文切换、三主题切换、Skill 清单分页与排序、知识图谱联动、命令中心只读运行，以及 README 真机截图补齐。
 - 新增 skill 全生命周期治理命令：`install`、`update`、`rollback`、`lock`、`policy`、`profile`、`eval`、`history`。
 - `skm install` 会自动记录远程安装 URL 或本地 `SKILL.md` frontmatter 中的上游来源，并在安装后刷新 catalog，保证后续 `skm update` 能找到升级源。

@@ -19,6 +19,8 @@ export function runSetup(opts = {}) {
 
   const targets = bridgeSkillTargets();
   console.log(tr(lang, 'setup.title'));
+  const version = readBridgeSkillVersion();
+  if (version) console.log(tr(lang, 'setup.bridgeVersion', { version }));
   console.log(tr(lang, 'setup.bridgePlan', { name: bridgeSkillName }));
   for (const target of targets) {
     const prefix = dryRun ? '[dry-run] ' : '';
@@ -39,6 +41,17 @@ export function runSetup(opts = {}) {
     else if (result.action === 'replaced') console.log(tr(lang, 'setup.bridgeReplaced', result));
   }
   console.log(tr(lang, 'setup.done', { count: installed.length }));
+}
+
+function readBridgeSkillVersion() {
+  try {
+    const skillPath = path.join(bridgeSkillSource, 'SKILL.md');
+    const content = fs.readFileSync(skillPath, 'utf8');
+    const match = content.match(/^version:\s*(.+)$/m);
+    return match ? match[1].trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 function bridgeSkillTargets() {
