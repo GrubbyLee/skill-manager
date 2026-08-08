@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- v0.1.9：新增 `skm web` 本地只读工作台，支持中英文切换、三主题切换、Skill 清单分页与排序、知识图谱联动、命令中心只读运行，以及 README 真机截图补齐。
 - 新增 skill 全生命周期治理命令：`install`、`update`、`rollback`、`lock`、`policy`、`profile`、`eval`、`history`。
 - `skm install` 会自动记录远程安装 URL 或本地 `SKILL.md` frontmatter 中的上游来源，并在安装后刷新 catalog，保证后续 `skm update` 能找到升级源。
 - `skm install` 对非法来源字段给出明确提示，并在安装前检查 `~/.skill-manager` 可写，避免 skill 已安装但来源/历史记录丢失。
