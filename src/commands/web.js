@@ -923,81 +923,159 @@ tr:last-child td { border-bottom:0; }
 .cmd-term-copy:hover { color:#d1fae5; }
 .cmd-terminal pre { max-height:340px; overflow:auto; margin:0; padding:9px; white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
-/* ── 玻璃终端模态 ─────────────────────────────── */
-.glass-modal { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; animation:glassFadeIn .22s ease; }
+/* ── 玻璃终端模态（真实毛玻璃）─────────────────── */
+.glass-modal { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; animation:glassFadeIn .25s ease; }
 .glass-modal.hidden { display:none; }
 @keyframes glassFadeIn { from { opacity:0; } to { opacity:1; } }
-.glass-backdrop { position:absolute; inset:0; background:rgba(5,10,20,.55); backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%); }
-.glass-terminal-wrap { position:relative; width:min(900px, 88vw); max-width:92vw; animation:glassSlideUp .28s cubic-bezier(.2,.8,.2,1); }
-@keyframes glassSlideUp { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+
+/* 背景毛玻璃：多层模糊 + 微妙色调 */
+.glass-backdrop {
+  position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(34,211,238,.08), transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(168,85,247,.06), transparent 50%),
+    rgba(5,10,20,.5);
+  backdrop-filter: blur(24px) saturate(180%) contrast(105%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(105%);
+}
+/* 噪点层：模拟玻璃颗粒感 */
+.glass-backdrop::after {
+  content:""; position:absolute; inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  opacity:.5; pointer-events:none; mix-blend-mode:overlay;
+}
+
+.glass-terminal-wrap {
+  position:relative; width:min(900px, 88vw); max-width:92vw;
+  animation:glassSlideUp .3s cubic-bezier(.2,.8,.2,1);
+  /* 外层柔光 */
+  filter: drop-shadow(0 0 60px rgba(34,211,238,.08)) drop-shadow(0 20px 60px rgba(0,0,0,.5));
+}
+@keyframes glassSlideUp { from { opacity:0; transform:translateY(18px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+
+/* 终端主体：厚玻璃 */
 .glass-terminal {
-  border-radius:14px; overflow:hidden;
-  background:rgba(10,14,22,.72);
-  backdrop-filter:blur(22px) saturate(160%); -webkit-backdrop-filter:blur(22px) saturate(160%);
-  border:1px solid rgba(255,255,255,.08);
-  box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04) inset;
+  position:relative;
+  border-radius:16px; overflow:hidden;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.02) 50%, rgba(255,255,255,.05) 100%),
+    rgba(12,16,26,.65);
+  backdrop-filter: blur(32px) saturate(200%) contrast(105%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%) contrast(105%);
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.04) inset,
+    0 1px 0 rgba(255,255,255,.15) inset,
+    0 -1px 0 rgba(0,0,0,.3) inset,
+    0 40px 100px rgba(0,0,0,.6);
   display:flex; flex-direction:column;
   max-height:82vh;
 }
-.glass-term-bar {
-  display:flex; align-items:center; gap:10px;
-  padding:10px 14px;
-  background:rgba(255,255,255,.04);
-  border-bottom:1px solid rgba(255,255,255,.06);
+/* 玻璃内部噪点 */
+.glass-terminal::before {
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity:.6; mix-blend-mode:overlay;
 }
-.glass-term-dots { display:flex; gap:6px; flex-shrink:0; }
-.glass-term-dots span { width:11px; height:11px; border-radius:50%; background:#374151; }
-.glass-term-dots span:nth-child(1) { background:#ef4444; cursor:pointer; }
-.glass-term-dots span:nth-child(2) { background:#f59e0b; }
-.glass-term-dots span:nth-child(3) { background:#10b981; }
+
+.glass-term-bar {
+  position:relative; z-index:2;
+  display:flex; align-items:center; gap:10px;
+  padding:11px 16px;
+  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.glass-term-dots { display:flex; gap:7px; flex-shrink:0; }
+.glass-term-dots span {
+  width:12px; height:12px; border-radius:50%;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.3);
+}
+.glass-term-dots span:nth-child(1) { background:linear-gradient(180deg, #ff6b6b, #ef4444); cursor:pointer; }
+.glass-term-dots span:nth-child(2) { background:linear-gradient(180deg, #fcd34d, #f59e0b); }
+.glass-term-dots span:nth-child(3) { background:linear-gradient(180deg, #6ee7b7, #10b981); }
 .glass-term-title {
   flex:1; text-align:center;
   font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size:12px; color:#9ca3af;
+  font-size:12.5px; color:#d1d5db;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  text-shadow:0 1px 2px rgba(0,0,0,.5);
 }
 .glass-term-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.glass-term-time { font-size:11px; color:#6b7280; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.glass-term-time {
+  font-size:11px; color:#9ca3af;
+  font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
 .glass-term-close, .glass-term-copy-btn {
-  width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center;
-  border:1px solid rgba(255,255,255,.1); border-radius:6px;
-  background:transparent; color:#9ca3af; cursor:pointer; font-size:11px;
+  width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid rgba(255,255,255,.12); border-radius:7px;
+  background:rgba(255,255,255,.04);
+  color:#d1d5db; cursor:pointer; font-size:12px;
   transition:.15s;
 }
-.glass-term-close:hover, .glass-term-copy-btn:hover { color:#fff; border-color:rgba(255,255,255,.25); }
-.glass-term-body { flex:1; overflow:auto; min-height:200px; max-height:calc(82vh - 90px); }
+.glass-term-close:hover, .glass-term-copy-btn:hover {
+  color:#fff; border-color:rgba(255,255,255,.25); background:rgba(255,255,255,.08);
+}
+.glass-term-body { position:relative; z-index:2; flex:1; overflow:auto; min-height:220px; max-height:calc(82vh - 100px); }
 .glass-term-body pre {
-  margin:0; padding:18px 20px;
-  font:13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  margin:0; padding:20px 24px;
+  font:13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color:#d1fae5; white-space:pre-wrap; overflow-wrap:anywhere;
+  text-shadow:0 0 20px rgba(34,197,94,.08);
 }
 .glass-term-status {
+  position:relative; z-index:2;
   display:flex; align-items:center; justify-content:space-between;
-  padding:8px 14px;
-  background:rgba(0,0,0,.25);
-  border-top:1px solid rgba(255,255,255,.05);
+  padding:9px 16px;
+  background:rgba(0,0,0,.3);
+  border-top:1px solid rgba(255,255,255,.06);
   font-size:11px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.glass-term-exit.ok { color:#6ee7b7; }
-.glass-term-exit.err { color:#fca5a5; }
-.glass-term-duration { color:#6b7280; }
+.glass-term-exit.ok { color:#6ee7b7; text-shadow:0 0 10px rgba(110,231,183,.3); }
+.glass-term-exit.err { color:#fca5a5; text-shadow:0 0 10px rgba(252,165,165,.3); }
+.glass-term-duration { color:#9ca3af; }
 
 /* 主题适配 */
-[data-theme="galaxy"] .glass-backdrop { background:rgba(10,8,30,.55); }
-[data-theme="galaxy"] .glass-terminal { background:rgba(14,10,35,.7); }
-[data-theme="sky"] .glass-backdrop { background:rgba(200,220,240,.45); }
-[data-theme="sky"] .glass-terminal {
-  background:rgba(255,255,255,.72);
-  border-color:rgba(0,0,0,.08);
-  box-shadow:0 30px 80px rgba(30,60,100,.25), 0 0 0 1px rgba(255,255,255,.6) inset;
+[data-theme="galaxy"] .glass-backdrop {
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(168,85,247,.12), transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(59,130,246,.1), transparent 50%),
+    rgba(8,6,25,.55);
 }
-[data-theme="sky"] .glass-term-bar { background:rgba(0,0,0,.03); border-bottom-color:rgba(0,0,0,.06); }
-[data-theme="sky"] .glass-term-title { color:#4b5563; }
-[data-theme="sky"] .glass-term-body pre { color:#1f2937; }
-[data-theme="sky"] .glass-term-status { background:rgba(0,0,0,.04); border-top-color:rgba(0,0,0,.06); }
+[data-theme="galaxy"] .glass-terminal {
+  background:
+    linear-gradient(135deg, rgba(168,85,247,.1) 0%, rgba(59,130,246,.05) 50%, rgba(236,72,153,.08) 100%),
+    rgba(15,10,35,.65);
+}
+[data-theme="galaxy"] .glass-terminal-wrap {
+  filter: drop-shadow(0 0 80px rgba(168,85,247,.12)) drop-shadow(0 20px 60px rgba(0,0,0,.5));
+}
+
+[data-theme="sky"] .glass-backdrop {
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(147,197,253,.2), transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(252,211,77,.15), transparent 50%),
+    rgba(200,220,240,.35);
+}
+[data-theme="sky"] .glass-terminal {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.65) 50%, rgba(255,255,255,.75) 100%),
+    rgba(255,255,255,.7);
+  border-color:rgba(255,255,255,.8);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.6) inset,
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 40px 80px rgba(30,60,100,.25);
+}
+[data-theme="sky"] .glass-terminal-wrap {
+  filter: drop-shadow(0 0 60px rgba(59,130,246,.15)) drop-shadow(0 20px 60px rgba(0,0,0,.15));
+}
+[data-theme="sky"] .glass-term-bar { background:linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.4)); border-bottom-color:rgba(0,0,0,.08); }
+[data-theme="sky"] .glass-term-title { color:#374151; text-shadow:none; }
+[data-theme="sky"] .glass-term-body pre { color:#1f2937; text-shadow:none; }
+[data-theme="sky"] .glass-term-status { background:rgba(249,250,251,.7); border-top-color:rgba(0,0,0,.06); }
 [data-theme="sky"] .glass-term-time, [data-theme="sky"] .glass-term-duration { color:#6b7280; }
-[data-theme="sky"] .glass-term-close, [data-theme="sky"] .glass-term-copy-btn { color:#4b5563; border-color:rgba(0,0,0,.1); }
-[data-theme="sky"] .glass-term-close:hover, [data-theme="sky"] .glass-term-copy-btn:hover { color:#111827; border-color:rgba(0,0,0,.2); }
+[data-theme="sky"] .glass-term-close, [data-theme="sky"] .glass-term-copy-btn { color:#4b5563; border-color:rgba(0,0,0,.1); background:rgba(255,255,255,.5); }
+[data-theme="sky"] .glass-term-close:hover, [data-theme="sky"] .glass-term-copy-btn:hover { color:#111827; border-color:rgba(0,0,0,.2); background:rgba(255,255,255,.8); }
 </style>
 </head>
 <body data-theme="cyberpunk">
