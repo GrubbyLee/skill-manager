@@ -922,6 +922,82 @@ tr:last-child td { border-bottom:0; }
 .cmd-term-copy { margin-left:auto; background:transparent; border:none; color:#6b7280; cursor:pointer; font-size:12px; padding:1px 3px; }
 .cmd-term-copy:hover { color:#d1fae5; }
 .cmd-terminal pre { max-height:340px; overflow:auto; margin:0; padding:9px; white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+/* ── 玻璃终端模态 ─────────────────────────────── */
+.glass-modal { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; animation:glassFadeIn .22s ease; }
+.glass-modal.hidden { display:none; }
+@keyframes glassFadeIn { from { opacity:0; } to { opacity:1; } }
+.glass-backdrop { position:absolute; inset:0; background:rgba(5,10,20,.55); backdrop-filter:blur(14px) saturate(140%); -webkit-backdrop-filter:blur(14px) saturate(140%); }
+.glass-terminal-wrap { position:relative; width:min(900px, 88vw); max-width:92vw; animation:glassSlideUp .28s cubic-bezier(.2,.8,.2,1); }
+@keyframes glassSlideUp { from { opacity:0; transform:translateY(14px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+.glass-terminal {
+  border-radius:14px; overflow:hidden;
+  background:rgba(10,14,22,.72);
+  backdrop-filter:blur(22px) saturate(160%); -webkit-backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04) inset;
+  display:flex; flex-direction:column;
+  max-height:82vh;
+}
+.glass-term-bar {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px;
+  background:rgba(255,255,255,.04);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.glass-term-dots { display:flex; gap:6px; flex-shrink:0; }
+.glass-term-dots span { width:11px; height:11px; border-radius:50%; background:#374151; }
+.glass-term-dots span:nth-child(1) { background:#ef4444; cursor:pointer; }
+.glass-term-dots span:nth-child(2) { background:#f59e0b; }
+.glass-term-dots span:nth-child(3) { background:#10b981; }
+.glass-term-title {
+  flex:1; text-align:center;
+  font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size:12px; color:#9ca3af;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.glass-term-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.glass-term-time { font-size:11px; color:#6b7280; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.glass-term-close, .glass-term-copy-btn {
+  width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid rgba(255,255,255,.1); border-radius:6px;
+  background:transparent; color:#9ca3af; cursor:pointer; font-size:11px;
+  transition:.15s;
+}
+.glass-term-close:hover, .glass-term-copy-btn:hover { color:#fff; border-color:rgba(255,255,255,.25); }
+.glass-term-body { flex:1; overflow:auto; min-height:200px; max-height:calc(82vh - 90px); }
+.glass-term-body pre {
+  margin:0; padding:18px 20px;
+  font:13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color:#d1fae5; white-space:pre-wrap; overflow-wrap:anywhere;
+}
+.glass-term-status {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 14px;
+  background:rgba(0,0,0,.25);
+  border-top:1px solid rgba(255,255,255,.05);
+  font-size:11px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.glass-term-exit.ok { color:#6ee7b7; }
+.glass-term-exit.err { color:#fca5a5; }
+.glass-term-duration { color:#6b7280; }
+
+/* 主题适配 */
+[data-theme="galaxy"] .glass-backdrop { background:rgba(10,8,30,.55); }
+[data-theme="galaxy"] .glass-terminal { background:rgba(14,10,35,.7); }
+[data-theme="sky"] .glass-backdrop { background:rgba(200,220,240,.45); }
+[data-theme="sky"] .glass-terminal {
+  background:rgba(255,255,255,.72);
+  border-color:rgba(0,0,0,.08);
+  box-shadow:0 30px 80px rgba(30,60,100,.25), 0 0 0 1px rgba(255,255,255,.6) inset;
+}
+[data-theme="sky"] .glass-term-bar { background:rgba(0,0,0,.03); border-bottom-color:rgba(0,0,0,.06); }
+[data-theme="sky"] .glass-term-title { color:#4b5563; }
+[data-theme="sky"] .glass-term-body pre { color:#1f2937; }
+[data-theme="sky"] .glass-term-status { background:rgba(0,0,0,.04); border-top-color:rgba(0,0,0,.06); }
+[data-theme="sky"] .glass-term-time, [data-theme="sky"] .glass-term-duration { color:#6b7280; }
+[data-theme="sky"] .glass-term-close, [data-theme="sky"] .glass-term-copy-btn { color:#4b5563; border-color:rgba(0,0,0,.1); }
+[data-theme="sky"] .glass-term-close:hover, [data-theme="sky"] .glass-term-copy-btn:hover { color:#111827; border-color:rgba(0,0,0,.2); }
 </style>
 </head>
 <body data-theme="cyberpunk">
@@ -996,6 +1072,27 @@ tr:last-child td { border-bottom:0; }
         <div class="command-groups" id="command-list"></div>
       </section>
     </main>
+  </div>
+</div>
+<div class="glass-modal hidden" id="glass-modal" role="dialog" aria-modal="true">
+  <div class="glass-backdrop" data-glass-close></div>
+  <div class="glass-terminal-wrap">
+    <div class="glass-terminal">
+      <div class="glass-term-bar">
+        <div class="glass-term-dots"><span></span><span></span><span></span></div>
+        <div class="glass-term-title"></div>
+        <div class="glass-term-actions">
+          <span class="glass-term-time"></span>
+          <button class="icon-button glass-term-copy-btn" title="${escapeHtml(labels.cmdCopyOutput || '')}">⧉</button>
+          <button class="icon-button glass-term-close" data-glass-close aria-label="close">✕</button>
+        </div>
+      </div>
+      <div class="glass-term-body"><pre></pre></div>
+      <div class="glass-term-status">
+        <span class="glass-term-exit"></span>
+        <span class="glass-term-duration"></span>
+      </div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>

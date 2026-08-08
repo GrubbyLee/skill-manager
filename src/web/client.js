@@ -903,14 +903,6 @@
         ${runButton}
         <button class="action-btn" data-copy-command="${esc(item.id)}">${esc(labels.copyCommand)}</button>
       </div>
-      <div class="cmd-terminal hidden" data-terminal="${esc(item.id)}">
-        <div class="cmd-terminal-bar">
-          <span class="dots"><span></span><span></span><span></span></span>
-          <span class="cmd-term-title"></span>
-          <button class="cmd-term-copy" title="${esc(labels.cmdCopyOutput || '')}">⧉</button>
-        </div>
-        <pre></pre>
-      </div>
     </article>`;
   }
 
@@ -962,51 +954,88 @@
     return `"${String(value).replace(/"/g, '\\"')}"`;
   }
 
+  function openGlassModal() {
+    const modal = $('glass-modal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeGlassModal() {
+    const modal = $('glass-modal');
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
   async function runCommand(id) {
     const item = state.data.commands.find((command) => command.id === id);
     if (!item?.executable) {
       copy(commandText(item));
       return;
     }
-    const terminal = document.querySelector(`[data-terminal="${cssEscape(id)}"]`);
-    const output = terminal.querySelector('pre');
-    const title = terminal.querySelector('.cmd-term-title');
-    terminal.classList.remove('hidden');
-    terminal.classList.remove('error');
-    terminal.classList.add('running');
-
     const fullCmd = commandText(item);
-    title.textContent = fullCmd;
-    output.textContent = '';
+    openGlassModal();
+
+    const modal = $('glass-modal');
+    const titleEl = modal.querySelector('.glass-term-title');
+    const outputEl = modal.querySelector('.glass-term-body pre');
+    const timeEl = modal.querySelector('.glass-term-time');
+    const exitEl = modal.querySelector('.glass-term-exit');
+    const durationEl = modal.querySelector('.glass-term-duration');
+    const copyBtn = modal.querySelector('.glass-term-copy-btn');
+
+    titleEl.textContent = fullCmd;
+    outputEl.textContent = '';
+    timeEl.textContent = '';
+    exitEl.textContent = '';
+    exitEl.className = 'glass-term-exit';
+    durationEl.textContent = '';
+    copyBtn.onclick = () => copy(outputEl.textContent);
+
+    const startTime = Date.now();
+    const updateTimer = setInterval(() => {
+      timeEl.textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+    }, 100);
 
     // 打字机效果显示命令行
-    await typeText(output, `$ ${fullCmd}\n\n`, 15);
-    output.textContent += state.labels.cmdLoading;
+    await typeText(outputEl, `$ ${fullCmd}\n\n`, 12);
 
-    const argsInput = document.querySelector(`[data-command-args="${cssEscape(id)}"]`);
-    // 从当前参数芯片拼装 args 字符串
     const base = item.command.replace(/\s*<[^>]+>/g, '').trim();
     const argsStr = fullCmd.slice(base.length).trim();
 
     try {
       const response = await fetch(apiUrl('/api/run', { cmd: id, args: argsStr }));
       const result = await response.json();
-      output.textContent = `$ ${result.command}\n`;
+      outputEl.textContent = `$ ${result.command}\n`;
       if (!response.ok) {
-        terminal.classList.add('error');
-        output.textContent += `\n[error] ${result.message || result.error || state.labels.cmdError}`;
+        const msg = result.message || result.error || state.labels.cmdError;
+        await typeText(outputEl, `\n[error] ${msg}`, 5, outputEl.textContent);
+        exitEl.textContent = '✕ error';
+        exitEl.classList.add('err');
       } else {
         const body = result.isJson ? JSON.stringify(result.data, null, 2) : (result.stdout || state.labels.cmdNoOutput);
-        const fullOutput = `\n[exit ${result.exitCode ?? 0}]\n\n${body}${result.stderr ? `\n\n--- stderr ---\n${result.stderr}` : ''}`;
-        await typeText(output, fullOutput, 3, output.textContent);
-        if ((result.exitCode ?? 0) !== 0) terminal.classList.add('error');
+        const exitCode = result.exitCode ?? 0;
+        const fullOutput = `\n[exit ${exitCode}]\n\n${body}${result.stderr ? `\n\n--- stderr ---\n${result.stderr}` : ''}`;
+        await typeText(outputEl, fullOutput, 2, outputEl.textContent);
+        if (exitCode === 0) {
+          exitEl.textContent = '✓ success';
+          exitEl.classList.add('ok');
+        } else {
+          exitEl.textContent = `✕ exit ${exitCode}`;
+          exitEl.classList.add('err');
+        }
       }
     } catch (err) {
-      terminal.classList.add('error');
-      output.textContent += `\n\n[error] ${err.message || state.labels.cmdError}`;
+      outputEl.textContent += `\n\n[error] ${err.message || state.labels.cmdError}`;
+      exitEl.textContent = '✕ error';
+      exitEl.classList.add('err');
     }
-    terminal.classList.remove('running');
+
+    clearInterval(updateTimer);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+    timeEl.textContent = elapsed + 's';
+    durationEl.textContent = `took ${elapsed}s`;
   }
+
 
   async function typeText(target, text, speedMs = 5, prefix = '') {
     return new Promise((resolve) => {
@@ -1100,6 +1129,10 @@
   }
 
   document.addEventListener('click', (event) => {
+    const glassClose = event.target.closest('[data-glass-close]');
+    if (glassClose) closeGlassModal();
+    const termDotClose = event.target.closest('.glass-term-dots span:nth-child(1)');
+    if (termDotClose) closeGlassModal();
     const sourceButton = event.target.closest('[data-source-skill]');
     const skillButton = event.target.closest('[data-skill-name]');
     if (sourceButton) showSourceTooltip(sourceButton);
@@ -1154,12 +1187,6 @@
           if (lineBtn) lineBtn.textContent = commandText(item);
         }
       }
-    }
-    const termCopy = event.target.closest('.cmd-term-copy');
-    if (termCopy) {
-      const terminal = termCopy.closest('.cmd-terminal');
-      const pre = terminal?.querySelector('pre');
-      if (pre) copy(pre.textContent);
     }
     const workflowStep = event.target.closest('[data-workflow-step]');
     if (workflowStep) {
@@ -1251,6 +1278,11 @@
   $('graph-reset').addEventListener('click', resetGraph);
   $('recommend-btn').addEventListener('click', () => recommend().catch((error) => toast(error.message)));
   $('recommend-input').addEventListener('keydown', (event) => { if (event.key === 'Enter') recommend().catch((error) => toast(error.message)); });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !$('glass-modal').classList.contains('hidden')) {
+      closeGlassModal();
+    }
+  });
   const cmdSearch = $('cmd-search');
   if (cmdSearch) cmdSearch.addEventListener('input', (e) => { state.cmdQuery = e.target.value; renderCommands(); });
   // 参数输入框实时更新命令行显示
