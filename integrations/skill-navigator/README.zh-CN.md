@@ -8,7 +8,7 @@
 
 `skill-navigator` 是 [skill-manager](https://github.com/GrubbyLee/skill-manager) 附属的桥接 skill。它只回答一个问题：**用户要做某件事时，本机已安装的哪一款 Agent Skill 最适合处理？**
 
-它刻意保持很薄：不自己执行具体任务，不手动扫描目录，不凭记忆猜测，而是调用 `skm recommend` 基于用户机器上的真实已安装 skill 清单给出推荐。
+它刻意保持很薄：不自己执行具体任务，不手动扫描目录，不凭记忆猜测，而是调用 `skm ask` / `skm recommend` 基于用户机器上的真实已安装 skill 清单给出推荐。
 
 ## 安装
 
@@ -34,13 +34,38 @@ node scripts/install.mjs
 skm scan
 ```
 
+## Cursor / Gemini 手动安装
+
+本 skill 是纯 Markdown 指令 skill，不依赖平台专属能力，也可以手动放到 Cursor 或 Gemini 的 skill 目录中使用。
+
+示例：
+
+```bash
+# Cursor
+cp -R integrations/skill-navigator ~/.cursor/skills/skill-navigator
+
+# Gemini CLI（具体路径以本机配置为准）
+cp -R integrations/skill-navigator ~/.gemini/skills/skill-navigator
+```
+
+手动安装后，仍需要本机存在 `skm` 命令，且至少运行过一次 `skm scan`。
+
 ## 适用场景
 
 | 用户问题 | 应调用的命令 |
 |---|---|
-| 做某件事该用哪个 skill？ | `skm recommend "<任务>" --json` |
-| 推荐结果看起来不完整 | `skm search "<关键词>" --json` |
-| 新装或删除 skill 后目录可能过期 | 先提示用户运行 `skm scan`，再重新执行 `skm recommend` |
+| 做某件事该用哪个 skill？ | `skm ask "<任务>" --json`（主入口） |
+| 想要更多候选或横向对比 | `skm recommend "<任务>" --top 5 --json` |
+| 已经有明确关键词 | `skm search "<关键词>" --json` |
+| 只看某个工具侧的 skill | 追加 `--tool claude|codex|cursor|gemini` |
+| 新装或删除 skill 后目录可能过期 | 先提示用户运行 `skm scan`，再重新推荐 |
+
+## 推荐输出原则
+
+- 首选 1 个，再列 1~3 个备选，不堆砌。
+- 每条说清楚名称、理由、可用工具侧。
+- 明确这是“本机已安装 skill”的推荐，不是全网搜索。
+- 不代替用户执行任务；推荐完成后，提醒用户切换或调用对应 skill。
 
 ## 对话示例
 
@@ -53,12 +78,16 @@ skm scan
 ```
 
 ```text
-我想把 Markdown 文章发布到微信公众号，应该用哪个已安装 skill？
+只看 Codex 侧有哪些适合做小红书图片的 skill？
+```
+
+```text
+我刚装了新 skill，为什么推荐里没有？
 ```
 
 ## 安全边界
 
-桥接 skill 默认应使用 `recommend`、`search` 等只读推荐命令。
+桥接 skill 默认应使用 `ask`、`recommend`、`search` 等只读推荐命令。
 
 写操作仍然保持显式：
 
@@ -84,5 +113,5 @@ skm scan
 - CLI 命令：`skm`
 - 主项目：<https://github.com/GrubbyLee/skill-manager>
 - 许可证：MIT
-- 兼容 AIDE：Claude Code、Codex CLI
+- 兼容 AIDE：Claude Code、Codex CLI、Cursor（手动）、Gemini（手动）
 - 核心用途：推荐用户当前任务应该使用哪款已安装 skill
