@@ -2,6 +2,8 @@ import { scanClaudeCode } from '../adapters/claudeCode.js';
 import { scanCodex } from '../adapters/codex.js';
 import { scanCursor } from '../adapters/cursor.js';
 import { scanGemini } from '../adapters/gemini.js';
+import { scanWorkBuddy } from '../adapters/workbuddy.js';
+import { scanKimi } from '../adapters/kimi.js';
 import { loadRules, classify } from '../classify.js';
 import { saveCatalog, loadCatalog, mergeByDirName, CATALOG_REL } from '../catalog.js';
 import { renderTable, termWidth } from '../table.js';
@@ -25,15 +27,17 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, qu
   const codex = scanCodex();
   const cursor = scanCursor({ cwd });
   const gemini = scanGemini({ cwd });
+  const workbuddy = scanWorkBuddy({ cwd });
+  const kimi = scanKimi({ cwd });
   const ruleSet = loadRules();
 
   const sourceMap = loadSources();
-  const skills = applySourcesToSkills([...claude.skills, ...codex.skills, ...cursor.skills, ...gemini.skills], sourceMap).map((s) => ({
+  const skills = applySourcesToSkills([...claude.skills, ...codex.skills, ...cursor.skills, ...gemini.skills, ...workbuddy.skills, ...kimi.skills], sourceMap).map((s) => ({
     ...s,
     category: classify(s, ruleSet),
   }));
-  const mcpServers = [...claude.mcpServers, ...codex.mcpServers, ...cursor.mcpServers, ...gemini.mcpServers];
-  const warnings = [...claude.warnings, ...codex.warnings, ...cursor.warnings, ...gemini.warnings];
+  const mcpServers = [...claude.mcpServers, ...codex.mcpServers, ...cursor.mcpServers, ...gemini.mcpServers, ...workbuddy.mcpServers, ...kimi.mcpServers];
+  const warnings = [...claude.warnings, ...codex.warnings, ...cursor.warnings, ...gemini.warnings, ...workbuddy.warnings, ...kimi.warnings];
   const security = collectSecurityReport({ skills, mcpServers });
 
   const catalog = {
@@ -44,7 +48,7 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, qu
     mcpServers,
     security,
     warnings,
-    archived: { 'claude-code': claude.archived, codex: codex.archived, cursor: cursor.archived, gemini: gemini.archived },
+    archived: { 'claude-code': claude.archived, codex: codex.archived, cursor: cursor.archived, gemini: gemini.archived, workbuddy: workbuddy.archived, kimi: kimi.archived },
   };
   saveCatalog(catalog);
 
@@ -84,6 +88,8 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, qu
   const codexStats = skillStats('codex');
   const cursorStats = skillStats('cursor');
   const geminiStats = skillStats('gemini');
+  const workbuddyStats = skillStats('workbuddy');
+  const kimiStats = skillStats('kimi');
 
   print(`\n${tr(lang, 'scan.overview')}`);
   print(renderTable(
@@ -102,6 +108,8 @@ export function runScan({ cwd, json = false, verbose = false, silent = false, qu
       ['Codex', codexStats.skills, codexStats.user, codexStats.project, codexStats.plugin, codexStats.mcp, codexStats.archived, tr(lang, 'scan.tokens', { n: codexStats.tokens })],
       ['Cursor', cursorStats.skills, cursorStats.user, cursorStats.project, cursorStats.plugin, cursorStats.mcp, cursorStats.archived, tr(lang, 'scan.tokens', { n: cursorStats.tokens })],
       ['Gemini CLI', geminiStats.skills, geminiStats.user, geminiStats.project, geminiStats.plugin, geminiStats.mcp, geminiStats.archived, tr(lang, 'scan.tokens', { n: geminiStats.tokens })],
+      ['WorkBuddy', workbuddyStats.skills, workbuddyStats.user, workbuddyStats.project, workbuddyStats.plugin, workbuddyStats.mcp, workbuddyStats.archived, tr(lang, 'scan.tokens', { n: workbuddyStats.tokens })],
+      ['Kimi', kimiStats.skills, kimiStats.user, kimiStats.project, kimiStats.plugin, kimiStats.mcp, kimiStats.archived, tr(lang, 'scan.tokens', { n: kimiStats.tokens })],
     ],
     Math.min(width, 100),
   ));

@@ -31,6 +31,24 @@ export const GEMINI_SKILLS_DIRS = [
   path.join(HOME, '.gemini', 'SKILLs'),
 ];
 export const GEMINI_SETTINGS_FILE = path.join(HOME, '.gemini', 'settings.json');
+export const WORKBUDDY_SKILLS_DIR = path.join(HOME, '.workbuddy', 'skills');
+export const WORKBUDDY_PLUGINS_CACHE = path.join(HOME, '.workbuddy', 'plugins', 'cache');
+export const WORKBUDDY_MARKETPLACES_DIR = path.join(HOME, '.workbuddy', 'plugins', 'marketplaces');
+export const WORKBUDDY_MCP_FILE = path.join(HOME, '.workbuddy', 'mcp.json');
+// Kimi CLI（~/.kimi）与 Kimi Code CLI（~/.kimi-code，可用 KIMI_CODE_HOME 重定向）
+export const KIMI_SKILLS_DIR = path.join(HOME, '.kimi', 'skills');
+export const KIMI_CODE_HOME = process.env.KIMI_CODE_HOME || path.join(HOME, '.kimi-code');
+export const KIMI_CODE_SKILLS_DIR = path.join(KIMI_CODE_HOME, 'skills');
+export const KIMI_CODE_MCP_FILE = path.join(KIMI_CODE_HOME, 'mcp.json');
+// Kimi Desktop（daimon 运行时）技能目录：按平台候选，目录不存在自动跳过。
+// 布局为社区公认约定 {平台数据目录}/kimi-desktop/daimon-share/daimon/skills
+export const KIMI_DESKTOP_SKILLS_DIRS = [
+  ...(process.platform === 'win32' && process.env.APPDATA
+    ? [path.join(process.env.APPDATA, 'kimi-desktop', 'daimon-share', 'daimon', 'skills')]
+    : []),
+  path.join(HOME, 'Library', 'Application Support', 'kimi-desktop', 'daimon-share', 'daimon', 'skills'), // macOS
+  path.join(HOME, '.config', 'kimi-desktop', 'daimon-share', 'daimon', 'skills'), // Linux
+];
 
 // 会话日志根目录（usage 统计与 sessions 索引共用，单一来源）
 export const CLAUDE_SESSIONS_ROOT = path.join(HOME, '.claude', 'projects');
