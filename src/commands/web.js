@@ -220,7 +220,7 @@ function collectRecommendation({ cwd, lang, query, top }) {
 }
 
 function summarizeTools(catalog) {
-  const tools = ['claude-code', 'codex', 'cursor', 'gemini'];
+  const tools = ['claude-code', 'codex', 'cursor', 'gemini', 'workbuddy', 'kimi'];
   return tools.map((tool) => {
     const skills = (catalog.skills || []).filter((item) => item.tool === tool);
     return {
@@ -336,7 +336,7 @@ function commandCatalog(lang) {
       description: en ? "List all skills by category" : "按分类查看所有 skill",
       mode: "read", executable: true,
       params: [
-        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex", "cursor", "gemini"], hint: en ? "Filter by client tool" : "按客户端工具筛选" },
+        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex", "cursor", "gemini", "workbuddy", "kimi"], hint: en ? "Filter by client tool" : "按客户端工具筛选" },
         { flag: "--category", label: en ? "category" : "分类", type: "value", hint: en ? "Filter by category keyword" : "按分类关键词筛选" },
         { flag: "--mcp", label: "MCP", type: "bool", hint: en ? "List MCP servers instead" : "列出 MCP server" },
         { flag: "--raw", label: en ? "raw" : "原始", type: "bool", hint: en ? "Raw table output" : "原始表格输出" }
@@ -412,7 +412,7 @@ function commandCatalog(lang) {
       mode: "dry-run", executable: false,
       params: [
         { flag: "<source>", label: en ? "source" : "来源", type: "positional", hint: en ? "URL, npm path, or local directory" : "URL、npm 包或本地目录" },
-        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex"], hint: en ? "Target client tool" : "目标客户端" },
+        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex", "cursor", "gemini", "workbuddy", "kimi"], hint: en ? "Target client tool" : "目标客户端" },
         { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" },
         { flag: "--yes", label: "yes", type: "bool", hint: en ? "Skip confirmation" : "跳过确认" }
       ],
@@ -423,7 +423,7 @@ function commandCatalog(lang) {
       mode: "dry-run", executable: false,
       params: [
         { flag: "<skill>", label: "skill", type: "positional", hint: en ? "Skill name to update" : "要更新的 skill 名称" },
-        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex"], hint: en ? "Target client tool" : "目标客户端" },
+        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex", "cursor", "gemini", "workbuddy", "kimi"], hint: en ? "Target client tool" : "目标客户端" },
         { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" },
         { flag: "--yes", label: "yes", type: "bool", hint: en ? "Skip confirmation" : "跳过确认" }
       ],
@@ -434,7 +434,7 @@ function commandCatalog(lang) {
       mode: "dry-run", executable: false,
       params: [
         { flag: "<skill>", label: "skill", type: "positional", hint: en ? "Skill name to roll back" : "要回滚的 skill 名称" },
-        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex"], hint: en ? "Target client tool" : "目标客户端" },
+        { flag: "--tool", label: en ? "tool" : "工具", type: "value", values: ["claude", "codex", "cursor", "gemini", "workbuddy", "kimi"], hint: en ? "Target client tool" : "目标客户端" },
         { flag: "--dry-run", label: "dry-run", type: "bool", hint: en ? "Preview plan only" : "仅预览计划" },
         { flag: "--yes", label: "yes", type: "bool", hint: en ? "Skip confirmation" : "跳过确认" }
       ],

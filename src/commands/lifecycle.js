@@ -8,7 +8,7 @@ import { auditSkillSecurity, summarizeFindings } from '../securityAudit.js';
 import { parseFrontmatter, fallbackDescription } from '../frontmatter.js';
 import { estimateTokens } from '../adapters/common.js';
 import { applySourcesToSkills, upsertSource, isValidSourceUrl } from '../sources.js';
-import { CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR, CURSOR_SKILLS_DIRS, GEMINI_SKILLS_DIRS, DATA_DIR, LOCK_PATH, LIFECYCLE_HISTORY_PATH, POLICY_PATH, PROFILES_PATH, SKILL_BACKUP_DIR } from '../paths.js';
+import { CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR, CURSOR_SKILLS_DIRS, GEMINI_SKILLS_DIRS, WORKBUDDY_SKILLS_DIR, KIMI_DESKTOP_SKILLS_DIRS, DATA_DIR, LOCK_PATH, LIFECYCLE_HISTORY_PATH, POLICY_PATH, PROFILES_PATH, SKILL_BACKUP_DIR } from '../paths.js';
 import { confirm, fileStamp, loadJsonFile, paint, saveJsonFile } from '../utils.js';
 import { renderTable, termWidth } from '../table.js';
 
@@ -18,7 +18,7 @@ const FETCH_TIMEOUT_MS = 8000;
 export async function runSkillInstall(ctx, args = []) {
   const source = args[0] || ctx.source;
   const lang = ctx.lang || 'zh-CN';
-  if (!source) return fail(lang, zh(lang, '用法：skm install <本地目录|SKILL.md URL|GitHub/Gitee skill 目录 URL> [--tool claude|codex|cursor|gemini] [--dry-run] [--yes]', 'Usage: skm install <local-dir|SKILL.md URL|GitHub/Gitee skill directory URL> [--tool claude|codex|cursor|gemini] [--dry-run] [--yes]'));
+  if (!source) return fail(lang, zh(lang, '用法：skm install <本地目录|SKILL.md URL|GitHub/Gitee skill 目录 URL> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]', 'Usage: skm install <local-dir|SKILL.md URL|GitHub/Gitee skill directory URL> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]'));
 
   const payload = await loadInstallPayload(source, lang);
   if (!payload) return;
@@ -43,7 +43,7 @@ export async function runSkillInstall(ctx, args = []) {
 export async function runSkillUpdate(ctx, args = []) {
   const name = args[0];
   const lang = ctx.lang || 'zh-CN';
-  if (!name) return fail(lang, zh(lang, '用法：skm update <skill名> [--tool claude|codex|cursor|gemini] [--dry-run] [--yes]', 'Usage: skm update <skill-name> [--tool claude|codex|cursor|gemini] [--dry-run] [--yes]'));
+  if (!name) return fail(lang, zh(lang, '用法：skm update <skill名> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]', 'Usage: skm update <skill-name> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]'));
   const { skill, entries } = findSkillEntriesWithRefresh(ctx, name);
   if (!skill) return fail(lang, zh(lang, `目录中未找到 skill：${name}`, `Skill not found in catalog: ${name}`));
   const selected = selectEntry(entries, ctx.tool);
@@ -67,7 +67,7 @@ export async function runSkillUpdate(ctx, args = []) {
 export async function runSkillRollback(ctx, args = []) {
   const name = args[0];
   const lang = ctx.lang || 'zh-CN';
-  if (!name) return fail(lang, zh(lang, '用法：skm rollback <skill名> [--tool claude|codex|cursor|gemini] [--dry-run] [--yes]', 'Usage: skm rollback <skill-name> [--tool claude|codex|cursor|gemini] [--dry-run] [--yes]'));
+  if (!name) return fail(lang, zh(lang, '用法：skm rollback <skill名> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]', 'Usage: skm rollback <skill-name> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]'));
   const { entries } = findSkillEntries(ctx, name);
   const selected = selectEntry(entries, ctx.tool);
   if (!selected) return fail(lang, zh(lang, `目录中未找到 skill：${name}`, `Skill not found in catalog: ${name}`));
@@ -248,6 +248,8 @@ function targetRoots(tool, cwd) {
     { tool: 'codex', label: 'codex/user', root: CODEX_SKILLS_DIR },
     { tool: 'cursor', label: 'cursor/user', root: CURSOR_SKILLS_DIRS[0] },
     { tool: 'gemini', label: 'gemini/user', root: GEMINI_SKILLS_DIRS[0] },
+    { tool: 'workbuddy', label: 'workbuddy/user', root: WORKBUDDY_SKILLS_DIR },
+    { tool: 'kimi', label: 'kimi/user', root: KIMI_DESKTOP_SKILLS_DIRS[0] },
   ];
   if (normalized) return all.filter((item) => normalizeTool(item.tool) === normalized);
   return all.filter((item) => ['claude-code', 'codex'].includes(item.tool));
