@@ -1,4 +1,4 @@
-name: macOS / Windows 验证
+name: 跨平台验证
 
 on:
   # 跨端验证成本较高，仅在需要发布或排查兼容性时手动触发。
@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node: ['18.x']
 
     steps:

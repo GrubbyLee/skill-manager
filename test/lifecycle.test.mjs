@@ -159,11 +159,53 @@ test('生命周期：本地来源字段无效时明确提示，避免用户误�
   assert.equal(sources.sources.gamma.source, null);
 });
 
+test('生命周期：WorkBuddy 与 Kimi 目录可扫描，Kimi 安装 dry-run 覆盖三类目标', () => {
+  const home = makeHome();
+  const env = envFor(home);
+
+  writeSkill(path.join(home, '.workbuddy', 'skills', 'workbuddy-demo'), 'workbuddy-demo', 'WorkBuddy demo skill');
+  writeJson(path.join(home, '.workbuddy', 'mcp.json'), {
+    mcpServers: { 'workbuddy-mcp': { command: 'workbuddy-mcp' } },
+  });
+  writeSkill(path.join(home, '.kimi', 'skills', 'kimi-cli-demo'), 'kimi-cli-demo', 'Kimi CLI demo skill');
+  writeSkill(path.join(home, '.kimi-code', 'skills', 'kimi-code-demo'), 'kimi-code-demo', 'Kimi Code demo skill');
+  writeSkill(path.join(kimiDesktopSkillsRoot(home), 'kimi-desktop-demo'), 'kimi-desktop-demo', 'Kimi Desktop demo skill');
+  writeJson(path.join(home, '.kimi-code', 'mcp.json'), {
+    mcpServers: { 'kimi-mcp': { command: 'kimi-mcp' } },
+  });
+
+  const scan = runWithEnv(['scan', '--json', '--lang', 'en'], env);
+  assert.equal(scan.status, 0, scan.stderr);
+  const catalog = JSON.parse(scan.stdout);
+  const skillKeys = new Set(catalog.skills.map((skill) => `${skill.tool}:${skill.dirName}`));
+  assert.equal(skillKeys.has('workbuddy:workbuddy-demo'), true);
+  assert.equal(skillKeys.has('kimi:kimi-cli-demo'), true);
+  assert.equal(skillKeys.has('kimi:kimi-code-demo'), true);
+  assert.equal(skillKeys.has('kimi:kimi-desktop-demo'), true);
+  assert.equal(catalog.mcpServers.some((mcp) => mcp.tool === 'workbuddy' && mcp.name === 'workbuddy-mcp'), true);
+  assert.equal(catalog.mcpServers.some((mcp) => mcp.tool === 'kimi' && mcp.name === 'kimi-mcp'), true);
+
+  const source = makeSkillSource('omega', 'omega description', '1.0.0');
+  const workbuddyPlan = runWithEnv(['install', source, '--tool', 'workbuddy', '--dry-run', '--lang', 'en'], env);
+  assert.equal(workbuddyPlan.status, 0, workbuddyPlan.stderr);
+  assert.match(workbuddyPlan.stdout, /workbuddy\/user/);
+
+  const kimiPlan = runWithEnv(['install', source, '--tool', 'kimi', '--dry-run', '--lang', 'en'], env);
+  assert.equal(kimiPlan.status, 0, kimiPlan.stderr);
+  assert.match(kimiPlan.stdout, /kimi\/cli/);
+  assert.match(kimiPlan.stdout, /kimi\/code/);
+  assert.match(kimiPlan.stdout, /kimi\/desktop/);
+});
+
 function run(args, home) {
+  return runWithEnv(args, envFor(home));
+}
+
+function runWithEnv(args, env) {
   return spawnSync(process.execPath, ['bin/skm.js', ...args], {
     cwd: process.cwd(),
     encoding: 'utf8',
-    env: { ...process.env, HOME: home, USERPROFILE: home, SKM_LANG: 'en' },
+    env,
   });
 }
 
@@ -171,7 +213,7 @@ function runAsync(args, home) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ['bin/skm.js', ...args], {
       cwd: process.cwd(),
-      env: { ...process.env, HOME: home, USERPROFILE: home, SKM_LANG: 'en' },
+      env: envFor(home),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -186,6 +228,12 @@ function runAsync(args, home) {
 
 function makeHome() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'skm-lifecycle-home-'));
+}
+
+function envFor(home) {
+  const env = { ...process.env, HOME: home, USERPROFILE: home, SKM_LANG: 'en' };
+  if (process.platform === 'win32') env.APPDATA = path.join(home, 'AppData', 'Roaming');
+  return env;
 }
 
 function makeSkillSource(name, description, version, extra = {}) {
@@ -227,4 +275,24 @@ function startSkillServer(textOf) {
 
 function closeServer(server) {
   return new Promise((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
+}
+
+function writeSkill(dir, name, description) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'SKILL.md'), skillMd(name, description, '1.0.0'));
+}
+
+function writeJson(file, data) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
+
+function kimiDesktopSkillsRoot(home) {
+  if (process.platform === 'win32') {
+    return path.join(home, 'AppData', 'Roaming', 'kimi-desktop', 'daimon-share', 'daimon', 'skills');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'kimi-desktop', 'daimon-share', 'daimon', 'skills');
+  }
+  return path.join(home, '.config', 'kimi-desktop', 'daimon-share', 'daimon', 'skills');
 }
