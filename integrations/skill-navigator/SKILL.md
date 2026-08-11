@@ -1,6 +1,6 @@
 ---
 name: skill-navigator
-version: 0.1.6
+version: 0.1.11
 description: Use when users ask which already-installed local Agent Skill should handle a task. It calls local skm recommendations from the real installed skill catalog; it does not perform the task itself. 当用户询问“做某件事应该用哪款已安装 skill”时使用。它通过本机 skm 基于真实已安装 skill 清单做推荐，本身不执行具体任务。
 category: meta
 homepage: https://github.com/GrubbyLee/skill-manager
@@ -83,7 +83,7 @@ skm scan
 2. **需要更详细候选时使用 `skm recommend`**
    - 命令：`skm recommend "<任务描述>" --top 5 --json`
    - 用途：列出更多候选，便于横向比较。
-   - 筛选：如果用户明确只想看某个工具侧的 skill，追加 `--tool <claude|codex|cursor|gemini>`。
+   - 筛选：如果用户明确只想看某个工具侧的 skill，追加 `--tool <claude|codex|cursor|gemini|workbuddy|kimi>`。
 
 3. **名称或关键词更明确时使用 `skm search`**
    - 命令：`skm search "<关键词>" --json`
@@ -120,6 +120,8 @@ skm scan
 - `--tool codex`
 - `--tool cursor`
 - `--tool gemini`
+- `--tool workbuddy`
+- `--tool kimi`
 
 如果用户没有指定工具，就不要加 `--tool`，让 skm 返回所有可用候选；但转述时可以顺手说明“这款 skill 在哪些工具上可用”。
 

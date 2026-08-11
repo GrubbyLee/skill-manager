@@ -57,7 +57,7 @@ cp -R integrations/skill-navigator ~/.gemini/skills/skill-navigator
 | 做某件事该用哪个 skill？ | `skm ask "<任务>" --json`（主入口） |
 | 想要更多候选或横向对比 | `skm recommend "<任务>" --top 5 --json` |
 | 已经有明确关键词 | `skm search "<关键词>" --json` |
-| 只看某个工具侧的 skill | 追加 `--tool claude|codex|cursor|gemini` |
+| 只看某个工具侧的 skill | 追加 `--tool claude|codex|cursor|gemini|workbuddy|kimi` |
 | 新装或删除 skill 后目录可能过期 | 先提示用户运行 `skm scan`，再重新推荐 |
 
 ## 推荐输出原则

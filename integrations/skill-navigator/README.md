@@ -57,7 +57,7 @@ After manual install, `skm` must still be available on PATH and `skm scan` must 
 | Which skill should I use for this task? | `skm ask "<task>" --json` (primary entry) |
 | I want more candidates or a comparison | `skm recommend "<task>" --top 5 --json` |
 | I already have a clear keyword | `skm search "<keyword>" --json` |
-| Only show skills for one tool | Add `--tool claude|codex|cursor|gemini` |
+| Only show skills for one tool | Add `--tool claude|codex|cursor|gemini|workbuddy|kimi` |
 | The catalog may be stale after installing/removing skills | Ask the user to run `skm scan`, then retry recommendation |
 
 ## Output principles
