@@ -5,6 +5,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
+import { KIMI_DESKTOP_SKILLS_DIR, KIMI_DESKTOP_SKILLS_DIRS } from '../src/paths.js';
 
 test('生命周期：本地目录安装会记录来源，并支持更新、回滚、历史闭环', async () => {
   const home = makeHome();
@@ -169,6 +170,7 @@ test('生命周期：WorkBuddy 与 Kimi 目录可扫描，Kimi 安装 dry-run �
   });
   writeSkill(path.join(home, '.kimi', 'skills', 'kimi-cli-demo'), 'kimi-cli-demo', 'Kimi CLI demo skill');
   writeSkill(path.join(home, '.kimi-code', 'skills', 'kimi-code-demo'), 'kimi-code-demo', 'Kimi Code demo skill');
+  writeSkill(path.join(home, '.agents', 'skills', 'kimi-agents-demo'), 'kimi-agents-demo', 'Kimi shared agents demo skill');
   writeSkill(path.join(kimiDesktopSkillsRoot(home), 'kimi-desktop-demo'), 'kimi-desktop-demo', 'Kimi Desktop demo skill');
   writeJson(path.join(home, '.kimi-code', 'mcp.json'), {
     mcpServers: { 'kimi-mcp': { command: 'kimi-mcp' } },
@@ -181,6 +183,7 @@ test('生命周期：WorkBuddy 与 Kimi 目录可扫描，Kimi 安装 dry-run �
   assert.equal(skillKeys.has('workbuddy:workbuddy-demo'), true);
   assert.equal(skillKeys.has('kimi:kimi-cli-demo'), true);
   assert.equal(skillKeys.has('kimi:kimi-code-demo'), true);
+  assert.equal(skillKeys.has('kimi:kimi-agents-demo'), true);
   assert.equal(skillKeys.has('kimi:kimi-desktop-demo'), true);
   assert.equal(catalog.mcpServers.some((mcp) => mcp.tool === 'workbuddy' && mcp.name === 'workbuddy-mcp'), true);
   assert.equal(catalog.mcpServers.some((mcp) => mcp.tool === 'kimi' && mcp.name === 'kimi-mcp'), true);
@@ -195,6 +198,8 @@ test('生命周期：WorkBuddy 与 Kimi 目录可扫描，Kimi 安装 dry-run �
   assert.match(kimiPlan.stdout, /kimi\/cli/);
   assert.match(kimiPlan.stdout, /kimi\/code/);
   assert.match(kimiPlan.stdout, /kimi\/desktop/);
+  assert.equal(KIMI_DESKTOP_SKILLS_DIRS.length, 1);
+  assert.equal(KIMI_DESKTOP_SKILLS_DIRS[0], KIMI_DESKTOP_SKILLS_DIR);
 });
 
 function run(args, home) {

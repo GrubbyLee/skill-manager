@@ -2,17 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { scanSkillDir } from './common.js';
 import { pushJsonMcpServers } from './mcpConfig.js';
-import { KIMI_SKILLS_DIR, KIMI_CODE_SKILLS_DIR, KIMI_CODE_MCP_FILE, KIMI_DESKTOP_SKILLS_DIRS_CANDIDATES } from '../paths.js';
+import { KIMI_SKILLS_DIR, KIMI_CODE_SKILLS_DIR, KIMI_CODE_MCP_FILE, KIMI_AGENTS_SKILLS_DIR, KIMI_DESKTOP_SKILLS_DIRS } from '../paths.js';
 
 const TOOL = 'kimi';
 
 // Kimi 的 skill 目录约定（官方文档）：
 //   Kimi CLI：   用户级 ~/.kimi/skills；项目级 <cwd>/.kimi/skills
 //   Kimi Code：  用户级 $KIMI_CODE_HOME/skills（默认 ~/.kimi-code/skills）；项目级 <cwd>/.kimi-code/skills
-//   Kimi Desktop：Windows 版 %APPDATA%/kimi-desktop/daimon-share/daimon/skills（daimon 运行时）
+//   Kimi Desktop：当前平台的 daimon 运行时技能目录
+//   兼容共享目录：~/.agents/skills
 //   MCP：        $KIMI_CODE_HOME/mcp.json（用户级）；项目级 <cwd>/.kimi-code/mcp.json
-// 注：Kimi 会回退读取 ~/.claude/skills、~/.codex/skills 与 ~/.agents/skills，
-// 但这些目录已被对应适配器或共享目录覆盖，此处只扫 Kimi 自有目录以免重复入库。
 export function scanKimi({ cwd = process.cwd() } = {}) {
   const skills = [];
   const mcpServers = [];
@@ -34,7 +33,8 @@ export function scanKimi({ cwd = process.cwd() } = {}) {
   // 用户级：Kimi CLI + Kimi Code + Kimi Desktop（daimon，跨平台候选）三套品牌目录
   collectDir(KIMI_SKILLS_DIR, 'user');
   collectDir(KIMI_CODE_SKILLS_DIR, 'user');
-  for (const dir of KIMI_DESKTOP_SKILLS_DIRS_CANDIDATES) collectDir(dir, 'user');
+  collectDir(KIMI_AGENTS_SKILLS_DIR, 'user');
+  for (const dir of KIMI_DESKTOP_SKILLS_DIRS) collectDir(dir, 'user');
 
   // 项目级：.kimi/skills + .kimi-code/skills
   collectDir(path.join(cwd, '.kimi', 'skills'), 'project');
