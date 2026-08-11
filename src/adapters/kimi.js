@@ -20,7 +20,7 @@ export function scanKimi({ cwd = process.cwd() } = {}) {
   const seen = new Set();
 
   const collectDir = (dir, scope) => {
-    const key = path.resolve(dir);
+    const key = realDirKey(dir);
     if (seen.has(key)) return;
     seen.add(key);
     if (!fs.existsSync(dir)) return;
@@ -59,6 +59,14 @@ function isSameFile(a, b) {
     return fs.realpathSync(a) === fs.realpathSync(b);
   } catch {
     return path.resolve(a) === path.resolve(b);
+  }
+}
+
+function realDirKey(dir) {
+  try {
+    return fs.realpathSync(dir);
+  } catch {
+    return path.resolve(dir);
   }
 }
 

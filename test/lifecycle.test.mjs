@@ -202,6 +202,21 @@ test('生命周期：WorkBuddy 与 Kimi 目录可扫描，Kimi 安装 dry-run �
   assert.equal(KIMI_DESKTOP_SKILLS_DIRS[0], KIMI_DESKTOP_SKILLS_DIR);
 });
 
+test('生命周期：Kimi 兼容目录按真实路径去重，软链指向同一目录时不重复入库', () => {
+  const home = makeHome();
+  const env = envFor(home);
+
+  writeSkill(path.join(home, '.kimi-code', 'skills', 'kimi-code-demo'), 'kimi-code-demo', 'Kimi Code demo skill');
+  fs.mkdirSync(path.join(home, '.agents'), { recursive: true });
+  fs.symlinkSync(path.join(home, '.kimi-code', 'skills'), path.join(home, '.agents', 'skills'), 'dir');
+
+  const scan = runWithEnv(['scan', '--json', '--lang', 'en'], env);
+  assert.equal(scan.status, 0, scan.stderr);
+  const catalog = JSON.parse(scan.stdout);
+  const kimiEntries = catalog.skills.filter((skill) => skill.tool === 'kimi' && skill.dirName === 'kimi-code-demo');
+  assert.equal(kimiEntries.length, 1);
+});
+
 function run(args, home) {
   return runWithEnv(args, envFor(home));
 }
