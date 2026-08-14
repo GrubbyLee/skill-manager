@@ -1,12 +1,15 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { mergeByDirName } from '../catalog.js';
 import { ensureCatalog } from './scan.js';
 import { UPDATE_CACHE_PATH } from '../paths.js';
 import { loadJsonFile, saveJsonFile, paint } from '../utils.js';
 import { renderTable, termWidth } from '../table.js';
 import { tr } from '../i18n.js';
 import { applySourcesToSkills } from '../sources.js';
+import { installationId } from '../skillPackage.js';
+import { acquireSkillSource } from '../skillSource.js';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 6000;
@@ -15,8 +18,8 @@ const VISIBLE_ROWS = 40;
 // skm outdated：默认只看本地元数据；--online 才访问上游，且只做检查不更新。
 export async function runOutdated({ cwd, json = false, online = false, refresh = false, lang = 'zh-CN' }) {
   const catalog = ensureCatalog(cwd, lang);
-  const merged = mergeByDirName(applySourcesToSkills(catalog.skills || []));
-  const rows = await collectOutdatedRows(merged, { online, refresh, lang });
+  const entries = applySourcesToSkills(catalog.skills || []);
+  const rows = await collectOutdatedRows(entries, { online, refresh, lang });
 
   if (json) {
     console.log(JSON.stringify({
@@ -58,7 +61,7 @@ export async function runOutdated({ cwd, json = false, online = false, refresh =
 export async function collectOutdatedRows(skills, { online = false, refresh = false, lang = 'zh-CN', fetchImpl = globalThis.fetch, spawnImpl = spawnSync, cache = null } = {}) {
   const cacheState = cache || loadUpdateCache();
   const rows = [];
-  for (const skill of skills) {
+  for (const skill of expandInstallations(skills)) {
     const row = buildLocalRow(skill, lang);
     if (online && row.check?.kind) {
       const remote = await checkRemote(row.check, { cache: cacheState, refresh, fetchImpl, spawnImpl });
@@ -90,6 +93,9 @@ function buildLocalRow(skill, lang) {
   }
   return {
     dirName: skill.dirName,
+    instanceId: selected.id || installationId(selected),
+    tool: selected.tool || null,
+    scope: selected.scope || null,
     name: skill.name,
     tools: skill.tools || entries.map((e) => e.tool),
     category: skill.category,
@@ -130,6 +136,19 @@ function buildCheck(upstream, skill) {
       localHead: upstream.git.head,
     };
   }
+  const packageSource = firstPackageSource(upstream);
+  if ((skill.packageHash || upstream.packageHash) && packageSource) {
+    return {
+      kind: 'package',
+      descriptor: {
+        url: packageSource,
+        ref: upstream.ref || null,
+        subdir: upstream.subdir || null,
+      },
+      localVersion: upstream.version || null,
+      localPackageHash: skill.packageHash || upstream.packageHash,
+    };
+  }
   const urls = firstNonEmpty([
     rawSkillUrls(upstream.source),
     rawSkillUrls(upstream.repository),
@@ -157,10 +176,33 @@ async function checkRemote(check, { cache, refresh, fetchImpl, spawnImpl }) {
   let result;
   if (check.kind === 'git') result = checkGitRemote(check, spawnImpl);
   else if (check.kind === 'skill-md') result = await checkRemoteSkillMd(check, fetchImpl);
+  else if (check.kind === 'package') result = await checkRemotePackage(check);
   else result = { status: 'unknown', reason: 'unsupported' };
 
   cache.items[key] = { ...result, checkedAt: new Date().toISOString() };
   return cache.items[key];
+}
+
+async function checkRemotePackage(check) {
+  let acquired;
+  try {
+    acquired = await acquireSkillSource(check.descriptor);
+    const text = acquired.kind === 'directory'
+      ? fs.readFileSync(path.join(acquired.sourceDir, 'SKILL.md'), 'utf8')
+      : acquired.text;
+    const remoteVersion = parseFrontmatterValue(text, 'version');
+    const remotePackageHash = acquired.manifest?.hash || crypto.createHash('sha256').update(`SKILL.md\0${text}`).digest('hex');
+    const versionOrder = check.localVersion && remoteVersion ? compareSemanticVersions(check.localVersion, remoteVersion) : null;
+    let status;
+    if (versionOrder != null && versionOrder < 0) status = 'outdated';
+    else if (versionOrder != null && versionOrder > 0) status = 'ahead';
+    else status = check.localPackageHash === remotePackageHash ? 'latest' : 'diverged';
+    return { status, remoteVersion, remotePackageHash, remoteHash: remotePackageHash.slice(0, 12), remoteCommit: acquired.resolvedCommit || null, reason: 'package' };
+  } catch (error) {
+    return { status: 'unknown', reason: error.message };
+  } finally {
+    acquired?.cleanup?.();
+  }
 }
 
 function checkGitRemote(check, spawnImpl) {
@@ -172,7 +214,7 @@ function checkGitRemote(check, spawnImpl) {
     const head = String(r.stdout || '').trim().split(/\s+/)[0];
     if (/^[0-9a-f]{40}$/i.test(head)) {
       return {
-        status: head === check.localHead ? 'latest' : 'outdated',
+        status: head === check.localHead ? 'latest' : 'diverged',
         remoteCommit: head,
         reason: 'git',
       };
@@ -199,8 +241,14 @@ async function checkOneRemoteSkillMd(check, fetchImpl) {
     const remoteHash = crypto.createHash('sha256').update(text).digest('hex').slice(0, 12);
     const remoteVersion = parseFrontmatterValue(text, 'version');
     if (check.localVersion && remoteVersion) {
+      const order = compareSemanticVersions(check.localVersion, remoteVersion);
+      if (order === 0 && check.localHash && check.localHash !== remoteHash) {
+        return { status: 'diverged', remoteVersion, remoteHash, reason: 'same-version-different-content' };
+      }
       return {
-        status: check.localVersion === remoteVersion ? 'latest' : 'outdated',
+        status: order == null
+          ? (check.localVersion === remoteVersion ? 'latest' : 'diverged')
+          : order < 0 ? 'outdated' : order > 0 ? 'ahead' : 'latest',
         remoteVersion,
         remoteHash,
         reason: 'version',
@@ -239,6 +287,7 @@ function applyRemoteResult(row, remote, lang) {
   row.remoteVersion = remote.remoteVersion || null;
   row.remoteCommit = remote.remoteCommit || null;
   row.remoteHash = remote.remoteHash || null;
+  row.remotePackageHash = remote.remotePackageHash || null;
   row.checkedAt = remote.checkedAt || null;
   row.cached = Boolean(remote.cached);
   if (remote.status === 'latest') {
@@ -249,6 +298,12 @@ function applyRemoteResult(row, remote, lang) {
     row.suggestion = remote.remoteVersion
       ? tr(lang, 'outdated.suggestion.updateVersion', { version: remote.remoteVersion })
       : tr(lang, 'outdated.suggestion.reviewDiff');
+  } else if (remote.status === 'ahead') {
+    row.status = 'ahead';
+    row.suggestion = lang === 'en' ? 'Local version is ahead of upstream; verify the source or keep the local build pinned' : '本地版本领先上游；请核对来源，或继续固定当前版本';
+  } else if (remote.status === 'diverged') {
+    row.status = 'diverged';
+    row.suggestion = lang === 'en' ? 'Local and upstream content diverged; review the diff before replacing anything' : '本地与上游内容已分叉；替换前先审阅差异';
   } else {
     row.status = 'unknown';
     row.suggestion = tr(lang, 'outdated.suggestion.unknown');
@@ -317,6 +372,24 @@ function rawSkillUrls(url) {
   return [];
 }
 
+function firstPackageSource(upstream) {
+  for (const value of [upstream.source, upstream.repository, upstream.homepage, upstream.git?.remote]) {
+    if (isPackageSource(value)) return value;
+  }
+  return null;
+}
+
+function isPackageSource(value) {
+  const text = String(value || '');
+  if (!text || /\/SKILL\.md(?:[?#].*)?$/i.test(text)) return false;
+  if (/^(git@|ssh:\/\/|file:\/\/)/i.test(text) || /\.git(?:[#?].*)?$/i.test(text)) return true;
+  try {
+    return ['github.com', 'gitee.com'].includes(new URL(text).hostname);
+  } catch {
+    return false;
+  }
+}
+
 function branchFromUpstreamRef(ref) {
   const text = String(ref || '');
   if (!text || text === 'HEAD') return null;
@@ -337,10 +410,14 @@ function statusLabel(status, lang) {
     unchecked: tr(lang, 'outdated.status.unchecked'),
     unknown: tr(lang, 'outdated.status.unknown'),
     untracked: tr(lang, 'outdated.status.untracked'),
+    ahead: tr(lang, 'outdated.status.ahead'),
+    diverged: tr(lang, 'outdated.status.diverged'),
   };
   if (status === 'latest') return paint.green(labels.latest);
   if (status === 'outdated') return paint.yellow(labels.outdated);
   if (status === 'untracked') return paint.gray(labels.untracked);
+  if (status === 'diverged') return paint.yellow(labels.diverged);
+  if (status === 'ahead') return paint.green(labels.ahead);
   return labels[status] || status;
 }
 
@@ -352,11 +429,13 @@ function summarize(rows) {
     unchecked: rows.filter((r) => r.status === 'unchecked').length,
     unknown: rows.filter((r) => r.status === 'unknown').length,
     untracked: rows.filter((r) => r.status === 'untracked').length,
+    ahead: rows.filter((r) => r.status === 'ahead').length,
+    diverged: rows.filter((r) => r.status === 'diverged').length,
   };
 }
 
 function statusOrder(status) {
-  return { outdated: 0, unchecked: 1, unknown: 2, untracked: 3, latest: 4 }[status] ?? 9;
+  return { outdated: 0, diverged: 1, unchecked: 2, unknown: 3, untracked: 4, ahead: 5, latest: 6 }[status] ?? 9;
 }
 
 function sourceOrder(row) {
@@ -367,4 +446,45 @@ function sourceOrder(row) {
 
 function short(value) {
   return value ? String(value).slice(0, 12) : null;
+}
+
+function expandInstallations(skills) {
+  return skills.flatMap((skill) => {
+    if (!Array.isArray(skill.entries) || skill.entries.length <= 1) return [skill];
+    return skill.entries.map((entry) => ({ ...entry, category: entry.category || skill.category }));
+  });
+}
+
+export function compareSemanticVersions(local, remote) {
+  const a = parseSemanticVersion(local);
+  const b = parseSemanticVersion(remote);
+  if (!a || !b) return null;
+  for (let i = 0; i < 3; i++) {
+    if (a.core[i] !== b.core[i]) return a.core[i] < b.core[i] ? -1 : 1;
+  }
+  return comparePrerelease(a.pre, b.pre);
+}
+
+function parseSemanticVersion(value) {
+  const match = String(value || '').trim().match(/^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
+  if (!match) return null;
+  return { core: [Number(match[1]), Number(match[2]), Number(match[3])], pre: match[4] ? match[4].split('.') : [] };
+}
+
+function comparePrerelease(a, b) {
+  if (!a.length && !b.length) return 0;
+  if (!a.length) return 1;
+  if (!b.length) return -1;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i++) {
+    if (a[i] == null) return -1;
+    if (b[i] == null) return 1;
+    if (a[i] === b[i]) continue;
+    const an = /^\d+$/.test(a[i]);
+    const bn = /^\d+$/.test(b[i]);
+    if (an && bn) return Number(a[i]) < Number(b[i]) ? -1 : 1;
+    if (an !== bn) return an ? -1 : 1;
+    return a[i].localeCompare(b[i]) < 0 ? -1 : 1;
+  }
+  return 0;
 }

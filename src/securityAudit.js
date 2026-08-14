@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
 const LARGE_SKILL_MD_BYTES = 64 * 1024;
 const LARGE_DIR_FILES = 1000;
 const LARGE_DIR_BYTES = 50 * 1024 * 1024;
@@ -119,12 +122,23 @@ const RULE_TEXT = {
 };
 
 export function auditSkillSecurity(text, skill) {
-  const findings = [];
-  for (const rule of SKILL_TEXT_RULES) {
-    const match = String(text || '').match(rule.pattern);
-    if (match) findings.push(finding({ ruleId: rule.ruleId, severity: rule.severity, targetType: 'skill', skill, evidence: cleanEvidence(match[0]) }));
-  }
+  const findings = auditSkillText(text, skill, 'SKILL.md');
   findings.push(...auditSkillMetadata(skill));
+  return findings;
+}
+
+export function auditSkillDirectory(dir, skill, skillText = null) {
+  const findings = [];
+  const root = path.resolve(dir);
+  const mainText = skillText ?? safeReadText(path.join(root, 'SKILL.md')) ?? '';
+  findings.push(...auditSkillText(mainText, skill, 'SKILL.md'));
+  findings.push(...auditSkillMetadata(skill));
+
+  for (const file of auditableFiles(root)) {
+    if (file.relative === 'SKILL.md') continue;
+    const text = safeReadText(file.full);
+    if (text != null) findings.push(...auditSkillText(text, skill, file.relative));
+  }
   return findings;
 }
 
@@ -214,7 +228,56 @@ export function redactCommand(command) {
     .replace(/(bearer\s+)([A-Za-z0-9._~+/=-]+)/giu, '$1<redacted>');
 }
 
-function finding({ ruleId, severity, targetType, skill, mcp, evidence = '' }) {
+function auditSkillText(text, skill, targetFile) {
+  const findings = [];
+  for (const rule of SKILL_TEXT_RULES) {
+    const match = String(text || '').match(rule.pattern);
+    if (match) findings.push(finding({ ruleId: rule.ruleId, severity: rule.severity, targetType: 'skill', skill, targetFile, evidence: cleanEvidence(match[0]) }));
+  }
+  return findings;
+}
+
+function auditableFiles(root) {
+  const out = [];
+  const walk = (dir, relative = '') => {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (!relative && entry.name === '.git') continue;
+      const rel = path.join(relative, entry.name);
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full, rel);
+      else if (entry.isFile() && isAuditableFile(entry.name, full)) out.push({ full, relative: rel.split(path.sep).join('/') });
+    }
+  };
+  walk(root);
+  return out;
+}
+
+function isAuditableFile(name, file) {
+  const ext = path.extname(name).toLowerCase();
+  const allowed = new Set(['.md', '.txt', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py', '.sh', '.bash', '.zsh', '.ps1', '.cmd', '.bat', '.json', '.yaml', '.yml', '.toml']);
+  if (!allowed.has(ext) && !['Dockerfile', 'Makefile'].includes(name)) return false;
+  try {
+    return fs.statSync(file).size <= 2 * 1024 * 1024;
+  } catch {
+    return false;
+  }
+}
+
+function safeReadText(file) {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function finding({ ruleId, severity, targetType, skill, mcp, targetFile = '', evidence = '' }) {
   const target = skill || mcp || {};
   return {
     severity,
@@ -223,6 +286,7 @@ function finding({ ruleId, severity, targetType, skill, mcp, evidence = '' }) {
     targetName: target.dirName || target.name || '',
     tool: target.tool || '',
     scope: target.scope || '',
+    targetFile,
     evidence,
   };
 }

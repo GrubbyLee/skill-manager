@@ -4,17 +4,17 @@ import crypto from 'node:crypto';
 import { ensureCatalog, runScan } from './scan.js';
 import { mergeByDirName, isDupEntity } from '../catalog.js';
 import { scanUsage, buildUsageLookup } from '../usage.js';
-import { auditSkillSecurity, summarizeFindings } from '../securityAudit.js';
+import { auditSkillDirectory, auditSkillSecurity, localizeSecurityFinding, summarizeFindings } from '../securityAudit.js';
 import { parseFrontmatter, fallbackDescription } from '../frontmatter.js';
 import { estimateTokens } from '../adapters/common.js';
 import { applySourcesToSkills, upsertSource, isValidSourceUrl } from '../sources.js';
 import { CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR, CURSOR_SKILLS_DIRS, GEMINI_SKILLS_DIRS, WORKBUDDY_SKILLS_DIR, KIMI_SKILLS_DIR, KIMI_CODE_SKILLS_DIR, KIMI_DESKTOP_SKILLS_DIR, DATA_DIR, LOCK_PATH, LIFECYCLE_HISTORY_PATH, POLICY_PATH, PROFILES_PATH, SKILL_BACKUP_DIR } from '../paths.js';
 import { confirm, fileStamp, loadJsonFile, paint, saveJsonFile } from '../utils.js';
 import { renderTable, termWidth } from '../table.js';
+import { buildPackageManifest, diffPackageManifests, installationId } from '../skillPackage.js';
+import { acquireSkillSource, atomicReplaceDirectories, atomicReplaceDirectory, prepareCandidate, removePreparedCandidate } from '../skillSource.js';
 
 const DEFAULT_PROFILE_MODES = ['on', 'name-only', 'user-invocable-only', 'off'];
-const FETCH_TIMEOUT_MS = 8000;
-
 export async function runSkillInstall(ctx, args = []) {
   const source = args[0] || ctx.source;
   const lang = ctx.lang || 'zh-CN';
@@ -22,64 +22,130 @@ export async function runSkillInstall(ctx, args = []) {
 
   const payload = await loadInstallPayload(source, lang);
   if (!payload) return;
-  const targets = targetRoots(ctx.tool, ctx.cwd);
-  const rows = targets.map((target) => ({ ...target, dir: path.join(target.root, payload.dirName), exists: fs.existsSync(path.join(target.root, payload.dirName)) }));
-  printPlan(lang, zh(lang, 'skill 安装计划', 'Skill install plan'), rows.map((row) => [row.label, row.dir, row.exists ? zh(lang, '已存在', 'exists') : zh(lang, '可安装', 'ready')]));
-  printSecurity(lang, payload);
-  if (isDryRun(ctx)) return console.log(zh(lang, '[dry-run] 未写入 skill 目录。', '[dry-run] no skill directory written.'));
-  if (rows.some((row) => row.exists)) return fail(lang, zh(lang, '目标目录已存在；请先处理重复项，或换一个 skill 名称。', 'Target directory already exists; resolve duplicates or use a different skill name.'));
-  if (!(await confirm(zh(lang, '确认安装以上 skill？输入 yes 继续：', 'Install the skill above? Type yes to continue: '), confirmOptions(ctx.yes, lang)))) return;
-  if (!ensureDataWritable(lang)) return;
+  const prepared = [];
+  try {
+    const targets = targetRoots(ctx.tool, ctx.cwd);
+    const rows = targets.map((target) => {
+      const dir = path.join(target.root, payload.dirName);
+      const entry = { tool: target.catalogTool || target.tool, scope: 'user', dirName: payload.dirName, path: dir, realPath: dir };
+      return { ...target, dir, entry: { ...entry, id: installationId(entry) }, exists: fs.existsSync(dir) };
+    });
+    printPlan(lang, zh(lang, 'skill 安装计划', 'Skill install plan'), rows.map((row) => [row.label, row.dir, row.exists ? zh(lang, '已存在', 'exists') : `${payload.kind} / ${shortHash(payload.packageHash)}`]));
+    printSecurity(lang, payload);
+    if (!securityAllowed(ctx, payload.findings, lang)) return;
+    if (isDryRun(ctx)) return console.log(zh(lang, '[dry-run] 未写入 skill 目录。', '[dry-run] no skill directory written.'));
+    if (rows.some((row) => row.exists)) return fail(lang, zh(lang, '目标目录已存在；请先处理重复项，或换一个 skill 名称。', 'Target directory already exists; resolve duplicates or use a different skill name.'));
+    if (!(await confirm(zh(lang, '确认安装以上 skill？输入 yes 继续：', 'Install the skill above? Type yes to continue: '), confirmOptions(ctx.yes, lang)))) return;
+    if (!ensureDataWritable(lang)) return;
 
-  for (const row of rows) copyPayload(payload, row.dir);
-  const sourceResult = recordInstallSource(payload.dirName, payload.sourceRecord);
-  printIgnoredSourceFields(lang, payload.sourceRecord);
-  if (!sourceResult.hasUrl) console.log(zh(lang, `提示：${payload.dirName} 缺少可升级来源。建议运行：skm sources add ${payload.dirName} --source <GitHub/Gitee skill目录或SKILL.md URL>`, `Tip: ${payload.dirName} has no upgrade source. Run: skm sources add ${payload.dirName} --source <GitHub/Gitee skill directory or SKILL.md URL>`));
-  appendHistory({ type: 'install', skill: payload.dirName, source: sourceResult.source || source, tools: targets.map((target) => target.tool), targets: rows.map((row) => row.dir), sourceSaved: sourceResult.saved });
-  refreshCatalogAfterInstall(ctx, lang);
-  console.log(paint.green(zh(lang, `安装完成：${payload.dirName}`, `Installed: ${payload.dirName}`)));
+    for (const row of rows) prepared.push({ row, ...prepareCandidate(payload, row.dir, copyDir) });
+    const installed = [];
+    try {
+      for (const item of prepared) {
+        atomicReplaceDirectory(item.stage, item.row.dir);
+        item.stage = null;
+        installed.push(item.row.dir);
+      }
+    } catch (error) {
+      for (const dir of installed) fs.rmSync(dir, { recursive: true, force: true });
+      throw error;
+    }
+    const sourceResults = prepared.map((item) => recordInstallSource(payload.dirName, { ...payload.sourceRecord, packageHash: item.manifest.hash }, item.row.entry.id));
+    printIgnoredSourceFields(lang, payload.sourceRecord);
+    if (!sourceResults.some((result) => result.hasUrl)) console.log(zh(lang, `提示：${payload.dirName} 缺少可升级来源。建议运行：skm sources add ${payload.dirName} --source <GitHub/Gitee skill目录或SKILL.md URL>`, `Tip: ${payload.dirName} has no upgrade source. Run: skm sources add ${payload.dirName} --source <GitHub/Gitee skill directory or SKILL.md URL>`));
+    appendHistory({ type: 'install', skill: payload.dirName, source: payload.sourceRecord.source || source, instances: rows.map((row) => row.entry.id), tools: targets.map((target) => target.tool), targets: rows.map((row) => row.dir), packageHash: payload.packageHash });
+    refreshCatalog(ctx, lang, 'install');
+    console.log(paint.green(zh(lang, `安装完成：${payload.dirName}`, `Installed: ${payload.dirName}`)));
+  } finally {
+    for (const item of prepared) removePreparedCandidate(item.stage);
+    payload.cleanup?.();
+  }
 }
 
 export async function runSkillUpdate(ctx, args = []) {
   const name = args[0];
   const lang = ctx.lang || 'zh-CN';
-  if (!name) return fail(lang, zh(lang, '用法：skm update <skill名> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]', 'Usage: skm update <skill-name> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]'));
-  const { skill, entries } = findSkillEntriesWithRefresh(ctx, name);
-  if (!skill) return fail(lang, zh(lang, `目录中未找到 skill：${name}`, `Skill not found in catalog: ${name}`));
-  const selected = selectEntry(entries, ctx.tool);
-  if (!selected) return fail(lang, zh(lang, `未找到匹配工具的安装记录：${name}`, `No install record matched the requested tool: ${name}`));
-  const source = selected.upstream?.source || selected.upstream?.repository || selected.upstream?.homepage;
-  if (!source) return fail(lang, zh(lang, '该 skill 缺少可更新的 source/repository/homepage；先用 skm sources add 补充。', 'This skill lacks source/repository/homepage metadata; add it with skm sources add first.'));
-  const payload = await loadInstallPayload(source, lang, selected.dirName);
-  if (!payload) return;
-  const targetDir = selected.path;
-  printPlan(lang, zh(lang, 'skill 更新计划', 'Skill update plan'), [[selected.tool, targetDir, payload.hash === selected.skillMdHash ? zh(lang, '内容一致', 'same content') : zh(lang, '可更新', 'updateable')]]);
-  printSecurity(lang, payload);
-  if (isDryRun(ctx)) return console.log(zh(lang, '[dry-run] 未更新 skill。', '[dry-run] no skill updated.'));
-  if (!(await confirm(zh(lang, '确认备份并更新该 skill？输入 yes 继续：', 'Back up and update this skill? Type yes to continue: '), confirmOptions(ctx.yes, lang)))) return;
+  if (!name && !ctx.all) return fail(lang, zh(lang, '用法：skm update <skill名> [--tool ...] [--scope ...] [--instance ...] [--all] [--dry-run] [--yes]', 'Usage: skm update <skill-name> [--tool ...] [--scope ...] [--instance ...] [--all] [--dry-run] [--yes]'));
+  refreshCatalog(ctx, lang, 'pre-update');
+  const selected = selectLifecycleEntries(ctx, name, { allowMany: Boolean(ctx.all), requireSource: true, lang });
+  if (!selected.length) return;
+  const plans = [];
+  try {
+    for (const entry of selected) {
+      const descriptor = sourceDescriptor(entry);
+      const payload = await loadInstallPayload(descriptor, lang, entry.dirName);
+      try {
+        const targetDir = mutableTarget(entry);
+        const prepared = prepareCandidate(payload, targetDir, copyDir);
+        const currentManifest = buildPackageManifest(targetDir);
+        const diff = diffPackageManifests(currentManifest, prepared.manifest);
+        const stagedText = fs.readFileSync(path.join(prepared.stage, 'SKILL.md'), 'utf8');
+        payload.findings = auditSkillDirectory(prepared.stage, { ...payload.skill, fileCount: prepared.manifest.fileCount, totalBytes: prepared.manifest.totalBytes }, stagedText);
+        plans.push({ entry, descriptor, payload, targetDir, currentManifest, diff, ...prepared });
+      } catch (error) {
+        payload.cleanup?.();
+        throw error;
+      }
+    }
+    printUpdatePlans(plans, lang);
+    for (const plan of plans) printSecurity(lang, plan.payload, plan.entry);
+    if (!securityAllowed(ctx, plans.flatMap((plan) => plan.payload.findings), lang)) return;
+    if (plans.every((plan) => plan.diff.same)) {
+      console.log(paint.green(zh(lang, '所有目标已经与来源一致，无需更新。', 'All targets already match their sources; nothing to update.')));
+      return;
+    }
+    if (isDryRun(ctx)) return console.log(zh(lang, '[dry-run] 未更新 skill。', '[dry-run] no skill updated.'));
+    if (!(await confirm(zh(lang, `确认备份并更新 ${plans.filter((plan) => !plan.diff.same).length} 个实例？输入 yes 继续：`, `Back up and update ${plans.filter((plan) => !plan.diff.same).length} instance(s)? Type yes to continue: `), confirmOptions(ctx.yes, lang)))) return;
 
-  const backup = backupSkillDir(targetDir, selected.dirName);
-  replacePayload(payload, targetDir);
-  appendHistory({ type: 'update', skill: selected.dirName, tool: selected.tool, source, target: targetDir, backup, oldHash: selected.skillMdHash, newHash: payload.hash });
-  console.log(paint.green(zh(lang, `更新完成：${selected.dirName}（备份：${backup}）`, `Updated: ${selected.dirName} (backup: ${backup})`)));
+    const changedPlans = plans.filter((item) => !item.diff.same);
+    for (const plan of changedPlans) plan.backup = backupSkillDir(plan.targetDir, plan.entry, 'update');
+    atomicReplaceDirectories(changedPlans);
+    for (const plan of changedPlans) plan.stage = null;
+    for (const plan of changedPlans) {
+      recordInstallSource(plan.entry.dirName, { ...plan.payload.sourceRecord, packageHash: plan.manifest.hash }, plan.entry.id || installationId(plan.entry));
+      appendHistory({ type: 'update', skill: plan.entry.dirName, instance: plan.entry.id || installationId(plan.entry), tool: plan.entry.tool, scope: plan.entry.scope, source: plan.descriptor.url, target: plan.targetDir, backup: plan.backup, oldHash: plan.entry.skillMdHash, newHash: plan.payload.hash, oldPackageHash: plan.currentManifest.hash, newPackageHash: plan.manifest.hash, diff: summarizeDiff(plan.diff) });
+      console.log(paint.green(zh(lang, `更新完成：${entryLabel(plan.entry)}（备份：${plan.backup}）`, `Updated: ${entryLabel(plan.entry)} (backup: ${plan.backup})`)));
+    }
+    refreshCatalog(ctx, lang, 'update');
+  } finally {
+    for (const plan of plans) {
+      removePreparedCandidate(plan.stage);
+      plan.payload.cleanup?.();
+    }
+  }
 }
 
 export async function runSkillRollback(ctx, args = []) {
   const name = args[0];
   const lang = ctx.lang || 'zh-CN';
   if (!name) return fail(lang, zh(lang, '用法：skm rollback <skill名> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]', 'Usage: skm rollback <skill-name> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]'));
-  const { entries } = findSkillEntries(ctx, name);
-  const selected = selectEntry(entries, ctx.tool);
-  if (!selected) return fail(lang, zh(lang, `目录中未找到 skill：${name}`, `Skill not found in catalog: ${name}`));
-  const backup = latestBackup(selected.dirName);
-  if (!backup) return fail(lang, zh(lang, `没有可回滚备份：${selected.dirName}`, `No rollback backup found: ${selected.dirName}`));
-  console.log(zh(lang, `将把 ${selected.path} 回滚到 ${backup}`, `Rollback ${selected.path} from ${backup}`));
-  if (isDryRun(ctx)) return console.log(zh(lang, '[dry-run] 未执行回滚。', '[dry-run] rollback not executed.'));
-  if (!(await confirm(zh(lang, '确认回滚？输入 yes 继续：', 'Rollback now? Type yes to continue: '), confirmOptions(ctx.yes, lang)))) return;
-  const currentBackup = backupSkillDir(selected.path, `${selected.dirName}-before-rollback`);
-  replaceDir(backup, selected.path);
-  appendHistory({ type: 'rollback', skill: selected.dirName, tool: selected.tool, target: selected.path, restoredFrom: backup, backupBeforeRollback: currentBackup });
-  console.log(paint.green(zh(lang, `回滚完成：${selected.dirName}`, `Rolled back: ${selected.dirName}`)));
+  refreshCatalog(ctx, lang, 'pre-rollback');
+  const entries = selectLifecycleEntries(ctx, name, { allowMany: Boolean(ctx.all), requireSource: false, lang });
+  if (!entries.length) return;
+  const plans = [];
+  try {
+    for (const entry of entries) {
+      const targetDir = mutableTarget(entry);
+      const currentManifest = buildPackageManifest(targetDir);
+      const backup = latestBackup(entry, currentManifest.hash);
+      if (!backup) return fail(lang, zh(lang, `没有可回滚备份：${entryLabel(entry)}`, `No rollback backup found: ${entryLabel(entry)}`));
+      const prepared = prepareCandidate({ kind: 'directory', sourceDir: backup.payloadDir }, targetDir, copyDir);
+      plans.push({ entry, targetDir, currentManifest, backup, ...prepared });
+    }
+    printPlan(lang, zh(lang, 'skill 回滚计划', 'Skill rollback plan'), plans.map((plan) => [entryLabel(plan.entry), plan.targetDir, `${shortHash(plan.currentManifest.hash)} -> ${shortHash(plan.manifest.hash)}`]));
+    if (isDryRun(ctx)) return console.log(zh(lang, '[dry-run] 未执行回滚。', '[dry-run] rollback not executed.'));
+    if (!(await confirm(zh(lang, `确认回滚 ${plans.length} 个实例？输入 yes 继续：`, `Rollback ${plans.length} instance(s)? Type yes to continue: `), confirmOptions(ctx.yes, lang)))) return;
+    for (const plan of plans) plan.currentBackup = backupSkillDir(plan.targetDir, plan.entry, 'rollback-current');
+    atomicReplaceDirectories(plans);
+    for (const plan of plans) plan.stage = null;
+    for (const plan of plans) {
+      appendHistory({ type: 'rollback', skill: plan.entry.dirName, instance: plan.entry.id || installationId(plan.entry), tool: plan.entry.tool, scope: plan.entry.scope, target: plan.targetDir, restoredFrom: plan.backup.payloadDir, backupBeforeRollback: plan.currentBackup, oldPackageHash: plan.currentManifest.hash, newPackageHash: plan.manifest.hash });
+      console.log(paint.green(zh(lang, `回滚完成：${entryLabel(plan.entry)}`, `Rolled back: ${entryLabel(plan.entry)}`)));
+    }
+    refreshCatalog(ctx, lang, 'rollback');
+  } finally {
+    for (const plan of plans) removePreparedCandidate(plan.stage);
+  }
 }
 
 export function runSkillLock(ctx, args = []) {
@@ -164,81 +230,73 @@ export function runSkillHistory(ctx, args = []) {
   printPlan(lang, zh(lang, '生命周期历史', 'Lifecycle history'), events.slice(-80).map((event) => [event.time, event.type, event.skill || '—', eventSummary(event, lang)]));
 }
 
-function findSkillEntries(ctx, name) {
-  const catalog = ensureCatalog(ctx.cwd, ctx.lang);
-  const merged = mergeByDirName(applySourcesToSkills(catalog.skills || []));
-  const skill = merged.find((item) => item.dirName === name || item.name === name);
-  return { skill, entries: skill?.entries || [] };
-}
-
-function findSkillEntriesWithRefresh(ctx, name) {
-  let result = findSkillEntries(ctx, name);
-  if (result.skill) return result;
-  runScan({ cwd: ctx.cwd, silent: true, lang: ctx.lang });
-  result = findSkillEntries(ctx, name);
-  return result;
-}
-
-function selectEntry(entries = [], tool) {
-  const normalized = normalizeTool(tool);
-  const filtered = normalized ? entries.filter((entry) => normalizeTool(entry.tool) === normalized) : entries;
-  return filtered.find((entry) => entry.scope === 'user') || filtered[0] || null;
+function selectLifecycleEntries(ctx, name, { allowMany, requireSource, lang }) {
+  const catalog = ensureCatalog(ctx.cwd, lang);
+  let entries = applySourcesToSkills(catalog.skills || []);
+  if (name) entries = entries.filter((entry) => entry.dirName === name || entry.name === name);
+  if (ctx.tool) entries = entries.filter((entry) => normalizeTool(entry.tool) === normalizeTool(ctx.tool));
+  if (ctx.scope) entries = entries.filter((entry) => entry.scope === ctx.scope);
+  if (ctx.instance) entries = entries.filter((entry) => (entry.id || installationId(entry)) === ctx.instance);
+  const pluginEntries = entries.filter((entry) => entry.scope === 'plugin');
+  if (pluginEntries.length) {
+    fail(lang, zh(lang, `拒绝直接修改插件管理的 skill：${pluginEntries.map(entryLabel).join(', ')}。请通过插件管理器升级。`, `Refusing to modify plugin-managed skill: ${pluginEntries.map(entryLabel).join(', ')}. Update it through the plugin manager.`));
+    return [];
+  }
+  if (requireSource) {
+    entries = entries.filter((entry) => {
+      if (sourceDescriptor(entry, false)) return true;
+      if (name) console.error(zh(lang, `缺少可更新来源：${entryLabel(entry)}。先用 skm sources add 补充。`, `Missing update source for ${entryLabel(entry)}. Add one with skm sources add first.`));
+      return false;
+    });
+  }
+  const seen = new Set();
+  entries = entries.filter((entry) => {
+    const key = entry.realPath || entry.path;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (!entries.length) {
+    if (!process.exitCode) fail(lang, name ? zh(lang, `目录中未找到可操作的 skill：${name}`, `No actionable skill found: ${name}`) : zh(lang, '没有带可更新来源的 skill。', 'No skills with actionable update sources were found.'));
+    return [];
+  }
+  if (!allowMany && entries.length > 1) {
+    const choices = entries.map((entry) => `${entryLabel(entry)} [${entry.id || installationId(entry)}]`).join('\n  ');
+    fail(lang, zh(lang, `存在多个匹配实例，请加 --tool/--scope/--instance 精确选择，或加 --all：\n  ${choices}`, `Multiple installations match. Select one with --tool/--scope/--instance, or add --all:\n  ${choices}`));
+    return [];
+  }
+  return entries;
 }
 
 async function loadInstallPayload(source, lang, forcedName = null) {
-  let text;
-  let dirName;
-  let sourceDir = null;
-  if (isLocalPath(source)) {
-    sourceDir = path.resolve(source);
-    const md = path.join(sourceDir, 'SKILL.md');
-    try {
-      text = fs.readFileSync(md, 'utf8');
-    } catch (e) {
-      fail(lang, zh(lang, `无法读取 SKILL.md：${md}（${e.message}）`, `Unable to read SKILL.md: ${md} (${e.message})`));
-      return null;
-    }
-  } else {
-    const url = rawSkillMdUrl(source);
-    if (!url) {
-      fail(lang, zh(lang, '暂只支持本地 skill 目录、SKILL.md URL、GitHub/Gitee skill 目录 URL。', 'Only local skill directories, SKILL.md URLs, and GitHub/Gitee skill directory URLs are supported for now.'));
-      return null;
-    }
-    text = await fetchText(url);
-  }
-  const { data, hasFrontmatter } = parseFrontmatter(text);
-  dirName = sanitizeName(forcedName || data.name || basenameFromSource(source));
-  const description = String(data.description || fallbackDescription(text) || '').trim();
-  const hash = crypto.createHash('sha256').update(text).digest('hex').slice(0, 12);
-  const skill = { dirName, name: data.name || dirName, description, hasFrontmatter, skillMdHash: hash, skillMdBytes: Buffer.byteLength(text), descTokens: estimateTokens(`${data.name || dirName} ${description}`) };
-  const findings = auditSkillSecurity(text, skill);
-  return { dirName, text, sourceDir, skill, findings, hash, sourceRecord: installSourceRecord(data, source) };
-}
-
-async function fetchText(url) {
-  if (/^file:\/\//i.test(url)) return fs.readFileSync(new URL(url), 'utf8');
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const acquired = await acquireSkillSource(source);
   try {
-    const res = await fetch(url, { signal: controller.signal, headers: { 'user-agent': 'aide-skill-manager' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.text();
-  } finally {
-    clearTimeout(timer);
+    const sourceDir = acquired.kind === 'directory' ? acquired.sourceDir : null;
+    const text = sourceDir ? fs.readFileSync(path.join(sourceDir, 'SKILL.md'), 'utf8') : acquired.text;
+    const { data, hasFrontmatter } = parseFrontmatter(text);
+    const sourceUrl = typeof source === 'string' ? source : source.url;
+    const dirName = sanitizeName(forcedName || data.name || basenameFromSource(sourceUrl));
+    const description = String(data.description || fallbackDescription(text) || '').trim();
+    const hash = crypto.createHash('sha256').update(text).digest('hex').slice(0, 12);
+    const manifest = acquired.manifest || null;
+    const skill = { dirName, name: data.name || dirName, description, hasFrontmatter, skillMdHash: hash, skillMdBytes: Buffer.byteLength(text), fileCount: manifest?.fileCount || 1, totalBytes: manifest?.totalBytes || Buffer.byteLength(text), descTokens: estimateTokens(`${data.name || dirName} ${description}`) };
+    const findings = sourceDir ? auditSkillDirectory(sourceDir, skill, text) : auditSkillSecurity(text, skill);
+    const packageHash = manifest?.hash || crypto.createHash('sha256').update(`SKILL.md\0${text}`).digest('hex');
+    return {
+      ...acquired,
+      dirName,
+      text,
+      sourceDir,
+      skill,
+      findings,
+      hash,
+      packageHash,
+      sourceRecord: installSourceRecord(data, sourceUrl, { ...acquired, packageHash }),
+    };
+  } catch (error) {
+    acquired.cleanup?.();
+    throw error;
   }
-}
-
-function copyPayload(payload, targetDir) {
-  if (payload.sourceDir) copyDir(payload.sourceDir, targetDir);
-  else {
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.writeFileSync(path.join(targetDir, 'SKILL.md'), payload.text);
-  }
-}
-
-function replacePayload(payload, targetDir) {
-  fs.rmSync(targetDir, { recursive: true, force: true });
-  copyPayload(payload, targetDir);
 }
 
 function targetRoots(tool, cwd) {
@@ -249,9 +307,9 @@ function targetRoots(tool, cwd) {
     { tool: 'cursor', label: 'cursor/user', root: CURSOR_SKILLS_DIRS[0] },
     { tool: 'gemini', label: 'gemini/user', root: GEMINI_SKILLS_DIRS[0] },
     { tool: 'workbuddy', label: 'workbuddy/user', root: WORKBUDDY_SKILLS_DIR },
-    { tool: 'kimi', label: 'kimi/cli', root: KIMI_SKILLS_DIR },
-    { tool: 'kimi-code', label: 'kimi/code', root: KIMI_CODE_SKILLS_DIR },
-    { tool: 'kimi-desktop', label: 'kimi/desktop', root: KIMI_DESKTOP_SKILLS_DIR },
+    { tool: 'kimi', catalogTool: 'kimi', label: 'kimi/cli', root: KIMI_SKILLS_DIR },
+    { tool: 'kimi-code', catalogTool: 'kimi', label: 'kimi/code', root: KIMI_CODE_SKILLS_DIR },
+    { tool: 'kimi-desktop', catalogTool: 'kimi', label: 'kimi/desktop', root: KIMI_DESKTOP_SKILLS_DIR },
   ];
   if (tool === 'kimi') return all.filter((item) => item.tool === 'kimi' || item.tool === 'kimi-code' || item.tool === 'kimi-desktop');
   if (normalized) return all.filter((item) => normalizeTool(item.tool) === normalized);
@@ -272,6 +330,7 @@ function lockRow(skill) {
     source: upstream.source || upstream.repository || upstream.homepage || upstream.git?.remote || null,
     gitHead: upstream.git?.head || null,
     skillMdHash: skill.skillMdHash || null,
+    packageHash: skill.packageHash || null,
     lockedAt: new Date().toISOString(),
   };
 }
@@ -282,17 +341,17 @@ function buildCurrentLock(ctx, { refresh }) {
   const catalog = ensureCatalog(ctx.cwd, lang);
   const rows = applySourcesToSkills(catalog.skills || []).map((skill) => lockRow(skill));
   const items = assignLockKeys(rows).sort(compareLockItems);
-  return { version: 2, generatedAt: new Date().toISOString(), items };
+  return { version: 3, generatedAt: new Date().toISOString(), items };
 }
 
 function loadLockFile(file, lang) {
   const data = loadJsonFile(file);
   if (!data) return { data: null };
-  if (![1, 2].includes(data.version) || !Array.isArray(data.items)) {
+  if (![1, 2, 3].includes(data.version) || !Array.isArray(data.items)) {
     return { data: null, error: zh(lang, `锁定文件格式无效：${file}`, `Invalid lock file format: ${file}`) };
   }
-  if (data.version === 1 && data.items.some((item) => !item.key)) {
-    return { data: null, error: zh(lang, `锁定文件来自旧版格式，缺少实例级 key。请重新运行 skm lock 建立新基线：${file}`, `The lock file uses an older format without per-installation keys. Re-run skm lock to establish a new baseline: ${file}`) };
+  if (data.version < 3 || data.items.some((item) => !item.key || !item.packageHash)) {
+    return { data: null, error: zh(lang, `锁定文件来自旧版格式，缺少实例级完整目录 hash。请重新运行 skm lock 建立新基线：${file}`, `The lock file uses an older format without per-installation package hashes. Re-run skm lock to establish a new baseline: ${file}`) };
   }
   const duplicate = firstDuplicateLockKey(data.items);
   if (duplicate) {
@@ -325,7 +384,7 @@ function compareLocks(baseline, current, baselineFile) {
   changed.sort(compareLockItems);
   unchanged.sort(compareLockItems);
   return {
-    version: 2,
+    version: 3,
     generatedAt: new Date().toISOString(),
     baselineFile,
     baselineGeneratedAt: baseline.generatedAt || null,
@@ -358,11 +417,12 @@ function normalizeLockItem(item) {
     source: item.source || null,
     gitHead: item.gitHead || null,
     skillMdHash: item.skillMdHash || null,
+    packageHash: item.packageHash || null,
   };
 }
 
 function changedFields(before, after) {
-  return ['title', 'tool', 'scope', 'tools', 'locationHash', 'version', 'source', 'gitHead', 'skillMdHash'].filter((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
+  return ['title', 'tool', 'scope', 'tools', 'locationHash', 'version', 'source', 'gitHead', 'skillMdHash', 'packageHash'].filter((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
 }
 
 function pickFields(item, fields) {
@@ -437,22 +497,27 @@ function hashText(text) {
   return crypto.createHash('sha256').update(String(text || '')).digest('hex');
 }
 
-function installSourceRecord(data, source) {
+function installSourceRecord(data, source, acquired = {}) {
   const record = {
     source: validUrlOrNull(data.source),
     repository: validUrlOrNull(data.repository || data.repo),
     homepage: validUrlOrNull(data.homepage),
     version: cleanText(data.version),
+    ref: cleanText(acquired.ref),
+    subdir: cleanText(acquired.subdir),
+    resolvedCommit: cleanText(acquired.resolvedCommit),
+    packageHash: cleanText(acquired.packageHash),
   };
   record.ignoredFields = ignoredSourceFields(data);
   if (!record.source && !record.repository && !record.homepage && isValidSourceUrl(source)) record.source = source;
   return record;
 }
 
-function recordInstallSource(name, record) {
+function recordInstallSource(name, record, instanceId = null) {
   const hasUrl = Boolean(record?.source || record?.repository || record?.homepage);
   const hasMetadata = hasUrl || Boolean(record?.version);
   if (!hasMetadata) return { saved: false, hasUrl, source: null };
+  if (instanceId) upsertSource(name, record, { instanceId });
   upsertSource(name, record);
   return { saved: true, hasUrl, source: record.source || record.repository || record.homepage || null };
 }
@@ -489,12 +554,97 @@ function ensureDataWritable(lang) {
   }
 }
 
-function refreshCatalogAfterInstall(ctx, lang) {
+function refreshCatalog(ctx, lang, action) {
   try {
-    runScan({ cwd: ctx.cwd, silent: true, lang });
+    runScan({ cwd: ctx.cwd, silent: true, quiet: true, lang });
   } catch (e) {
-    console.error(zh(lang, `提示：安装已完成，但自动刷新 catalog 失败。请手动运行 skm scan。原因：${e.message}`, `Tip: install succeeded, but automatic catalog refresh failed. Run skm scan manually. Reason: ${e.message}`));
+    if (String(action).startsWith('pre-')) throw e;
+    console.error(zh(lang, `提示：${action} 已完成，但自动刷新 catalog 失败。请手动运行 skm scan。原因：${e.message}`, `Tip: ${action} completed, but automatic catalog refresh failed. Run skm scan manually. Reason: ${e.message}`));
   }
+}
+
+function sourceDescriptor(entry, strict = true) {
+  const upstream = entry.upstream || {};
+  const url = upstream.source || upstream.repository || upstream.homepage || upstream.git?.remote;
+  if (!url) return null;
+  const actionable = isActionableSource(url);
+  if (!actionable) {
+    if (strict) throw new Error(`source is not directly readable as a skill package: ${url}`);
+    return null;
+  }
+  return {
+    url,
+    ref: upstream.ref || branchFromUpstreamRef(upstream.git?.upstreamRef) || upstream.git?.branch || null,
+    subdir: upstream.subdir || upstream.git?.relativePath || null,
+  };
+}
+
+function isActionableSource(value) {
+  const text = String(value || '');
+  if (/^file:\/\//i.test(text)) return true;
+  if (/^(git@|ssh:\/\/)/i.test(text) || /\.git(?:[#?].*)?$/i.test(text)) return true;
+  if (!/^https?:\/\//i.test(text)) return false;
+  try {
+    const url = new URL(text);
+    return ['github.com', 'gitee.com'].includes(url.hostname) || /\/SKILL\.md$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function mutableTarget(entry) {
+  const configured = path.resolve(entry.path);
+  const real = entry.realPath ? path.resolve(entry.realPath) : configured;
+  return real !== configured ? real : configured;
+}
+
+function entryLabel(entry) {
+  return `${entry.dirName} (${entry.tool || 'unknown'}/${entry.scope || 'unknown'})`;
+}
+
+function printUpdatePlans(plans, lang) {
+  printPlan(lang, zh(lang, 'skill 更新计划', 'Skill update plan'), plans.map((plan) => [
+    entryLabel(plan.entry),
+    `${shortHash(plan.currentManifest.hash)} -> ${shortHash(plan.manifest.hash)}`,
+    plan.diff.same
+      ? zh(lang, '内容一致', 'same content')
+      : `+${plan.diff.added.length} ~${plan.diff.changed.length} -${plan.diff.removed.length}`,
+  ]));
+  for (const plan of plans.filter((item) => !item.diff.same)) {
+    const files = [
+      ...plan.diff.added.slice(0, 5).map((file) => `+ ${file}`),
+      ...plan.diff.changed.slice(0, 5).map((file) => `~ ${file}`),
+      ...plan.diff.removed.slice(0, 5).map((file) => `- ${file}`),
+    ];
+    if (files.length) console.log(`\n${entryLabel(plan.entry)}\n  ${files.join('\n  ')}`);
+  }
+}
+
+function securityAllowed(ctx, findings, lang) {
+  const summary = summarizeFindings(findings);
+  const policy = loadJsonFile(POLICY_PATH) || defaultPolicy();
+  if (!policy.blockHighSecurityFindings || !summary.high || ctx.allowRisk || ctx['allow-risk']) return true;
+  console.error(paint.red(zh(lang, `发现 ${summary.high} 个高危安全项，策略已阻止写入。人工复核后可显式加 --allow-risk。`, `${summary.high} high-severity finding(s) blocked the write by policy. Review them, then add --allow-risk explicitly to proceed.`)));
+  for (const finding of findings.filter((item) => item.severity === 'high').slice(0, 10)) {
+    const localized = localizeSecurityFinding(finding, lang);
+    console.error(`  ${finding.targetFile || 'SKILL.md'}: ${localized.title}${finding.evidence ? ` (${finding.evidence})` : ''}`);
+  }
+  process.exitCode = 1;
+  return false;
+}
+
+function summarizeDiff(diff) {
+  return { added: diff.added.length, changed: diff.changed.length, removed: diff.removed.length };
+}
+
+function shortHash(value) {
+  return value ? String(value).slice(0, 12) : '—';
+}
+
+function branchFromUpstreamRef(ref) {
+  const text = String(ref || '');
+  const slash = text.indexOf('/');
+  return slash >= 0 ? text.slice(slash + 1) : text || null;
 }
 
 function collectPolicyReport(ctx) {
@@ -507,13 +657,13 @@ function collectPolicyReport(ctx) {
   const neverUsed = merged.filter((skill) => usageOf(skill).count === 0);
   const duplicate = merged.filter(isDupEntity);
   const missingSource = merged.filter((skill) => !(skill.upstream?.source || skill.upstream?.repository || skill.upstream?.homepage || skill.upstream?.git?.remote));
-  const highSecurity = (catalog.security?.summary?.high || 0) + (catalog.security?.summary?.medium || 0);
+  const highSecurity = catalog.security?.summary?.high || 0;
   const items = [
     checkRule('maxSkills', merged.length <= policy.maxSkills, `${merged.length} <= ${policy.maxSkills}`),
     checkRule('maxNeverUsedRate', neverUsed.length / Math.max(1, merged.length) <= policy.maxNeverUsedRate, `${Math.round(neverUsed.length / Math.max(1, merged.length) * 100)}% <= ${Math.round(policy.maxNeverUsedRate * 100)}%`),
     checkRule('maxDuplicateInstalls', duplicate.length <= policy.maxDuplicateInstalls, `${duplicate.length} <= ${policy.maxDuplicateInstalls}`),
     checkRule('requireSource', !policy.requireSource || missingSource.length === 0, policy.requireSource ? `${missingSource.length} missing` : 'disabled'),
-    checkRule('blockHighSecurityFindings', !policy.blockHighSecurityFindings || highSecurity === 0, `${highSecurity} high/medium`),
+    checkRule('blockHighSecurityFindings', !policy.blockHighSecurityFindings || highSecurity === 0, `${highSecurity} high`),
   ];
   return { generatedAt: new Date().toISOString(), policyFile: POLICY_PATH, failed: items.some((item) => item.status === 'fail'), items };
 }
@@ -641,9 +791,14 @@ function eventSummary(event, lang) {
   return zh(lang, '本地生命周期事件', 'local lifecycle event');
 }
 
-function printSecurity(lang, payload) {
+function printSecurity(lang, payload, entry = null) {
   const summary = summarizeFindings(payload.findings);
-  console.log(zh(lang, `安全审计：高 ${summary.high || 0} / 中 ${summary.medium || 0} / 低 ${summary.low || 0} / 信息 ${summary.info || 0}`, `Security audit: high ${summary.high || 0} / medium ${summary.medium || 0} / low ${summary.low || 0} / info ${summary.info || 0}`));
+  const prefix = entry ? `${entryLabel(entry)} ` : '';
+  console.log(prefix + zh(lang, `安全审计：高 ${summary.high || 0} / 中 ${summary.medium || 0} / 低 ${summary.low || 0} / 信息 ${summary.info || 0}`, `Security audit: high ${summary.high || 0} / medium ${summary.medium || 0} / low ${summary.low || 0} / info ${summary.info || 0}`));
+  for (const finding of payload.findings.filter((item) => ['high', 'medium'].includes(item.severity)).slice(0, 8)) {
+    const localized = localizeSecurityFinding(finding, lang);
+    console.log(`  - ${finding.severity} ${finding.targetFile || 'SKILL.md'}: ${localized.title}${finding.evidence ? ` (${finding.evidence})` : ''}`);
+  }
 }
 
 function printPlan(lang, title, rows) {
@@ -659,10 +814,25 @@ function printPlan(lang, title, rows) {
   ));
 }
 
-function backupSkillDir(dir, name) {
-  const target = path.join(SKILL_BACKUP_DIR, sanitizeName(name), fileStamp());
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  copyDir(dir, target);
+function backupSkillDir(dir, entry, type) {
+  const id = entry.id || installationId(entry);
+  const root = path.join(SKILL_BACKUP_DIR, sanitizeName(id));
+  const target = uniqueBackupPath(root, `${fileStamp()}-${sanitizeName(type)}`);
+  const payloadDir = path.join(target, 'payload');
+  fs.mkdirSync(root, { recursive: true });
+  copyDir(dir, payloadDir);
+  const manifest = buildPackageManifest(payloadDir);
+  saveJsonFile(path.join(target, 'metadata.json'), {
+    version: 2,
+    createdAt: new Date().toISOString(),
+    type,
+    instanceId: id,
+    skill: entry.dirName,
+    tool: entry.tool,
+    scope: entry.scope,
+    sourcePath: dir,
+    packageHash: manifest.hash,
+  }, { pretty: true });
   return target;
 }
 
@@ -674,55 +844,70 @@ function backupFile(file, label) {
   return backup;
 }
 
-function latestBackup(name) {
-  const dir = path.join(SKILL_BACKUP_DIR, sanitizeName(name));
-  try {
-    return fs.readdirSync(dir).sort().map((item) => path.join(dir, item)).filter((item) => fs.statSync(item).isDirectory()).pop() || null;
-  } catch {
-    return null;
+function latestBackup(entry, currentPackageHash) {
+  const id = entry.id || installationId(entry);
+  const roots = [path.join(SKILL_BACKUP_DIR, sanitizeName(id))];
+  const candidates = [];
+  for (const root of roots) {
+    let names;
+    try {
+      names = fs.readdirSync(root);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      const snapshot = path.join(root, name);
+      if (!safeDirectory(snapshot)) continue;
+      const metadata = loadJsonFile(path.join(snapshot, 'metadata.json'));
+      const payloadDir = safeDirectory(path.join(snapshot, 'payload')) ? path.join(snapshot, 'payload') : snapshot;
+      let hash = metadata?.packageHash || null;
+      try {
+        hash ||= buildPackageManifest(payloadDir).hash;
+      } catch {
+        continue;
+      }
+      if (hash === currentPackageHash) continue;
+      candidates.push({ snapshot, payloadDir, metadata, hash, order: metadata?.createdAt || name });
+    }
   }
+  return candidates.sort((a, b) => a.order.localeCompare(b.order)).pop() || null;
 }
 
 function copyDir(from, to) {
-  fs.mkdirSync(to, { recursive: true });
+  const rootStat = fs.statSync(from);
+  fs.mkdirSync(to, { recursive: true, mode: rootStat.mode & 0o777 });
+  fs.chmodSync(to, rootStat.mode & 0o777);
   for (const ent of fs.readdirSync(from, { withFileTypes: true })) {
+    if (ent.name === '.git') continue;
     const src = path.join(from, ent.name);
     const dst = path.join(to, ent.name);
     if (ent.isDirectory()) copyDir(src, dst);
     else if (ent.isSymbolicLink()) fs.symlinkSync(fs.readlinkSync(src), dst);
-    else if (ent.isFile()) fs.copyFileSync(src, dst);
+    else if (ent.isFile()) {
+      fs.copyFileSync(src, dst);
+      fs.chmodSync(dst, fs.statSync(src).mode & 0o777);
+    }
   }
 }
 
-function replaceDir(from, to) {
-  fs.rmSync(to, { recursive: true, force: true });
-  copyDir(from, to);
+function uniqueBackupPath(root, base) {
+  let candidate = path.join(root, base);
+  let i = 2;
+  while (fs.existsSync(candidate)) candidate = path.join(root, `${base}-${i++}`);
+  return candidate;
 }
 
-function rawSkillMdUrl(source) {
-  if (/^file:\/\//i.test(source) && source.endsWith('/SKILL.md')) return source;
-  if (!/^https?:\/\//i.test(source)) return null;
-  const u = new URL(source);
-  const parts = u.pathname.split('/').filter(Boolean);
-  if (u.pathname.endsWith('/SKILL.md')) return source;
-  if (u.hostname === 'github.com' && parts.length >= 5 && ['tree', 'blob'].includes(parts[2])) {
-    const [owner, repoRaw, , branch, ...rest] = parts;
-    return `https://raw.githubusercontent.com/${owner}/${repoRaw.replace(/\.git$/, '')}/${branch}/${[...rest, 'SKILL.md'].join('/')}`;
+function safeDirectory(dir) {
+  try {
+    return fs.statSync(dir).isDirectory();
+  } catch {
+    return false;
   }
-  if (u.hostname === 'gitee.com' && parts.length >= 5 && ['tree', 'blob'].includes(parts[2])) {
-    const [owner, repoRaw, , branch, ...rest] = parts;
-    return `https://gitee.com/${owner}/${repoRaw.replace(/\.git$/, '')}/raw/${branch}/${[...rest, 'SKILL.md'].join('/')}`;
-  }
-  return null;
 }
 
 function basenameFromSource(source) {
   const clean = String(source).replace(/[?#].*$/, '').replace(/\/+$/, '');
   return clean.split(/[\\/]/).pop()?.replace(/\.md$/i, '') || 'skill';
-}
-
-function isLocalPath(value) {
-  return !/^(https?|file):\/\//i.test(String(value || ''));
 }
 
 function sanitizeName(name) {

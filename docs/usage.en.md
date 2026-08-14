@@ -89,11 +89,11 @@ Start with read-only commands. Use dry-run before install, update, rollback, pro
 | `skm web` | Local read-only Web dashboard | `--port` |
 | `skm scan` | Scan skills/MCP servers and show the governance overview | `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
 | `skm outdated` | Check upstream freshness metadata | `--online`, `--refresh`, `--json` |
-| `skm sources` | Manage local upstream source mappings | `missing`, `add`, `list`, `remove`, `check`, `wizard` |
+| `skm sources` | Manage name-level or instance-level sources | `missing`, `add`, `list`, `remove`, `check`, `wizard`, `--instance`, `--all` |
 | `skm state` | Plan skill state governance and write Claude native states | `plan`, `list`, `set`, `--mode`, `--scope`, `--dry-run`, `--yes` |
-| `skm install` | Install a local directory or remote `SKILL.md` skill | `<source>`, `--tool`, `--dry-run`, `--yes` |
-| `skm update` | Update a skill from its registered source | `<skill>`, `--tool`, `--dry-run`, `--yes` |
-| `skm rollback` | Roll back a skill from skm backups | `<skill>`, `--tool`, `--dry-run`, `--yes` |
+| `skm install` | Install a complete directory/repository package or direct `SKILL.md` | `<source>`, `--tool`, `--allow-risk`, `--dry-run`, `--yes` |
+| `skm update` | Transactionally update selected instances | `<skill>`, `--tool`, `--scope`, `--instance`, `--all`, `--allow-risk`, `--dry-run`, `--yes` |
+| `skm rollback` | Restore instance-scoped package snapshots | `<skill>`, `--tool`, `--scope`, `--instance`, `--all`, `--dry-run`, `--yes` |
 | `skm lock` | Generate a lifecycle lock file | `--json` |
 | `skm lock diff` | Compare current skills against the lock file | `[file]`, `--json` |
 | `skm lock verify` | Verify current skills against the lock file | `[file]`, `--json` |
@@ -102,7 +102,7 @@ Start with read-only commands. Use dry-run before install, update, rollback, pro
 | `skm eval` | Evaluate skill quality | `[skill]`, `--all`, `--json` |
 | `skm history` | Lifecycle event log | `[skill]`, `--json` |
 | `skm setup` | Install the bridge skill | `--dry-run` |
-| `skm list` | List skills | `--category`, `--tool claude\|codex\|cursor\|gemini`, `--scope`, `--raw`, `--json` |
+| `skm list` | List skills | `--category`, `--tool claude\|codex\|cursor\|gemini\|workbuddy\|kimi`, `--scope`, `--raw`, `--json` |
 | `skm list --mcp` | List MCP servers | `--tool`, `--json` |
 | `skm search <text>` | Search skills | `--json` |
 | `skm recommend <task>` | Ranked recommendations | `--top`, `--tool`, `--category`, `--why`, `--advisor`, `--json` |
@@ -170,7 +170,7 @@ skm outdated --online --refresh
 skm outdated --json
 ```
 
-`outdated` checks whether skills have enough upstream metadata to judge freshness. Offline mode only reads the local catalog. Online mode is explicit and read-only: it compares git remote commits when a skill lives inside a git checkout, or fetches a remote `SKILL.md` when frontmatter contains a GitHub/Gitee `source` URL. Direct `source` URLs should point to a skill directory or `SKILL.md`; bare GitHub/Gitee repository URLs are only conservatively probed for a root `SKILL.md` on `main` / `master`. Results are cached in `~/.skill-manager/update-cache.json` for 24 hours.
+`outdated` reports whether local state is `latest`, `outdated`, `ahead`, or `diverged`. Offline mode reads only the catalog. Online mode is explicit and read-only: git checkouts compare remote commits; repository/directory sources with a recorded package hash are reacquired and compared using SemVer plus the complete package hash, so resource-only changes are visible; legacy direct `SKILL.md` sources use version and content hashes. Results are cached for 24 hours.
 
 It never updates skills automatically. Treat `outdated` as a prompt to review upstream diffs or release notes before replacing local files.
 
@@ -180,12 +180,14 @@ It never updates skills automatically. Treat `outdated` as a prompt to review up
 skm sources missing
 skm sources wizard
 skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
+skm sources add baoyu-image-gen --source <url> --instance <installation-id>
+skm sources check baoyu-image-gen --tool codex --scope user
 skm sources list
 skm sources check baoyu-image-gen
 skm sources remove baoyu-image-gen
 ```
 
-`sources` lets users fill missing upstream URLs when installed skills do not declare `source` / `repository` metadata. Records are stored in `~/.skill-manager/sources.json` and are merged into future scans and `outdated` checks. This does not edit installed skill files.
+`sources` fills missing upstream metadata. The version-2 file stores both legacy name-level mappings and installation-instance records. Same-name installations require `--tool`, `--scope`, or `--instance`, unless `--all` is intentional. Instance records take priority and never leak to an unmatched same-name install. This does not edit installed skill files.
 
 Use `sources wizard` for the fastest manual workflow: it walks through skills whose freshness is unknown, accepts an upstream skill directory or `SKILL.md` URL, and persists each answer immediately. Use `sources missing --json` if you want to script or batch-edit the missing list.
 
@@ -211,10 +213,10 @@ skm history baoyu-image-gen
 
 These commands govern skills after discovery:
 
-- `install`: fully copies local directories; remote GitHub/Gitee skill directories or `SKILL.md` URLs install the `SKILL.md` file for now. The plan and static audit are printed before install. Existing targets are not overwritten. After a successful install, skm saves the remote URL or local frontmatter `source` / `repository` / `homepage` / `version` into `~/.skill-manager/sources.json` and refreshes the catalog; if no upgrade source exists, it prints a `skm sources add` hint. Invalid source fields are reported explicitly.
-- `update`: reads the registered `source` / `repository` / `homepage` and updates from a directly accessible `SKILL.md`; the old skill directory is backed up first.
-- `rollback`: restores the latest backup from `~/.skill-manager/skill-backups/`; the current directory is backed up before rollback.
-- `lock`: silently refreshes skm's own catalog and writes `~/.skill-manager/skill-lock.json` with each installed instance's name, tool, scope, version, source, git HEAD, and `SKILL.md` hash. `--json` prints JSON only.
+- `install`: local, `file://`, GitHub/Gitee, and git/SSH directory sources install complete packages; direct `SKILL.md` URLs install one file. All targets are staged, validated, and scanned before any commit. Existing targets are refused.
+- `update`: reads sources per instance, prints complete package file differences, and scans package text/code files. Policy blocks high-severity findings unless `--allow-risk` is explicit after review. It then creates an isolated package backup and atomically replaces the directory. No-op updates create no backup. Direct single-file updates preserve companion files.
+- `rollback`: restores the newest instance snapshot different from the current package hash and first backs up the current package, enabling reverse rollback. Symlinks remain links; plugin-managed skills are refused.
+- `lock`: writes format v3 with a stable instance key, location hash, version, source, git HEAD, `SKILL.md` hash, and complete package hash. Older locks must be regenerated.
 - `lock diff [file]`: silently refreshes skm's own catalog, then compares added, removed, and changed skills against the lock file without changing AIDE data.
 - `lock verify [file]`: silently refreshes skm's own catalog and exits non-zero on drift, suitable for CI or upgrade scripts.
 - `policy init/check`: initializes or checks local governance thresholds: total skills, never-used rate, duplicate installs, source coverage, and safety findings.
@@ -257,7 +259,7 @@ skm audit --json
 
 It also shows static security findings recorded by `scan`, including suspicious secret access/exfiltration wording, destructive commands, remote script execution, encoded PowerShell, privileged commands, MCP command-line secrets, plain HTTP endpoints, shell evaluation, dynamic package runners, over-privileged containers, and trust-without-confirmation settings.
 
-The security audit only reads `SKILL.md`, directory metadata, and non-`env` MCP config fields. It never executes skills or MCP servers, and it redacts suspicious command evidence before display. `audit` also reports offline upstream metadata coverage, so you can see how many skills can be checked by `skm outdated --online`. Parsed usage results are cached in `~/.skill-manager/usage-cache.json`.
+The security audit reads `SKILL.md`, skill-package text/code files, and non-`env` MCP config fields. It never executes skills or MCP servers, redacts suspicious evidence, and reports the evidence file. `audit` also reports offline upstream metadata coverage. Parsed usage results are cached in `~/.skill-manager/usage-cache.json`.
 
 ## state
 

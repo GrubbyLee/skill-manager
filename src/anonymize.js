@@ -52,7 +52,7 @@ function anonymizeUrl(value, map) {
 }
 
 function looksLikeUrl(value) {
-  return /^(https?:\/\/|git@|ssh:\/\/)/i.test(value);
+  return /^(https?:\/\/|file:\/\/|git@|ssh:\/\/)/i.test(value);
 }
 
 function anonymizePath(value, map, prefix) {

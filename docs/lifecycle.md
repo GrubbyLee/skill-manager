@@ -33,9 +33,9 @@ skm rollback <skill>
 
 | 命令 | 作用 | 写入位置 |
 |---|---|---|
-| `skm install <源>` | 安装本地 skill 目录或远程 `SKILL.md` | 用户 skill 目录 |
-| `skm update <skill>` | 从已登记来源更新 skill | 用户 skill 目录；备份到 `~/.skill-manager/skill-backups/` |
-| `skm rollback <skill>` | 从 skm 备份回滚 skill | 用户 skill 目录；回滚前再备份 |
+| `skm install <源>` | 安装本地/仓库完整 skill 包或直链 `SKILL.md` | 用户 skill 目录 |
+| `skm update <skill>` | 按安装实例从已登记来源事务式更新完整包 | 用户 skill 目录；实例级备份到 `~/.skill-manager/skill-backups/` |
+| `skm rollback <skill>` | 按安装实例恢复完整包快照 | 用户 skill 目录；回滚前再备份 |
 | `skm lock` | 生成当前 skill 锁定文件 | 刷新 skm 自身 catalog；写入 `~/.skill-manager/skill-lock.json` |
 | `skm lock diff [文件]` | 对比当前 skill 与锁定文件 | 不改 AIDE 数据；比较前会刷新 skm 自身 catalog |
 | `skm lock verify [文件]` | 校验当前 skill 是否匹配锁定文件 | 不改 AIDE 数据；发现漂移时返回非 0 |
@@ -52,18 +52,18 @@ skm install ./my-skill --tool codex
 skm install https://github.com/org/repo/tree/main/skills/my-skill --tool claude --dry-run
 ```
 
-本地目录会完整复制。远程 GitHub/Gitee skill 目录或 `SKILL.md` URL 当前只安装 `SKILL.md` 单文件，不自动拉取仓库脚本或资源目录。目标目录已存在时会拒绝覆盖。
+本地目录、`file://` 目录、GitHub/Gitee skill 目录和 git/SSH 仓库来源都会安装完整 skill 包，包括 `scripts/`、`references/`、assets 等附属文件；仓库采用浅克隆并只复制选定 skill 子目录。直链 `SKILL.md` 仍作为单文件来源支持。所有安装目标先写入隐藏暂存目录，校验 `SKILL.md` 并拒绝指向包外的内部软链，全部准备成功后才逐个原子提交。目标目录已存在时拒绝覆盖。
 
-安装成功后，`skm` 会自动把可用来源记录到 `~/.skill-manager/sources.json`：
+安装成功后，`skm` 会自动把可用来源记录到 v2 格式的 `~/.skill-manager/sources.json`：
 
-- 远程 URL 安装：记录安装 URL。
+- 远程 URL 安装：记录安装 URL、仓库 ref/subdir、解析到的 commit 和整包 hash（可用时）。
 - 本地目录安装：读取 `SKILL.md` frontmatter 中的 `source` / `repository` / `homepage` / `version`。
 - 本地目录没有来源：安装仍会完成，但会提示运行 `skm sources add <skill> --source <url>`。
 - 来源字段格式不合法：会明确提示被忽略的字段，避免误以为已经建立升级源。
 
 这样后续 `skm update <skill>` 可以直接找到升级源，不需要手工修改 catalog。安装成功后会自动刷新本机 catalog，所以通常可以安装后直接运行 `skm update <skill> --dry-run` 验证闭环。
 
-## 更新与回滚
+## 实例选择、更新与回滚
 
 `update` 依赖可直接读取的 `source` / `repository` / `homepage`。如果 skill 是通过 `skm install` 安装且当时记录了来源，通常可以直接更新。如果缺少来源，先补：
 
@@ -71,7 +71,21 @@ skm install https://github.com/org/repo/tree/main/skills/my-skill --tool claude 
 skm sources add my-skill --source https://github.com/org/repo/tree/main/skills/my-skill
 ```
 
-更新前会展示计划和静态安全审计。真正写入前会备份旧目录。`rollback` 会恢复最近一次备份，并在恢复前备份当前目录。
+同名 skill 可能同时存在于不同工具、scope 或目录中。模糊写操作会拒绝执行，必须明确选择：
+
+```bash
+skm update my-skill --tool codex --scope user --dry-run
+skm update my-skill --instance <安装实例ID>
+skm update my-skill --all
+skm rollback my-skill --instance <安装实例ID>
+skm sources add my-skill --source <url> --instance <安装实例ID>
+```
+
+来源记录和备份都按稳定安装实例 ID 隔离；`--all` 会让每个实例使用自己的来源。旧版按名称的来源记录仍可读取，但只要某个同名 skill 已有实例记录，就不会把名称级来源泄漏给其他实例。
+
+更新会先取得完整候选包，展示文件级 `added` / `changed` / `removed` 差异，并扫描 `SKILL.md` 及包内文本/代码文件。策略默认阻断 high 级发现；人工复核后可显式使用 `--allow-risk`。确认后先建立包含 `payload/` 与 `metadata.json` 的实例级整包快照，再以目录重命名原子替换。失败时自动恢复旧目录；整包无变化时不创建备份或历史事件。直链 `SKILL.md` 更新会保留已安装的脚本和资源。
+
+`rollback` 恢复最近一个与当前整包 hash 不同的快照，并在恢复前备份当前目录，因此再次 rollback 可以恢复回滚前状态。软链实例更新真实目录并保留软链；插件管理的 skill 拒绝直接更新或回滚，应交给插件管理器处理。
 
 ## 锁定与策略
 
@@ -85,7 +99,7 @@ skm policy init
 skm policy check
 ```
 
-锁定文件按“实际安装实例”记录名称、工具、scope、版本、来源、git HEAD 和 `SKILL.md` hash。同名 skill 如果同时安装在 Claude Code、Codex、Cursor 或 Gemini，也会分别锁定和校验。`lock`、`diff` 和 `verify` 会先静默刷新 skm 自身 catalog，再生成或比较新增、删除、变更项；发现旧版锁文件或重复锁定 key 时会直接报错，避免对比时覆盖。`verify` 发现漂移时返回非 0，适合放进 CI 或个人升级脚本。策略检查覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。策略文件是本机数据，可按团队习惯手工编辑。
+锁定文件 v3 按“实际安装实例”记录稳定 key、位置 hash、名称、工具、scope、版本、来源、git HEAD、`SKILL.md` hash 和完整 package hash。资源文件的增删改也会形成漂移。同名 skill 分别安装在多个工具或位置时会分别锁定和校验。`lock`、`diff` 和 `verify` 会先静默刷新 catalog；旧版锁文件、缺少 package hash 或重复 key 会直接报错并要求重新生成。`verify` 发现漂移时返回非 0，适合 CI。策略检查覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。
 
 ## Profile
 
@@ -108,4 +122,4 @@ skm eval baoyu-image-gen --json
 
 ## 安全原则
 
-默认先 `--dry-run`。远程安装和更新只读取 `SKILL.md`，不执行脚本，不读取密钥，不读取 MCP `env` 值。任何会修改 AIDE 文件的生命周期动作都需要显式命令和确认。
+默认先 `--dry-run`。远程仓库会被下载用于完整包复制和静态扫描，但 skm 不执行其中的脚本，不读取密钥，也不读取 MCP `env` 值。候选包通过暂存、校验、策略门禁、实例级备份和原子替换后才落盘。任何会修改 AIDE 文件的生命周期动作都需要显式命令和确认。

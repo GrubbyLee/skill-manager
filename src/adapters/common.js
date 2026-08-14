@@ -4,8 +4,9 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { parseFrontmatter, fallbackDescription } from '../frontmatter.js';
-import { auditSkillSecurity } from '../securityAudit.js';
+import { auditSkillDirectory } from '../securityAudit.js';
 import { isValidSourceUrl } from '../sources.js';
+import { buildPackageManifest, installationId } from '../skillPackage.js';
 
 const gitCache = new Map();
 
@@ -36,9 +37,8 @@ export function scanSkillDir(baseDir, { tool, scope, source = null }) {
     const { data, hasFrontmatter } = parseFrontmatter(text);
     if (!hasFrontmatter) warnings.push(`无 frontmatter：${mdPath}`);
     const description = String(data.description || fallbackDescription(text) || '').trim();
-    const stats = dirStats(dir);
+    const manifest = buildPackageManifest(dir);
     const skill = {
-      id: `${tool}:${scope}:${ent.name}`,
       tool,
       scope,
       source,
@@ -51,13 +51,15 @@ export function scanSkillDir(baseDir, { tool, scope, source = null }) {
       hasFrontmatter,
       skillMdHash: crypto.createHash('sha256').update(text).digest('hex').slice(0, 12),
       skillMdBytes: Buffer.byteLength(text),
-      fileCount: stats.fileCount,
-      totalBytes: stats.totalBytes,
+      fileCount: manifest.fileCount,
+      totalBytes: manifest.totalBytes,
+      packageHash: manifest.hash,
       // 该 skill 常驻上下文的开销 ≈ name + description（正文按需加载）
       descTokens: estimateTokens(`${data.name || ent.name} ${description}`),
       upstream: collectUpstreamMetadata(data, dir),
     };
-    skill.securityFindings = auditSkillSecurity(text, skill);
+    skill.id = installationId(skill);
+    skill.securityFindings = auditSkillDirectory(dir, skill, text);
     skills.push(skill);
   }
   return { skills, warnings, archived };
@@ -98,7 +100,7 @@ function uniqueUrls(values) {
 function inspectGit(dir) {
   const gitRoot = findGitRoot(safeRealPath(dir));
   if (!gitRoot) return null;
-  if (gitCache.has(gitRoot)) return gitCache.get(gitRoot);
+  if (gitCache.has(gitRoot)) return withRelativePath(gitCache.get(gitRoot), gitRoot, dir);
 
   const head = git(['rev-parse', 'HEAD'], gitRoot);
   const branch = git(['rev-parse', '--abbrev-ref', 'HEAD'], gitRoot);
@@ -112,7 +114,13 @@ function inspectGit(dir) {
     remote: remote || null,
   } : null;
   gitCache.set(gitRoot, result);
-  return result;
+  return withRelativePath(result, gitRoot, dir);
+}
+
+function withRelativePath(git, root, dir) {
+  if (!git) return null;
+  const relativePath = path.relative(root, safeRealPath(dir)).split(path.sep).join('/');
+  return { ...git, relativePath: relativePath || null };
 }
 
 function findGitRoot(dir) {
@@ -157,47 +165,6 @@ function safeLstat(p) {
     return fs.lstatSync(p);
   } catch {
     return null;
-  }
-}
-
-// 目录统计：共享预算对象贯穿整棵递归树，超限即全树短路（避免软链进大仓库时上万次 stat）
-function dirStats(dir, depth = 0, budget = { remaining: 5000 }) {
-  let fileCount = 0;
-  let totalBytes = 0;
-  if (depth > 6) return { fileCount, totalBytes };
-  let entries;
-  try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return { fileCount, totalBytes };
-  }
-  for (const ent of entries) {
-    if (budget.remaining <= 0) break;
-    const p = path.join(dir, ent.name);
-    // Dirent 方法不跟随软链，软链目录/文件需补 stat 判断，否则体积统计低估
-    const st = ent.isSymbolicLink() ? safeStat(p) : null;
-    if (ent.isDirectory() || st?.isDirectory()) {
-      const sub = dirStats(p, depth + 1, budget);
-      fileCount += sub.fileCount;
-      totalBytes += sub.totalBytes;
-    } else if (ent.isFile() || st?.isFile()) {
-      budget.remaining--;
-      fileCount++;
-      try {
-        totalBytes += (st ?? fs.statSync(p)).size;
-      } catch {
-        /* 忽略统计失败的文件 */
-      }
-    }
-  }
-  return { fileCount, totalBytes };
-}
-
-function safeStat(p) {
-  try {
-    return fs.statSync(p);
-  } catch {
-    return null; // 断链
   }
 }
 

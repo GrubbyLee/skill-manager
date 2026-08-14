@@ -101,6 +101,6 @@ test('sources：URL 校验支持常见 GitHub/Gitee 与 SSH remote', () => {
   assert.equal(isValidSourceUrl('https://github.com/org/repo/tree/main/skill'), true);
   assert.equal(isValidSourceUrl('git@github.com:org/repo.git'), true);
   assert.equal(isValidSourceUrl('ssh://git@example.com/org/repo.git'), true);
-  assert.equal(isValidSourceUrl('file:///tmp/skill'), false);
+  assert.equal(isValidSourceUrl('file:///tmp/skill'), true);
   assert.equal(isValidSourceUrl('not-a-url'), false);
 });

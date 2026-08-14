@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { KIMI_DESKTOP_SKILLS_DIR, KIMI_DESKTOP_SKILLS_DIRS } from '../src/paths.js';
 
@@ -18,6 +19,8 @@ test('生命周期：本地目录安装会记录来源，并支持更新、回�
     assert.equal(install.status, 0, install.stderr);
     const target = path.join(home, '.claude', 'skills', 'alpha');
     assert.equal(fs.existsSync(path.join(target, 'SKILL.md')), true);
+    fs.mkdirSync(path.join(target, 'assets'), { recursive: true });
+    fs.writeFileSync(path.join(target, 'assets', 'keep.txt'), 'keep me');
     const sources = JSON.parse(fs.readFileSync(path.join(home, '.skill-manager', 'sources.json'), 'utf8'));
     assert.equal(sources.sources.alpha.source, server.url);
 
@@ -27,6 +30,7 @@ test('生命周期：本地目录安装会记录来源，并支持更新、回�
     const update = await runAsync(['update', 'alpha', '--tool', 'claude', '--yes', '--lang', 'en'], home);
     assert.equal(update.status, 0, update.stderr);
     assert.match(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8'), /v2 description/);
+    assert.equal(fs.readFileSync(path.join(target, 'assets', 'keep.txt'), 'utf8'), 'keep me');
 
     const rollback = await runAsync(['rollback', 'alpha', '--tool', 'claude', '--yes', '--lang', 'en'], home);
     assert.equal(rollback.status, 0, rollback.stderr);
@@ -40,6 +44,100 @@ test('生命周期：本地目录安装会记录来源，并支持更新、回�
   } finally {
     await closeServer(server.server);
   }
+});
+
+test('生命周期：完整目录来源会更新资源、刷新 catalog，并可按完整包回滚', () => {
+  const home = makeHome();
+  const source = makePackageSource('package-upgrade', 'v1 package', '1.0.0', 'console.log("v1")\n');
+  assert.equal(run(['install', source, '--tool', 'claude', '--yes', '--lang', 'en'], home).status, 0);
+  const target = path.join(home, '.claude', 'skills', 'package-upgrade');
+
+  fs.writeFileSync(path.join(source, 'SKILL.md'), skillMd('package-upgrade', 'v2 package', '2.0.0', { source: pathToFileURL(source).href }));
+  fs.writeFileSync(path.join(source, 'scripts', 'run.js'), 'console.log("v2")\n');
+  fs.mkdirSync(path.join(source, 'assets'), { recursive: true });
+  fs.writeFileSync(path.join(source, 'assets', 'added.txt'), 'added');
+
+  const update = run(['update', 'package-upgrade', '--tool', 'claude', '--yes', '--lang', 'en'], home);
+  assert.equal(update.status, 0, update.stderr);
+  assert.match(fs.readFileSync(path.join(target, 'scripts', 'run.js'), 'utf8'), /v2/);
+  assert.equal(fs.existsSync(path.join(target, 'assets', 'added.txt')), true);
+  const catalog = JSON.parse(fs.readFileSync(path.join(home, '.skill-manager', 'catalog.json'), 'utf8'));
+  const installed = catalog.skills.find((item) => item.dirName === 'package-upgrade');
+  assert.equal(installed.upstream.version, '2.0.0');
+  assert.equal(typeof installed.packageHash, 'string');
+
+  const rollback = run(['rollback', 'package-upgrade', '--tool', 'claude', '--yes', '--lang', 'en'], home);
+  assert.equal(rollback.status, 0, rollback.stderr);
+  assert.match(fs.readFileSync(path.join(target, 'scripts', 'run.js'), 'utf8'), /v1/);
+  assert.equal(fs.existsSync(path.join(target, 'assets', 'added.txt')), false);
+});
+
+test('生命周期：同名多实例拒绝模糊更新，--all 分别使用实例来源且回滚不串包', () => {
+  const home = makeHome();
+  const claudeSource = makePackageSource('instance-demo', 'claude v1', '1.0.0', 'claude-v1');
+  const codexSource = makePackageSource('instance-demo', 'codex v1', '1.0.0', 'codex-v1');
+  assert.equal(run(['install', claudeSource, '--tool', 'claude', '--yes', '--lang', 'en'], home).status, 0);
+  assert.equal(run(['install', codexSource, '--tool', 'codex', '--yes', '--lang', 'en'], home).status, 0);
+
+  const ambiguous = run(['update', 'instance-demo', '--dry-run', '--lang', 'en'], home);
+  assert.equal(ambiguous.status, 1);
+  assert.match(ambiguous.stderr, /Multiple installations match/);
+
+  rewritePackageSource(claudeSource, 'instance-demo', 'claude v2', '2.0.0', 'claude-v2');
+  rewritePackageSource(codexSource, 'instance-demo', 'codex v2', '2.0.0', 'codex-v2');
+  const updateAll = run(['update', 'instance-demo', '--all', '--yes', '--lang', 'en'], home);
+  assert.equal(updateAll.status, 0, updateAll.stderr);
+  const claudeTarget = path.join(home, '.claude', 'skills', 'instance-demo', 'scripts', 'run.js');
+  const codexTarget = path.join(home, '.codex', 'skills', 'instance-demo', 'scripts', 'run.js');
+  assert.equal(fs.readFileSync(claudeTarget, 'utf8'), 'claude-v2');
+  assert.equal(fs.readFileSync(codexTarget, 'utf8'), 'codex-v2');
+
+  const rollbackClaude = run(['rollback', 'instance-demo', '--tool', 'claude', '--yes', '--lang', 'en'], home);
+  assert.equal(rollbackClaude.status, 0, rollbackClaude.stderr);
+  assert.equal(fs.readFileSync(claudeTarget, 'utf8'), 'claude-v1');
+  assert.equal(fs.readFileSync(codexTarget, 'utf8'), 'codex-v2');
+});
+
+test('生命周期：高危包被策略阻断，显式 allow-risk 才可继续', () => {
+  const home = makeHome();
+  const source = makePackageSource('risk-demo', 'safe v1', '1.0.0', 'echo safe');
+  assert.equal(run(['install', source, '--tool', 'claude', '--yes', '--lang', 'en'], home).status, 0);
+  rewritePackageSource(source, 'risk-demo', 'risky v2', '2.0.0', 'rm -rf /');
+
+  const blocked = run(['update', 'risk-demo', '--tool', 'claude', '--yes', '--lang', 'en'], home);
+  assert.equal(blocked.status, 1);
+  assert.match(blocked.stderr, /blocked the write by policy/);
+  const target = path.join(home, '.claude', 'skills', 'risk-demo', 'scripts', 'run.js');
+  assert.equal(fs.readFileSync(target, 'utf8'), 'echo safe');
+
+  const allowed = run(['update', 'risk-demo', '--tool', 'claude', '--yes', '--allow-risk', '--lang', 'en'], home);
+  assert.equal(allowed.status, 0, allowed.stderr);
+  assert.equal(fs.readFileSync(target, 'utf8'), 'rm -rf /');
+});
+
+test('生命周期：软链实例更新真实目录且保留软链，插件实例拒绝直接更新', () => {
+  const home = makeHome();
+  const source = makePackageSource('linked-demo', 'linked v1', '1.0.0', 'linked-v1');
+  const realDir = path.join(home, 'shared', 'linked-demo');
+  fs.mkdirSync(path.dirname(realDir), { recursive: true });
+  fs.cpSync(source, realDir, { recursive: true });
+  fs.mkdirSync(path.join(home, '.codex', 'skills'), { recursive: true });
+  fs.symlinkSync(realDir, path.join(home, '.codex', 'skills', 'linked-demo'), 'dir');
+  rewritePackageSource(source, 'linked-demo', 'linked v2', '2.0.0', 'linked-v2');
+
+  const linkedUpdate = run(['update', 'linked-demo', '--tool', 'codex', '--yes', '--lang', 'en'], home);
+  assert.equal(linkedUpdate.status, 0, linkedUpdate.stderr);
+  assert.equal(fs.lstatSync(path.join(home, '.codex', 'skills', 'linked-demo')).isSymbolicLink(), true);
+  assert.equal(fs.readFileSync(path.join(realDir, 'scripts', 'run.js'), 'utf8'), 'linked-v2');
+
+  const pluginSource = makePackageSource('plugin-demo', 'plugin v1', '1.0.0', 'plugin-v1');
+  const pluginRoot = path.join(home, 'plugins', 'demo');
+  fs.mkdirSync(path.join(pluginRoot, 'skills'), { recursive: true });
+  fs.cpSync(pluginSource, path.join(pluginRoot, 'skills', 'plugin-demo'), { recursive: true });
+  writeJson(path.join(home, '.claude', 'plugins', 'installed_plugins.json'), { plugins: { 'demo@local': [{ installPath: pluginRoot }] } });
+  const pluginUpdate = run(['update', 'plugin-demo', '--tool', 'claude', '--yes', '--lang', 'en'], home);
+  assert.equal(pluginUpdate.status, 1);
+  assert.match(pluginUpdate.stderr, /plugin-managed skill/);
 });
 
 test('生命周期：lock、policy、profile、eval 支持 JSON/只读路径', () => {
@@ -105,7 +203,7 @@ test('生命周期：lock diff/verify 能发现当前 skill 与基线漂移', ()
   const drift = JSON.parse(driftVerify.stdout);
   assert.equal(drift.summary.verified, false);
   assert.equal(drift.summary.changed, 1);
-  assert.deepEqual(drift.changed[0].fields.sort(), ['skillMdHash', 'version']);
+  assert.deepEqual(drift.changed[0].fields.sort(), ['packageHash', 'skillMdHash', 'version']);
 
   const diff = run(['lock', 'diff', '--json', '--lang', 'en'], home);
   assert.equal(diff.status, 0, diff.stderr);
@@ -260,6 +358,19 @@ function makeSkillSource(name, description, version, extra = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `skm-lifecycle-${name}-`));
   fs.writeFileSync(path.join(dir, 'SKILL.md'), skillMd(name, description, version, extra));
   return dir;
+}
+
+function makePackageSource(name, description, version, script) {
+  const dir = makeSkillSource(name, description, version);
+  fs.mkdirSync(path.join(dir, 'scripts'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'scripts', 'run.js'), script);
+  fs.writeFileSync(path.join(dir, 'SKILL.md'), skillMd(name, description, version, { source: pathToFileURL(dir).href }));
+  return dir;
+}
+
+function rewritePackageSource(dir, name, description, version, script) {
+  fs.writeFileSync(path.join(dir, 'SKILL.md'), skillMd(name, description, version, { source: pathToFileURL(dir).href }));
+  fs.writeFileSync(path.join(dir, 'scripts', 'run.js'), script);
 }
 
 function skillMd(name, description, version, extra = {}) {

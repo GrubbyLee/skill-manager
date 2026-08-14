@@ -1,6 +1,6 @@
 # Security Policy
 
-`skill-manager` inspects local Claude Code / Codex skill and MCP metadata. Most commands are read-only for AIDE data, but security reports are still welcome.
+`skill-manager` inspects local skill packages and MCP metadata across supported AIDE tools. Most commands are read-only for AIDE data, while explicit lifecycle commands can stage, install, update, back up, or restore skill directories. Security reports are welcome for either surface.
 
 ## Supported Versions
 
@@ -24,6 +24,7 @@ For MCP-related reports, describe the transport and command shape, but do not pa
 
 ## Project Boundaries
 
-- `skm scan`, `skm status`, `skm risks`, `skm report`, `skm graph`, `skm list`, `skm search`, `skm recommend`, `skm ask`, `skm dupes`, and `skm audit` are designed to be read-only for Claude Code / Codex data.
-- `sessions --clean`, `disable`, and `enable` are the only file-modifying command families.
-- File-modifying commands must keep confirmation, backup, and safety-window safeguards.
+- Inventory, reporting, recommendation, graph, audit, `outdated`, and lifecycle verification commands are designed to be read-only for AIDE data, though they may refresh skm-owned files under `~/.skill-manager`.
+- Explicit `setup`, `install`, `update`, `rollback`, `profile apply`, `state set`, `sessions --clean`, `disable`, and `enable` commands can modify supported AIDE files.
+- Skill install/update must preserve staging validation, complete-package static audit, the high-risk policy gate, and confirmation. Update/rollback must preserve instance-scoped backups and atomic replacement with restoration on failure.
+- Repository packages are copied but never executed by skm. MCP `env` values and secrets are outside the intended collection surface.

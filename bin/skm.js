@@ -40,7 +40,7 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   sources         管理本机补充的 skill 上游地址（list/missing/add/remove/check/wizard）
   state           skill 状态治理：plan 生成降载建议；list 查看 Claude 状态；set 写入 Claude 原生状态
   install         安装 skill（本地目录完整复制；远程 SKILL.md/GitHub/Gitee 目录单文件安装，先审计）
-  update          更新 skill（可直接读取 SKILL.md 的来源；更新前备份）
+  update          事务更新完整 skill 包；支持实例筛选、批量计划、目录 diff、策略门禁与自动备份
   rollback        从 skm 备份回滚 skill
   lock            生成 / 对比 / 校验 skill 锁定文件
   policy          生命周期策略：init/check
@@ -85,7 +85,9 @@ outdated 选项：
 
 sources 选项：
   skm sources missing      列出缺少上游地址、无法判断版本的 skill
-  skm sources add <skill> --source <url>   为某个 skill 补充上游地址
+  skm sources add <skill> --source <url> [--tool <工具>] [--scope <范围>] [--instance <ID>] [--all]
+  skm sources check <skill> [--tool <工具>] [--scope <范围>] [--instance <ID>] [--all]
+  skm sources remove <skill> [--instance <ID>]
   skm sources wizard       交互式逐个补充上游地址
 
 state 选项：
@@ -99,8 +101,9 @@ state 选项：
 
 生命周期选项：
   skm install <源> --tool <claude|codex|cursor|gemini|workbuddy|kimi> [--dry-run] [--yes]
-  skm update <skill> [--tool <工具>] [--dry-run] [--yes]
-  skm rollback <skill> [--tool <工具>] [--dry-run] [--yes]
+  skm update [skill] [--tool <工具>] [--scope <范围>] [--instance <ID>] [--all] [--dry-run] [--yes]
+  skm rollback <skill> [--tool <工具>] [--scope <范围>] [--instance <ID>] [--all] [--dry-run] [--yes]
+  --allow-risk            人工复核后允许高危安全发现通过策略门禁
   skm lock [--json]
   skm lock diff [锁定文件] [--json]
   skm lock verify [锁定文件] [--json]
@@ -190,7 +193,7 @@ Commands:
   sources           Manage local skill upstream sources (list/missing/add/remove/check/wizard)
   state             Skill state governance: plan recommendations, list Claude states, set Claude native state
   install           Install a skill after local static audit
-  update            Update a skill from a directly readable SKILL.md source, with backup
+  update            Transactionally update complete skill packages with instance selection, diff, policy gates, and backups
   rollback          Roll back a skill from skm backups
   lock              Generate, diff, or verify the skill lock file
   policy            Lifecycle policy: init/check
@@ -235,7 +238,9 @@ outdated options:
 
 sources options:
   skm sources missing      List skills whose freshness cannot be checked
-  skm sources add <skill> --source <url>   Add an upstream URL for one skill
+  skm sources add <skill> --source <url> [--tool <tool>] [--scope <scope>] [--instance <ID>] [--all]
+  skm sources check <skill> [--tool <tool>] [--scope <scope>] [--instance <ID>] [--all]
+  skm sources remove <skill> [--instance <ID>]
   skm sources wizard       Fill missing upstream URLs interactively
 
 state options:
@@ -249,8 +254,9 @@ state options:
 
 lifecycle options:
   skm install <source> --tool <claude|codex|cursor|gemini|workbuddy|kimi> [--dry-run] [--yes]
-  skm update <skill> [--tool <tool>] [--dry-run] [--yes]
-  skm rollback <skill> [--tool <tool>] [--dry-run] [--yes]
+  skm update [skill] [--tool <tool>] [--scope <scope>] [--instance <ID>] [--all] [--dry-run] [--yes]
+  skm rollback <skill> [--tool <tool>] [--scope <scope>] [--instance <ID>] [--all] [--dry-run] [--yes]
+  --allow-risk            Allow high-severity findings after explicit manual review
   skm lock [--json]
   skm lock diff [lock-file] [--json]
   skm lock verify [lock-file] [--json]
@@ -341,6 +347,7 @@ try {
       history: { type: 'boolean', default: false },
       why: { type: 'boolean', default: false },
       anonymize: { type: 'boolean', default: false },
+      'allow-risk': { type: 'boolean', default: false },
       online: { type: 'boolean', default: false },
       refresh: { type: 'boolean', default: false },
       keep: { type: 'string' },
@@ -360,6 +367,7 @@ try {
       lang: { type: 'string' },
       category: { type: 'string' },
       scope: { type: 'string' },
+      instance: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
     allowPositionals: true,
@@ -416,7 +424,7 @@ if (values.export && values.export !== 'json') {
 }
 
 const cmd = positionals[0] || 'status';
-const ctx = { cwd: process.cwd(), ...values, dryRun: values['dry-run'], lang };
+const ctx = { cwd: process.cwd(), ...values, dryRun: values['dry-run'], allowRisk: values['allow-risk'], lang };
 
 async function main() {
   if (values.help || cmd === 'help') console.log(lang === 'en' ? HELP_EN : HELP_ZH);

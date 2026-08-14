@@ -2,6 +2,16 @@
 
 ## 未发布
 
+- 生命周期升级改为完整 skill 包治理：本地目录、`file://`、GitHub/Gitee 与 git/SSH 来源会包含 `scripts/`、`references/` 和资源文件；直链 `SKILL.md` 更新保留现有附属文件。
+- 新增文件级整包 diff、SHA-256 package hash、隐藏暂存目录与目录重命名原子替换；拒绝指向包外的内部软链；无变化更新不再创建备份或历史事件。
+- 来源表升级到 v2，支持稳定安装实例 ID、实例级来源和 `--tool` / `--scope` / `--instance` / `--all` 选择，同名多实例不再串用来源。
+- 备份按安装实例隔离并保存 `payload/metadata.json`；rollback 跳过与当前整包相同的快照，可恢复回滚前状态。
+- lock 升级到 v3，纳入位置身份和 package hash；旧锁文件需重新生成，资源文件漂移也可被 `diff/verify` 发现。
+- `outdated --online` 新增 `ahead` / `diverged` 语义；已登记的目录/仓库来源比较完整包，能识别同版本资源变化。
+- 静态安全审计扩展到 skill 包内文本/代码文件并显示证据路径；high 级发现默认由策略阻断，人工复核后可显式使用 `--allow-risk`。
+- 更新软链 skill 时保留软链并修改真实目录；插件管理的 skill 拒绝直接更新或回滚；安装会在所有目标暂存成功后才提交。
+- 补齐 WorkBuddy / Kimi 生命周期目标与文档成熟度边界。
+
 ## v0.1.11
 
 - `skm setup` 显示桥接 skill 版本号。

@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/GrubbyLee/skill-manager?style=social)](https://github.com/GrubbyLee/skill-manager/stargazers)
 
-> Claude Code / Codex / Cursor / Gemini skill 与 MCP 的扫描、推荐、去重、审计、知识图谱工具。
+> Claude Code / Codex / Cursor / Gemini / WorkBuddy / Kimi skill 与 MCP 的扫描、推荐、去重、审计和全生命周期治理工具。
 
 一台机器装久了，skill 会越来越像一间堆满工具的工作室：有的重复，有的很久没用，有的藏在软链后面，有的 MCP 每次启动都占上下文。`skm` 做的事很简单：清点它们、解释它们、帮你决定下一步。
 
@@ -103,9 +103,9 @@ SKM_LANG=zh-CN skm doctor
 | `skm scan` | 扫描 skill / MCP，重建目录，然后展示同一份治理总览 |
 | `skm outdated` | 检查上游版本线索；`--online` 比对 GitHub/Gitee 或 git remote |
 | `skm sources` | 管理缺少来源 metadata 的 skill 上游地址 |
-| `skm install` | 安装本地 skill 目录或远程 `SKILL.md` 来源，安装前做静态审计 |
-| `skm update` | 从已记录来源更新 skill，更新前自动备份 |
-| `skm rollback` | 从 skm 备份回滚 skill |
+| `skm install` | 静态审计后安装本地/仓库完整 skill 包或直链 `SKILL.md` |
+| `skm update` | 按实例展示整包差异、通过策略门禁后事务式更新 |
+| `skm rollback` | 从实例隔离的整包备份恢复 skill |
 | `skm lock` | 生成 `~/.skill-manager/skill-lock.json` 生命周期锁定文件，按安装实例记录 |
 | `skm lock diff` | 对比当前 skill 与锁定文件的新增、删除和变更 |
 | `skm lock verify` | 校验当前 skill 是否匹配锁定文件；发现漂移时返回非 0，适合 CI |
@@ -268,17 +268,17 @@ skm history baoyu-image-gen
 
 | 阶段 | 命令 | 说明 |
 |---|---|---|
-| 引入 | `skm install <源>` | 本地目录会完整复制；远程 GitHub/Gitee skill 目录或 `SKILL.md` URL 当前安装 `SKILL.md` 单文件；安装前展示静态安全审计；安装后自动记录可用来源 |
-| 登记 | `skm sources add` / `skm sources wizard` | 为缺少来源的 skill 补充上游地址，后续版本检查、更新和锁定才能闭环 |
-| 更新 | `skm update <skill>` | 从可直接读取的 `SKILL.md` 来源更新；写入前自动备份原目录 |
-| 回滚 | `skm rollback <skill>` | 从 `~/.skill-manager/skill-backups/` 恢复上一次备份；回滚前再备份当前目录 |
-| 锁定 | `skm lock` / `skm lock diff` / `skm lock verify` | 生成 `~/.skill-manager/skill-lock.json`，按安装实例记录名称、工具、scope、版本、来源、git HEAD 和 `SKILL.md` hash；后续可对比或校验当前环境是否漂移 |
+| 引入 | `skm install <源>` | 本地目录和 GitHub/Gitee/git 目录来源安装完整包；直链 `SKILL.md` 安装单文件；所有目标先暂存、校验、审计再提交 |
+| 登记 | `skm sources add` / `skm sources wizard` | 按安装实例记录来源；用 `--tool`、`--scope`、`--instance` 或 `--all` 消除同名歧义 |
+| 更新 | `skm update <skill>` | 展示文件新增/修改/删除，策略阻断高危包，然后原子替换所选实例；无变化不建备份 |
+| 回滚 | `skm rollback <skill>` | 恢复实例隔离的完整包快照；恢复前备份当前包，因此可反向恢复 |
+| 锁定 | `skm lock` / `skm lock diff` / `skm lock verify` | v3 锁文件记录安装身份、版本、来源、git HEAD、`SKILL.md` hash 和整包 hash |
 | 策略 | `skm policy init/check` | 用本机策略检查 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现 |
 | 场景 | `skm profile create/apply` | 保存一组 Claude Code skill 状态，并可按写作、开发、设计等场景切换；应用前会备份设置 |
 | 评测 | `skm eval [skill]` | 从描述、frontmatter、来源、重复、上下文开销、使用和安全信号打分 |
 | 复盘 | `skm history [skill]` | 查看 skm 记录的安装、更新、回滚、锁定、策略和 profile 事件 |
 
-推荐顺序是：先 `skm scan`，再补来源，之后 `skm lock` 建基线；后续用 `skm lock diff` 看当前环境相对基线新增、删除或变更了哪些 skill，用 `skm lock verify` 做脚本化校验。锁定文件按实际安装实例记录，同名 skill 分别装在 Claude Code、Codex、Cursor 或 Gemini 时会分别校验。更新前先 `skm update <skill> --dry-run` 看计划和安全审计，确认后再加 `--yes` 或交互输入 `yes`。`skm install` 会把远程 URL 或本地 `SKILL.md` frontmatter 里的 `source` / `repository` / `homepage` / `version` 写入 `~/.skill-manager/sources.json`，避免后续升级找不到源；如果本地 skill 没有来源，会提示你运行 `skm sources add` 补齐。远程安装/更新目前以 `SKILL.md` 为最小可信单元，不会自动拉取仓库里的脚本或资源目录；需要完整目录时，先人工 clone 到本地，再用 `skm install ./目录`。
+推荐顺序是：先 `skm scan`，再补来源，之后 `skm lock` 建基线；后续用 `lock diff/verify` 检查漂移。同名安装是不同身份，模糊写操作会拒绝执行，需用 `--tool`、`--scope` 或 `--instance` 精确选择；`--all` 才会明确处理全部匹配项，并分别使用各自来源。仓库/目录来源会包含 `scripts/`、`references/`、assets 等全部包文件；直链 `SKILL.md` 是兼容路径，更新时保留现有附属文件。写入前会暂存并校验全部候选，扫描包内文本/代码文件，经高危策略门禁后建立实例级备份，再用目录重命名原子替换。插件管理的 skill 拒绝直接更新；软链 skill 更新真实目录并保留软链。只有人工复核高危证据后才应显式添加 `--allow-risk`。
 
 ### skill 状态治理
 
@@ -311,7 +311,7 @@ skm state set old-skill --tool claude --mode off --scope user
 
 默认命令以只读为主。`status`、`audit`、`risks`、`sessions`、`lock`、`policy`、`profile create`、`history` 等命令可能更新 `~/.skill-manager` 下的 skm 自身索引、缓存、锁定文件、策略、profile、历史和审计归档，但不会改 Claude Code、Codex、Cursor、Gemini 的配置、skill、MCP 或会话日志。显式运行 `skm setup`、`skm install`、`skm update`、`skm rollback`、`skm profile apply` 或源码安装脚本是例外：它们会写入支持的用户 skill 目录或 Claude Code 设置。
 
-安全审计是静态、保守的：只读取 `SKILL.md`、目录元数据和 MCP 的非 `env` 配置字段，不执行 skill/MCP，不输出 env 值；疑似命令证据会先脱敏再展示。上游版本检查同样只读：`scan` 只记录本地 `version` / `source` / git metadata，`outdated --online` 才显式访问 GitHub/Gitee 或 git remote，结果缓存 24 小时。直接 `source` URL 建议指向 skill 目录或 `SKILL.md`；裸仓库 URL 只有在 `main` 或 `master` 根目录存在 `SKILL.md` 时才能直接检查。`skm sources` 只写入 skm 自己的 `~/.skill-manager/sources.json`，不会修改已安装的 skill 文件。使用频率审计依赖 AIDE 会话日志是否可解析：Claude Code / Codex 的 skill 使用信号更完整，Cursor / Gemini 当前不读取敏感编辑器缓存，因此不会为了凑数字推断真实使用次数。
+安全审计是静态、保守的：读取 `SKILL.md` 和包内文本/代码文件，以及 MCP 的非 `env` 配置字段；不执行 skill/MCP，不输出 env 值。`outdated --online` 对已登记仓库/目录来源比较整包 hash，对直链 `SKILL.md` 比较版本与内容，结果缓存 24 小时。`skm sources` 只写入 v2 本地来源表，可保存实例级记录，不修改已安装文件。使用频率仍只依赖可观测日志，其他适配器不会为了补数字推断调用次数。
 
 CLI 内只有以下动作会修改 AIDE 文件：
 
@@ -383,6 +383,8 @@ npm pack --dry-run --registry=https://registry.npmmirror.com
 | Codex CLI | 完整 | 完整 | 完整 | 提示使用原生 `/skills` UI | 支持用户 skill 目录安装、更新、回滚 | 不猜测未稳定公开的状态文件 |
 | Cursor | 保守扫描 | 常见配置扫描 | 暂无真实使用统计 | 暂不写状态 | 支持常见用户 skill 目录安装 | 不读取敏感编辑器缓存 |
 | Gemini | 保守扫描 | 常见配置扫描 | 暂无真实使用统计 | 暂不写状态 | 支持常见用户 skill 目录安装 | 等待稳定公开日志格式后再扩展 |
+| WorkBuddy | 目录扫描 | 暂无 | 暂无真实使用统计 | 暂不写状态 | 支持用户 skill 安装、更新、回滚 | 生命周期写操作使用相同整包防护 |
+| Kimi | 兼容目录扫描 | 暂无 | 暂无真实使用统计 | 暂不写状态 | 支持多个用户目录安装、更新、回滚 | 按真实路径去重兼容目录 |
 
 “完整”表示当前有可观测、可测试的本机数据来源；“保守扫描”表示只读取常见目录和非敏感配置，不为了凑数字推断真实使用次数。
 

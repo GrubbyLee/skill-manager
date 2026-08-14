@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { collectOutdatedRows } from '../src/commands/outdated.js';
+import { buildPackageManifest } from '../src/skillPackage.js';
 
 test('outdated：离线模式只读取本地上游线索，不联网判断', async () => {
   const rows = await collectOutdatedRows([
@@ -54,6 +59,60 @@ test('outdated：联网模式可通过远端 SKILL.md version 判断落后', asy
 
   assert.equal(rows[0].status, 'outdated');
   assert.equal(rows[0].remoteVersion, '0.1.5');
+});
+
+test('outdated：区分本地领先与同版本内容分叉', async () => {
+  const ahead = await collectOutdatedRows([{
+    dirName: 'ahead-skill', tool: 'codex', scope: 'user', path: '/tmp/ahead-skill',
+    skillMdHash: 'local-hash', upstream: { version: '2.0.0', source: 'https://example.com/SKILL.md' },
+  }], {
+    online: true,
+    refresh: true,
+    fetchImpl: async () => ({ ok: true, text: async () => '---\nname: ahead-skill\nversion: 1.9.0\n---\n' }),
+    cache: { version: 1, items: {} },
+  });
+  assert.equal(ahead[0].status, 'ahead');
+
+  const diverged = await collectOutdatedRows([{
+    dirName: 'forked-skill', tool: 'codex', scope: 'user', path: '/tmp/forked-skill',
+    skillMdHash: 'local-hash', upstream: { version: '1.0.0', source: 'https://example.com/SKILL.md' },
+  }], {
+    online: true,
+    refresh: true,
+    fetchImpl: async () => ({ ok: true, text: async () => '---\nname: forked-skill\nversion: 1.0.0\n---\nchanged' }),
+    cache: { version: 1, items: {} },
+  });
+  assert.equal(diverged[0].status, 'diverged');
+});
+
+test('outdated：整包来源可识别仅资源文件发生的变更', async (t) => {
+  const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skm-outdated-package-'));
+  t.after(() => fs.rmSync(sourceDir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(sourceDir, 'references'));
+  fs.writeFileSync(path.join(sourceDir, 'SKILL.md'), '---\nname: package-skill\nversion: 1.0.0\n---\n');
+  fs.writeFileSync(path.join(sourceDir, 'references', 'guide.md'), 'upstream content\n');
+
+  const currentDir = fs.mkdtempSync(path.join(os.tmpdir(), 'skm-outdated-current-'));
+  t.after(() => fs.rmSync(currentDir, { recursive: true, force: true }));
+  fs.cpSync(sourceDir, currentDir, { recursive: true });
+  fs.writeFileSync(path.join(currentDir, 'references', 'guide.md'), 'local content\n');
+
+  const rows = await collectOutdatedRows([{
+    dirName: 'package-skill',
+    tool: 'codex',
+    scope: 'user',
+    path: currentDir,
+    packageHash: buildPackageManifest(currentDir).hash,
+    skillMdHash: crypto.createHash('sha256').update(fs.readFileSync(path.join(currentDir, 'SKILL.md'))).digest('hex').slice(0, 12),
+    upstream: {
+      version: '1.0.0',
+      source: pathToFileURL(sourceDir).href,
+      packageHash: 'stale-source-record',
+    },
+  }], { online: true, refresh: true, cache: { version: 1, items: {} } });
+
+  assert.equal(rows[0].status, 'diverged');
+  assert.equal(rows[0].remotePackageHash, buildPackageManifest(sourceDir).hash);
 });
 
 test('outdated：联网模式可通过 git remote HEAD 判断最新', async () => {
@@ -148,8 +207,10 @@ test('outdated：同名多端合并后使用带上游信息的 entry hash', asyn
     },
   ], { online: true, refresh: true, lang: 'zh-CN', fetchImpl, cache: { version: 1, items: {} } });
 
-  assert.equal(rows[0].status, 'latest');
-  assert.equal(rows[0].remoteHash, remoteHash);
+  assert.equal(rows.length, 2);
+  assert.equal(rows.find((row) => row.tool === 'claude-code').status, 'untracked');
+  assert.equal(rows.find((row) => row.tool === 'codex').status, 'latest');
+  assert.equal(rows.find((row) => row.tool === 'codex').remoteHash, remoteHash);
 });
 
 test('outdated：裸 GitHub 仓库 URL 会保守探测根目录 main/master SKILL.md', async () => {

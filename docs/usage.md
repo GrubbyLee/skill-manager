@@ -109,11 +109,11 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm web` | 本地只读 Web 工作台 | `--port` |
 | `skm scan` | 扫描 skill / MCP 并展示治理总览 | `--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
 | `skm outdated` | 检查 skill 上游新旧 | `--online`、`--refresh`、`--json` |
-| `skm sources` | 管理本机补充的上游地址 | `missing`、`add`、`list`、`remove`、`check`、`wizard` |
+| `skm sources` | 管理名称级或实例级上游地址 | `missing`、`add`、`list`、`remove`、`check`、`wizard`、`--instance`、`--all` |
 | `skm state` | skill 状态治理计划与 Claude 原生状态写入 | `plan`、`list`、`set`、`--mode`、`--scope`、`--dry-run`、`--yes` |
-| `skm install` | 安装本地目录或远程 `SKILL.md` skill | `<源>`、`--tool`、`--dry-run`、`--yes` |
-| `skm update` | 从已登记来源更新 skill | `<skill>`、`--tool`、`--dry-run`、`--yes` |
-| `skm rollback` | 从 skm 备份回滚 skill | `<skill>`、`--tool`、`--dry-run`、`--yes` |
+| `skm install` | 安装完整目录/仓库包或直链 `SKILL.md` | `<源>`、`--tool`、`--dry-run`、`--yes`、`--allow-risk` |
+| `skm update` | 按实例从已登记来源事务式更新 | `<skill>`、`--tool`、`--scope`、`--instance`、`--all`、`--allow-risk`、`--dry-run`、`--yes` |
+| `skm rollback` | 按实例从整包快照回滚 | `<skill>`、`--tool`、`--scope`、`--instance`、`--all`、`--dry-run`、`--yes` |
 | `skm lock` | 生成生命周期锁定文件 | `--json` |
 | `skm lock diff` | 对比当前 skill 与锁定文件 | `[文件]`、`--json` |
 | `skm lock verify` | 校验当前 skill 是否匹配锁定文件 | `[文件]`、`--json` |
@@ -122,7 +122,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm eval` | skill 质量评测 | `[skill]`、`--all`、`--json` |
 | `skm history` | 生命周期事件记录 | `[skill]`、`--json` |
 | `skm setup` | 安装桥接 skill | `--dry-run` |
-| `skm list` | 列出 skill | `--category`、`--tool claude\|codex\|cursor\|gemini`、`--scope`、`--raw`、`--json` |
+| `skm list` | 列出 skill | `--category`、`--tool claude\|codex\|cursor\|gemini\|workbuddy\|kimi`、`--scope`、`--raw`、`--json` |
 | `skm list --mcp` | 列出 MCP | `--tool`、`--json` |
 | `skm search <词>` | 搜索 skill | `--json` |
 | `skm recommend <任务>` | 推荐 skill | `--top`、`--tool`、`--category`、`--why`、`--advisor`、`--json` |
@@ -219,7 +219,7 @@ skm outdated --online --refresh
 skm outdated --json
 ```
 
-`outdated` 用于检查 skill 是否具备上游版本线索，以及是否可能落后。默认模式只读取本机 catalog，不联网。显式加 `--online` 后，才会只读访问上游：如果 skill 位于 git checkout 中，会比对 git remote 的最新 commit；如果 frontmatter 写了 GitHub/Gitee 的 `source` URL，会拉取远端 `SKILL.md` 并比对 `version` 或内容 hash。直接 `source` URL 建议指向 skill 目录或 `SKILL.md`；裸 GitHub/Gitee 仓库 URL 只会保守探测仓库根目录 `main` / `master` 的 `SKILL.md`。结果缓存到 `~/.skill-manager/update-cache.json`，有效期 24 小时。
+`outdated` 用于检查 skill 是否具备上游版本线索，以及本地状态是 `latest`、`outdated`、`ahead` 还是 `diverged`。默认只读本机 catalog。`--online` 才访问上游：git checkout 比对 remote commit；由 skm 登记过 package hash 的仓库/目录来源会重新取得完整包，结合 SemVer 与整包 hash 判断，因而能发现“版本未变、资源文件已变”；旧的直链 `SKILL.md` 来源继续按版本与内容 hash 检查。结果缓存 24 小时。
 
 本命令只检查，不自动更新。看到落后结果后，应先查看上游 diff / release notes，再决定是否替换本地 skill。
 
@@ -229,12 +229,14 @@ skm outdated --json
 skm sources missing
 skm sources wizard
 skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
+skm sources add baoyu-image-gen --source <url> --instance <安装实例ID>
+skm sources check baoyu-image-gen --tool codex --scope user
 skm sources list
 skm sources check baoyu-image-gen
 skm sources remove baoyu-image-gen
 ```
 
-`sources` 用于补充那些没有声明 `source` / `repository` 的已安装 skill 的上游地址。记录会保存到 `~/.skill-manager/sources.json`，后续 `scan` 和 `outdated` 会自动合并这些本地来源；它不会修改已安装的 skill 文件。
+`sources` 用于补充没有声明 `source` / `repository` 的已安装 skill。v2 文件同时保存兼容的名称级记录与安装实例记录；同名多实例需用 `--tool`、`--scope`、`--instance` 精确选择，或用 `--all` 明确处理全部。实例来源优先，且不会套用到未匹配的同名实例。它不会修改已安装文件。
 
 最便捷的方式是 `sources wizard`：它会逐个展示无法判断版本的 skill，输入上游 skill 目录或 `SKILL.md` URL 后立即保存；回车或 `s` 跳过，`q` 退出。需要脚本化处理时，可用 `sources missing --json` 导出待补充清单。
 
@@ -260,10 +262,10 @@ skm history baoyu-image-gen
 
 这些命令用于把 skill 管起来，而不是只扫出来：
 
-- `install`：本地目录会完整复制；远程 GitHub/Gitee skill 目录或 `SKILL.md` URL 当前安装 `SKILL.md` 单文件。安装前会打印计划和静态安全审计。目标目录已存在时拒绝覆盖。安装成功后会把远程 URL 或本地 frontmatter 里的 `source` / `repository` / `homepage` / `version` 记录到 `~/.skill-manager/sources.json` 并刷新 catalog；没有可升级来源时会提示 `skm sources add`，来源字段格式不合法时会明确提示被忽略。
-- `update`：读取已登记的 `source` / `repository` / `homepage`，从可直接访问的 `SKILL.md` 更新；写入前备份原 skill 目录。
-- `rollback`：从 `~/.skill-manager/skill-backups/` 恢复最近一次备份；回滚前也会备份当前目录。
-- `lock`：静默刷新 skm 自身 catalog，写入 `~/.skill-manager/skill-lock.json`，按安装实例记录名称、工具、scope、版本、来源、git HEAD 和 `SKILL.md` hash；`--json` 只输出 JSON。
+- `install`：本地、`file://`、GitHub/Gitee 和 git/SSH 目录来源安装完整包；直链 `SKILL.md` 安装单文件。所有目标先暂存、校验和扫描，全部准备好再提交；目标已存在时拒绝覆盖。
+- `update`：按实例读取来源，展示整包文件差异并静态扫描包内文本/代码；high 级发现默认由策略阻断，人工复核后才用 `--allow-risk`。确认后建立实例隔离的完整包备份并原子替换；无变化不备份。直链单文件更新保留现有附属资源。
+- `rollback`：恢复最近一个与当前 package hash 不同的实例快照，恢复前备份当前包，支持再次 rollback；软链保持不变，插件管理的 skill 拒绝直接处理。
+- `lock`：写入 v3 锁文件，按安装实例记录稳定 key、位置 hash、版本、来源、git HEAD、`SKILL.md` hash 和 package hash；旧锁文件需重新生成。
 - `lock diff [文件]`：静默刷新 skm 自身 catalog 后，对比当前 skill 与锁定文件的新增、删除和变更，不修改 AIDE 数据。
 - `lock verify [文件]`：同样静默刷新 skm 自身 catalog，发现漂移时返回非 0，适合 CI 或升级脚本。
 - `policy init/check`：初始化或检查本机治理策略，覆盖 skill 总量、从未使用比例、重复安装、来源覆盖和安全发现。
@@ -347,7 +349,7 @@ skm audit --json
 - MCP 启动命令中疑似携带 token/API key/password
 - MCP 明文 HTTP、shell 求值、动态包运行器、过高容器权限或免确认信任配置
 
-安全审计只读取 `SKILL.md`、目录元数据和 MCP 非 `env` 配置字段；不会执行 skill/MCP，也不会输出 env 值。`audit` 还会离线统计上游版本线索覆盖率，告诉你有多少 skill 可以通过 `skm outdated --online` 继续检查。解析结果会写入 `~/.skill-manager/usage-cache.json` 做增量缓存；每次审计还会归档快照到 `~/.skill-manager/audit-history/`。
+安全审计读取 `SKILL.md`、skill 包内文本/代码文件和 MCP 非 `env` 配置字段；不会执行 skill/MCP，也不会输出 env 值。发现项会标注证据文件。`audit` 还会离线统计上游版本线索覆盖率。解析结果会写入 `~/.skill-manager/usage-cache.json` 做增量缓存；每次审计还会归档快照。
 
 ## state
 

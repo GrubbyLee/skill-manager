@@ -13,9 +13,9 @@ English | [简体中文](README.zh-CN.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/GrubbyLee/skill-manager?style=social)](https://github.com/GrubbyLee/skill-manager/stargazers)
 
-> A zero-dependency CLI to scan, recommend, deduplicate, audit, and visualize Claude Code / Codex / Cursor / Gemini skills and MCP servers.
+> A zero-dependency CLI to scan, recommend, deduplicate, audit, and govern Claude Code / Codex / Cursor / Gemini / WorkBuddy / Kimi skills and MCP servers.
 
-When you keep adding skills to Claude Code, Codex, Cursor, or Gemini, the local setup can become hard to reason about: duplicated skills, shared symlinks, unused tools, unclear names, and MCP servers that keep consuming context. `skm` turns that local toolbox into something you can inspect, search, compare, audit, and clean up safely.
+When you keep adding skills across AIDE tools, the local setup can become hard to reason about: duplicated skills, shared symlinks, unused tools, unclear names, and MCP servers that keep consuming context. `skm` turns that local toolbox into something you can inspect, search, compare, upgrade, roll back, audit, and clean up safely.
 
 If `skm` helps you understand your local skill setup, a GitHub Star helps other AIDE users find the project.
 
@@ -97,9 +97,9 @@ SKM_LANG=zh-CN skm doctor
 | `skm scan` | Scan skills and MCP servers, rebuild the catalog, then show the same governance overview |
 | `skm outdated` | Check upstream version metadata; `--online` compares GitHub/Gitee or git remote |
 | `skm sources` | Manage local upstream URLs for skills that lack source metadata |
-| `skm install` | Install a local skill directory or remote `SKILL.md` after static audit |
-| `skm update` | Update a skill from its recorded source, with backup |
-| `skm rollback` | Restore a skill from skm backups |
+| `skm install` | Install a complete local/repository skill package or direct `SKILL.md` after static audit |
+| `skm update` | Transactionally update selected skill instances with package diff, policy gate, and backup |
+| `skm rollback` | Restore an instance-scoped complete package from skm backups |
 | `skm lock` | Generate `~/.skill-manager/skill-lock.json` per installed instance |
 | `skm lock diff` | Compare current skills against the lock file and show added, removed, or changed skills |
 | `skm lock verify` | Verify current skills against the lock file; exits non-zero on drift for CI scripts |
@@ -128,7 +128,7 @@ Standalone bridge skill docs for skill hubs: [integrations/skill-navigator/READM
 
 ## Features
 
-- Scans Claude Code, Codex CLI, Cursor, and Gemini skills, plus common MCP config files where available
+- Scans Claude Code, Codex CLI, Cursor, Gemini, WorkBuddy, and Kimi skills, plus common MCP config files where available
 - Detects shared symlinks, duplicate physical copies, and same-content copies
 - Classifies skills with local rules
 - Recommends skills from natural-language task descriptions, with local usage preference boosts after relevance matching
@@ -260,17 +260,17 @@ skm history baoyu-image-gen
 
 | Stage | Command | Notes |
 |---|---|---|
-| Introduce | `skm install <source>` | Local directories are copied fully; remote GitHub/Gitee skill directories or `SKILL.md` URLs install the `SKILL.md` file for now; static audit is shown first; usable source metadata is saved after install |
-| Register | `skm sources add` / `skm sources wizard` | Add upstream URLs for skills missing source metadata, so freshness checks, updates, and locks have a source of truth |
-| Update | `skm update <skill>` | Updates from a directly readable `SKILL.md` source; backs up the old directory first |
-| Roll back | `skm rollback <skill>` | Restores from `~/.skill-manager/skill-backups/`; backs up the current directory before rollback |
-| Lock | `skm lock` / `skm lock diff` / `skm lock verify` | Writes `~/.skill-manager/skill-lock.json` with each installed instance's name, tool, scope, version, source, git HEAD, and `SKILL.md` hash; later compares or verifies drift |
+| Introduce | `skm install <source>` | Local and GitHub/Gitee/git directory sources install the complete package; a direct `SKILL.md` URL installs one file; every target is staged and audited before commit |
+| Register | `skm sources add` / `skm sources wizard` | Stores source metadata per installation instance; `--tool`, `--scope`, `--instance`, and `--all` disambiguate same-name installs |
+| Update | `skm update <skill>` | Shows added/changed/removed files, blocks high-risk packages by policy, then atomically replaces each selected instance; no-op updates create no backup |
+| Roll back | `skm rollback <skill>` | Restores an instance-scoped complete-package snapshot; backs up the current package first, so rollback can be reversed |
+| Lock | `skm lock` / `skm lock diff` / `skm lock verify` | Lock format v3 records each installation identity plus version, source, git HEAD, `SKILL.md` hash, and complete package hash |
 | Policy | `skm policy init/check` | Checks local thresholds for total skills, never-used rate, duplicate installs, source coverage, and safety findings |
 | Profile | `skm profile create/apply` | Saves and applies Claude Code skill state profiles for scenarios such as writing, coding, or design; settings are backed up before apply |
 | Evaluate | `skm eval [skill]` | Scores description, frontmatter, source metadata, duplication, context cost, usage, and safety signals |
 | Review | `skm history [skill]` | Shows skm-recorded install, update, rollback, lock, policy, and profile events |
 
-Recommended flow: run `skm scan`, fill missing sources, then run `skm lock` to establish a baseline. Later, use `skm lock diff` to see added, removed, or changed skills, and `skm lock verify` for scriptable drift checks. The lock file records actual installed instances, so same-name skills installed in Claude Code, Codex, Cursor, or Gemini are verified separately. Before an update, run `skm update <skill> --dry-run` to inspect the plan and audit result, then confirm interactively or add `--yes`. `skm install` saves the remote URL or local `SKILL.md` frontmatter fields `source` / `repository` / `homepage` / `version` into `~/.skill-manager/sources.json`, so later updates can find the source. If a local skill has no source, skm prints a `skm sources add` hint. Remote install/update uses `SKILL.md` as the smallest trusted unit; it does not automatically pull scripts or asset directories from a repository. For a full directory install, clone manually first and run `skm install ./directory`.
+Recommended flow: run `skm scan`, fill missing sources, then run `skm lock` to establish a baseline. Later, use `skm lock diff` to inspect drift and `skm lock verify` for scriptable checks. Same-name installations are separate identities; ambiguous mutations fail until you select with `--tool`, `--scope`, or `--instance`, while `--all` intentionally processes every match using its own source. Repository and directory sources include `scripts/`, `references/`, assets, and other package files. A direct `SKILL.md` URL remains a compatibility path and preserves existing companion files. Before writing, skm stages and validates every candidate, audits package text/code files, applies the high-risk policy gate, creates an instance-scoped backup, and uses rename-based atomic replacement. Plugin-managed skills are refused; symlinked skills update their real directory without replacing the link. Add `--allow-risk` only after manually reviewing reported high-severity evidence.
 
 ### Skill State Governance
 
@@ -303,7 +303,7 @@ skm state set old-skill --tool claude --mode off --scope user
 
 Most commands are read-only for Claude Code, Codex, Cursor, and Gemini data. Some commands may update skm's own cache, lock file, policy, profiles, history, or audit snapshots under `~/.skill-manager`, but they do not modify your AIDE configs, skills, MCP servers, or session logs. The explicit `skm setup`, `skm install`, `skm update`, `skm rollback`, `skm profile apply`, and source install script are exceptions: they write supported user skill directories or Claude Code settings.
 
-The security audit is static and conservative: it reads `SKILL.md`, directory metadata, and non-`env` MCP config fields only. It never executes a skill or MCP server, and suspicious command evidence is redacted before display. Upstream freshness checks are also read-only: `scan` records local `version` / `source` / git metadata, while `outdated --online` explicitly checks GitHub/Gitee or git remote and caches results for 24 hours. Direct `source` URLs should point to a skill directory or `SKILL.md`; bare repository URLs are only checkable when a root `SKILL.md` exists on `main` or `master`. `skm sources` writes only skm's own source map under `~/.skill-manager/sources.json`; it does not edit installed skill files. Usage auditing depends on observable AIDE session logs: Claude Code and Codex provide fuller skill usage signals, while Cursor and Gemini are scanned conservatively without reading sensitive editor caches or inventing usage counts.
+The security audit is static and conservative: it reads `SKILL.md` and text/code files in the skill package, plus non-`env` MCP config fields. It never executes a skill or MCP server, and suspicious command evidence is redacted before display. Upstream freshness checks are also read-only: `outdated --online` compares complete package hashes for recorded repository/directory sources, and uses version/content checks for direct `SKILL.md` sources; results are cached for 24 hours. `skm sources` writes only its version-2 local source map, including instance-specific records, and does not edit installed skill files. Usage auditing depends on observable AIDE session logs: Claude Code and Codex provide fuller signals, while other adapters remain conservative.
 
 Inside the CLI, only these actions can modify AIDE files:
 
@@ -376,6 +376,8 @@ Manual validation entry: [GitHub Actions / macOS / Windows CI](https://github.co
 | Codex CLI | Full | Full | Full | Uses native `/skills` UI guidance | Install, update, rollback for user skills | skm does not rewrite unstable state files |
 | Cursor | Conservative | Common config files | No real usage counts yet | No state writes yet | Install into common user skill dir | Does not read sensitive editor caches |
 | Gemini | Conservative | Common config files | No real usage counts yet | No state writes yet | Install into common user skill dir | Usage audit waits for stable public log formats |
+| WorkBuddy | Directory scan | Not yet | No real usage counts yet | No state writes yet | Install, update, rollback for user skills | Lifecycle mutations use the same package safeguards |
+| Kimi | Compatible directory scan | Not yet | No real usage counts yet | No state writes yet | Install, update, rollback across supported user dirs | Real paths are deduplicated across compatible locations |
 
 “Full” means skm has observable, testable local signals. “Conservative” means skm reads common directories and non-sensitive config only, without inventing usage counts.
 

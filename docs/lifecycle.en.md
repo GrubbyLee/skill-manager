@@ -33,9 +33,9 @@ skm rollback <skill>
 
 | Command | Purpose | Writes to |
 |---|---|---|
-| `skm install <source>` | Install a local skill directory or remote `SKILL.md` | User skill directory |
-| `skm update <skill>` | Update a skill from its registered source | User skill directory; backup under `~/.skill-manager/skill-backups/` |
-| `skm rollback <skill>` | Roll back from skm backup | User skill directory; backs up current directory first |
+| `skm install <source>` | Install a complete local/repository package or direct `SKILL.md` | User skill directory |
+| `skm update <skill>` | Transactionally update complete packages by installation instance | User skill directory; instance backup under `~/.skill-manager/skill-backups/` |
+| `skm rollback <skill>` | Restore a complete package snapshot by instance | User skill directory; backs up current package first |
 | `skm lock` | Generate the current skill lock file | Refreshes skm's own catalog; writes `~/.skill-manager/skill-lock.json` |
 | `skm lock diff [file]` | Compare current skills against the lock file | Does not change AIDE data; refreshes skm's own catalog first |
 | `skm lock verify [file]` | Verify current skills against the lock file | Does not change AIDE data; exits non-zero on drift |
@@ -52,18 +52,18 @@ skm install ./my-skill --tool codex
 skm install https://github.com/org/repo/tree/main/skills/my-skill --tool claude --dry-run
 ```
 
-Local directories are copied fully. Remote GitHub/Gitee skill directories or `SKILL.md` URLs currently install the `SKILL.md` file only; repository scripts or asset directories are not pulled automatically. Existing targets are refused.
+Local directories, `file://` directories, GitHub/Gitee skill directories, and git/SSH repositories install the complete skill package, including `scripts/`, `references/`, assets, and other companion files. Repositories are shallow-cloned and only the selected skill subtree is copied. Direct `SKILL.md` URLs remain supported as single-file sources. Every target is prepared in a hidden staging directory, checked for `SKILL.md` and package-escaping internal symlinks, then atomically committed only after all targets are ready. Existing targets are refused.
 
-After a successful install, `skm` records usable source metadata in `~/.skill-manager/sources.json`:
+After a successful install, `skm` records usable source metadata in version-2 `~/.skill-manager/sources.json`:
 
-- Remote URL install: records the install URL.
+- Remote URL install: records the URL and, when available, repository ref/subdir, resolved commit, and package hash.
 - Local directory install: reads `source` / `repository` / `homepage` / `version` from `SKILL.md` frontmatter.
 - Local directory without a source: install still succeeds, but skm prints a `skm sources add <skill> --source <url>` hint.
 - Invalid source fields: skm prints which field was ignored, so users do not assume an upgrade source was recorded.
 
 This lets `skm update <skill>` find the upgrade source later without manual catalog edits. After a successful install, skm refreshes the local catalog automatically, so users can usually run `skm update <skill> --dry-run` immediately to verify the loop.
 
-## Update and Rollback
+## Instance Selection, Update, and Rollback
 
 `update` depends on a directly readable `source` / `repository` / `homepage`. If a skill was installed by `skm install` and source metadata was recorded, it can usually be updated directly. If a skill has no source, add one first:
 
@@ -71,7 +71,21 @@ This lets `skm update <skill>` find the upgrade source later without manual cata
 skm sources add my-skill --source https://github.com/org/repo/tree/main/skills/my-skill
 ```
 
-Before updating, skm prints the plan and static audit result. The old directory is backed up before writing. `rollback` restores the latest backup and backs up the current directory first.
+Same-name skills can exist in different tools, scopes, or directories. Ambiguous writes are rejected until an instance is selected:
+
+```bash
+skm update my-skill --tool codex --scope user --dry-run
+skm update my-skill --instance <installation-id>
+skm update my-skill --all
+skm rollback my-skill --instance <installation-id>
+skm sources add my-skill --source <url> --instance <installation-id>
+```
+
+Sources and backups are isolated by stable installation ID. `--all` deliberately processes every match with its own source. Legacy name-level source records remain readable, but once an instance record exists for a same-name skill, that name-level record is not leaked to unmatched instances.
+
+Update acquires a complete candidate package, prints file-level `added` / `changed` / `removed` differences, and scans `SKILL.md` plus package text/code files. Policy blocks high-severity findings by default; use `--allow-risk` only after manual review. On confirmation, skm creates an instance-scoped snapshot with `payload/` and `metadata.json`, then replaces the directory atomically by rename. Failures restore the old directory. A no-op creates no backup or history event. Direct `SKILL.md` updates preserve existing companion files.
+
+`rollback` chooses the newest snapshot whose package hash differs from the current package, and backs up the current directory first, so another rollback can restore the pre-rollback state. Symlinked installs update the real directory while preserving the link. Plugin-managed skills are refused and must be changed through their plugin manager.
 
 ## Lock and Policy
 
@@ -85,7 +99,7 @@ skm policy init
 skm policy check
 ```
 
-The lock file records each installed skill instance with name, tool, scope, version, source, git HEAD, and `SKILL.md` hash. Same-name skills installed in Claude Code, Codex, Cursor, or Gemini are locked and verified separately. `lock`, `diff`, and `verify` silently refresh skm's own catalog first, then generate or compare added, removed, and changed entries against the lock file. Older lock files or duplicate lock keys fail fast to avoid hidden overwrite during comparison. `verify` exits non-zero on drift, so it can be used in CI or personal upgrade scripts. Policy checks cover total skills, never-used rate, duplicate installs, source coverage, and safety findings. The policy file is local data and can be edited to fit your team.
+Lock format v3 records a stable key, location hash, name, tool, scope, version, source, git HEAD, `SKILL.md` hash, and complete package hash for each installation. Companion-file changes therefore count as drift. Same-name installations across tools or locations are verified separately. `lock`, `diff`, and `verify` refresh the catalog first; old lock formats, missing package hashes, and duplicate keys fail fast and require regeneration. `verify` exits non-zero on drift for CI. Policy checks cover total skills, never-used rate, duplicate installs, source coverage, and safety findings.
 
 ## Profiles
 
@@ -108,4 +122,4 @@ The score deducts points for missing description, missing frontmatter, missing s
 
 ## Safety
 
-Start with `--dry-run`. Remote install and update read only `SKILL.md`; they do not execute scripts, read secrets, or read MCP `env` values. Any lifecycle action that modifies AIDE files requires an explicit command and confirmation.
+Start with `--dry-run`. Remote repositories are downloaded for complete-package copying and static inspection, but skm does not execute their scripts, read secrets, or read MCP `env` values. Candidates pass staging, validation, policy gates, instance backups, and atomic replacement before landing. Every lifecycle action that modifies AIDE files requires an explicit command and confirmation.
