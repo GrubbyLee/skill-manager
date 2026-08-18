@@ -37,6 +37,59 @@ test('outdated：离线模式只读取本地上游线索，不联网判断', asy
   assert.equal(rows[1].status, 'untracked');
 });
 
+test('outdated：扫描缓存模式只使用 24 小时内缓存，绝不请求网络', async () => {
+  let called = false;
+  const rows = await collectOutdatedRows([{
+    dirName: 'cached-skill', tool: 'codex', scope: 'user',
+    skillMdHash: 'local',
+    upstream: { version: '1.0.0', source: 'https://github.com/acme/cached/tree/main' },
+  }], {
+    online: true,
+    cacheOnly: true,
+    fetchImpl: async () => { called = true; throw new Error('network must not be called'); },
+    cache: { version: 1, items: {
+      [cacheKeyForSkill()]: { status: 'outdated', remoteVersion: '2.0.0', checkedAt: new Date().toISOString() },
+    } },
+  });
+  assert.equal(called, false);
+  assert.equal(rows[0].status, 'outdated');
+  assert.equal(rows[0].cached, true);
+});
+
+test('outdated：过期缓存不会伪装成最新状态', async () => {
+  const rows = await collectOutdatedRows([{
+    dirName: 'expired-skill', tool: 'codex', scope: 'user', skillMdHash: 'local',
+    upstream: { version: '1.0.0', source: 'https://github.com/acme/expired/tree/main' },
+  }], {
+    online: true,
+    cacheOnly: true,
+    cache: { version: 1, items: {
+      [crypto.createHash('sha256').update(JSON.stringify({
+        kind: 'skill-md',
+        url: 'https://raw.githubusercontent.com/acme/expired/main/SKILL.md',
+        urls: ['https://raw.githubusercontent.com/acme/expired/main/SKILL.md'],
+        localVersion: '1.0.0',
+        localHash: 'local',
+      })).digest('hex').slice(0, 24)]: {
+        status: 'outdated', remoteVersion: '2.0.0', checkedAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+      },
+    } },
+  });
+  assert.equal(rows[0].status, 'unchecked');
+  assert.equal(rows[0].cached, undefined);
+});
+
+function cacheKeyForSkill() {
+  const check = {
+    kind: 'skill-md',
+    url: 'https://raw.githubusercontent.com/acme/cached/main/SKILL.md',
+    urls: ['https://raw.githubusercontent.com/acme/cached/main/SKILL.md'],
+    localVersion: '1.0.0',
+    localHash: 'local',
+  };
+  return crypto.createHash('sha256').update(JSON.stringify(check)).digest('hex').slice(0, 24);
+}
+
 test('outdated：联网模式可通过远端 SKILL.md version 判断落后', async () => {
   const fetchImpl = async () => ({
     ok: true,

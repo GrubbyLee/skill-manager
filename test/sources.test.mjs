@@ -29,6 +29,19 @@ test('sources：本地补充来源会合并到 skill upstream，且不覆盖已�
   assert.equal(skill.upstream.trackable, true);
 });
 
+test('sources：来源记录保留手填/搜索发现元数据', () => {
+  const skill = applySourceToSkill({ dirName: 'discovered', name: 'discovered', upstream: {} }, {
+    version: 2,
+    sources: { discovered: {
+      source: 'https://github.com/acme/discovered/tree/main',
+      discovery: { method: 'search', provider: 'github', confidence: 0.91, confirmedByUser: true },
+    } },
+    instances: {},
+  });
+  assert.equal(skill.upstream.sourceDiscovery.method, 'search');
+  assert.equal(skill.upstream.sourceDiscovery.confirmedByUser, true);
+});
+
 test('sources：missing 只列出缺少上游 URL 的 skill', () => {
   const rows = missingSourceRows([
     {

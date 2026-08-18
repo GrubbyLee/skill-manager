@@ -58,19 +58,34 @@ export async function runOutdated({ cwd, json = false, online = false, refresh =
   if (!online) console.log(tr(lang, 'outdated.onlineHint'));
 }
 
-export async function collectOutdatedRows(skills, { online = false, refresh = false, lang = 'zh-CN', fetchImpl = globalThis.fetch, spawnImpl = spawnSync, cache = null } = {}) {
+export async function collectOutdatedRows(skills, { online = false, refresh = false, cacheOnly = false, lang = 'zh-CN', fetchImpl = globalThis.fetch, spawnImpl = spawnSync, cache = null } = {}) {
   const cacheState = cache || loadUpdateCache();
   const rows = [];
   for (const skill of expandInstallations(skills)) {
     const row = buildLocalRow(skill, lang);
     if (online && row.check?.kind) {
-      const remote = await checkRemote(row.check, { cache: cacheState, refresh, fetchImpl, spawnImpl });
-      applyRemoteResult(row, remote, lang);
+      const remote = cacheOnly
+        ? cachedRemoteResult(row.check, cacheState)
+        : await checkRemote(row.check, { cache: cacheState, refresh, fetchImpl, spawnImpl });
+      if (remote) applyRemoteResult(row, remote, lang);
     }
     rows.push(stripInternal(row));
   }
-  if (online && !cache) saveUpdateCache(cacheState);
+  if (online && !cacheOnly && !cache) saveUpdateCache(cacheState);
   return rows.sort((a, b) => statusOrder(a.status) - statusOrder(b.status) || sourceOrder(a) - sourceOrder(b) || a.dirName.localeCompare(b.dirName));
+}
+
+function cachedRemoteResult(check, cache) {
+  const cached = cache.items[cacheKey(check)];
+  if (!isFreshCacheEntry(cached)) return null;
+  return { ...cached, cached: true };
+}
+
+function isFreshCacheEntry(cached) {
+  if (!cached) return false;
+  const checkedAt = Date.parse(cached.checkedAt || '');
+  const age = Date.now() - checkedAt;
+  return Number.isFinite(checkedAt) && age >= 0 && age < CACHE_TTL_MS;
 }
 
 function buildLocalRow(skill, lang) {
@@ -170,7 +185,7 @@ async function checkRemote(check, { cache, refresh, fetchImpl, spawnImpl }) {
   const key = cacheKey(check);
   if (!refresh) {
     const cached = cache.items[key];
-    if (cached && Date.now() - Date.parse(cached.checkedAt || 0) < CACHE_TTL_MS) return { ...cached, cached: true };
+    if (isFreshCacheEntry(cached)) return { ...cached, cached: true };
   }
 
   let result;

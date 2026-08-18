@@ -30,7 +30,9 @@ skm audit
 skm sessions
 ```
 
-Some commands update skm's own files under `~/.skill-manager`, such as catalog, usage cache, audit history, session index, update cache, lock file, policy, profiles, and lifecycle history. These files do not change any supported AIDE's behavior. `skm outdated --online` reads registered upstream sources and never updates skills automatically.
+Some commands update skm's own files under `~/.skill-manager`, such as catalog, usage cache, audit history, session index, update cache, lock file, policy, profiles, and lifecycle history. These files do not change any supported AIDE's behavior. Plain `scan` makes no network request for version checks; only `scan --online` / `outdated --online` read registered upstream sources, and they never update skills automatically.
+
+`sources discover` contacts the official GitHub API only after user consent. It sends the skill name only, not local paths, skill content, or the inventory. Public candidate `SKILL.md` files are read for verification, and no source is written before user selection. `GITHUB_TOKEN` is used only as a request header and is neither cached nor printed.
 
 Explicitly running `skm setup` or `node scripts/install.mjs` is the install-time exception: it installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`. If a target directory already exists with different content, skm backs it up before replacing it.
 

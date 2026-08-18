@@ -86,10 +86,10 @@ Start with read-only commands. Use dry-run before install, update, rollback, pro
 | `skm doctor` | Environment diagnostics | `--json` |
 | `skm risks` | Risk report | `--json` |
 | `skm report` | One-page overview report | `--format html`, `--output`, `--anonymize`, `--json` |
-| `skm web` | Local read-only Web dashboard | `--port` |
-| `skm scan` | Scan skills/MCP servers and show the governance overview | `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
+| `skm web` | Local Web governance dashboard (source and version actions require confirmation) | `--port` |
+| `skm scan` | Scan skills/MCP servers and show the governance overview; version checks use cache by default | `--online`, `--refresh`, `--verbose`, `--json`, `--export json`, `--output`, `--anonymize` |
 | `skm outdated` | Check upstream freshness metadata | `--online`, `--refresh`, `--json` |
-| `skm sources` | Manage name-level or instance-level sources | `missing`, `add`, `list`, `remove`, `check`, `wizard`, `--instance`, `--all` |
+| `skm sources` | Manage name-level or instance-level sources | `missing`, `add`, `discover`, `list`, `remove`, `check`, `wizard`, `--instance`, `--all` |
 | `skm state` | Plan skill state governance and write Claude native states | `plan`, `list`, `set`, `--mode`, `--scope`, `--dry-run`, `--yes` |
 | `skm install` | Install a complete directory/repository package or direct `SKILL.md` | `<source>`, `--tool`, `--allow-risk`, `--dry-run`, `--yes` |
 | `skm update` | Transactionally update selected instances | `<skill>`, `--tool`, `--scope`, `--instance`, `--all`, `--allow-risk`, `--dry-run`, `--yes` |
@@ -159,7 +159,7 @@ skm web
 skm web --port 17362
 ```
 
-`web` starts a local read-only dashboard on `127.0.0.1`. The page includes overview, a skill inventory with usage/context sorting, pagination above and below the table, and upstream-address tooltips, plus skill-description hover cards, an actionable 3D knowledge graph, recommendation entry, and command center. Graph insights expose suites, overlaps, workflows, and inferred MCP links; concrete suite/platform/category scopes isolate useful subgraphs, while node details show one-hop focus, confidence-tagged evidence, suggested commands, and inventory navigation. Read-only commands can run locally in embedded terminals, while write-capable commands remain copy-only dry-run suggestions. It uses Node.js built-in `http` plus native HTML/CSS/JS, keeping the project dependency-free. The interface includes Cyberpunk, Galaxy, and Sky themes plus a 3D loading cube. When facts are missing or manually refreshed, the dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files. It does not modify AIDE data, execute skills/MCP servers, or read MCP `env` values.
+`web` starts a local Web governance dashboard on `127.0.0.1`. The page includes overview, a skill inventory with usage/context sorting, pagination above and below the table, source provenance, upstream freshness, an actionable 3D knowledge graph, recommendation entry, and command center. Missing or partially tracked sources open an explicit confirmation flow for manual URL entry or authorized GitHub discovery; public `SKILL.md` candidates are verified and never saved before selection. Version cells show latest, outdated, diverged, ahead, unchecked, and unknown states, with instance-specific `update --dry-run` previews for outdated or diverged skills. Top-right controls provide local inventory refresh, cached version checks, and a force refresh that explicitly queries recorded sources. Graph insights expose suites, overlaps, workflows, and inferred MCP links; concrete suite/platform/category scopes isolate useful subgraphs, while node details show one-hop focus, confidence-tagged evidence, suggested commands, and inventory navigation. Read-only commands can run locally in embedded terminals. Source writes, network searches, version checks, and update previews use dedicated same-origin APIs and require explicit user actions; the Web console never performs a real update, install, rollback, disable, or MCP/skill execution. It uses Node.js built-in `http` plus native HTML/CSS/JS, keeping the project dependency-free. The interface includes Cyberpunk, Galaxy, and Sky themes plus a 3D loading cube. When facts are missing or manually refreshed, the dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files. It does not modify AIDE data or read MCP `env` values.
 
 ## outdated
 
@@ -179,6 +179,9 @@ It never updates skills automatically. Treat `outdated` as a prompt to review up
 ```bash
 skm sources missing
 skm sources wizard
+skm sources discover baoyu-image-gen
+skm sources discover baoyu-image-gen --yes --json
+skm sources discover baoyu-image-gen --yes --select 1
 skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
 skm sources add baoyu-image-gen --source <url> --instance <installation-id>
 skm sources check baoyu-image-gen --tool codex --scope user
@@ -189,7 +192,9 @@ skm sources remove baoyu-image-gen
 
 `sources` fills missing upstream metadata. The version-2 file stores both legacy name-level mappings and installation-instance records. Same-name installations require `--tool`, `--scope`, or `--instance`, unless `--all` is intentional. Instance records take priority and never leak to an unmatched same-name install. This does not edit installed skill files.
 
-Use `sources wizard` for the fastest manual workflow: it walks through skills whose freshness is unknown, accepts an upstream skill directory or `SKILL.md` URL, and persists each answer immediately. Use `sources missing --json` if you want to script or batch-edit the missing list.
+`sources wizard` offers two choices for each missing source: enter an upstream URL, or enter `2` to request a GitHub search. Search requires explicit consent, sends only the skill name, and never uploads local paths or content. Candidates must expose a parseable `SKILL.md`, and nothing is saved until the user selects one. Non-interactive discovery requires `--yes`; `--json` only prints candidates, while saving also requires `--select <number>`. Set `GITHUB_TOKEN` when GitHub Code Search requires authentication or a higher rate limit.
+
+Plain `skm scan` makes no version-check network requests and only consumes valid 24-hour cache entries. `skm scan --online` refreshes recorded sources, writes `latest`, `outdated`, `ahead`, `diverged`, or a failed-check state into the catalog, and prints an instance-specific `skm update <skill> --instance <ID> --dry-run` prompt when review is needed. If any check failed or any instance lacks source metadata, scan reports an incomplete result instead of claiming that every skill is current.
 
 ## lifecycle: install / update / rollback / lock / policy / profile / eval / history
 

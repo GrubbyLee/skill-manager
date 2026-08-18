@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { buildOverview, renderOverview } from '../src/overview.js';
+import { tr } from '../src/i18n.js';
 
 test('overview：按治理域汇总并保留 status JSON 兼容字段', () => {
   const catalog = {
@@ -68,6 +69,38 @@ test('overview：版本治理使用互斥状态统计', () => {
   }, { unchecked: 1, unknown: 2, untracked: 1 });
 });
 
+test('overview：扫描缓存中的过期状态进入版本域并给出更新建议', () => {
+  const overview = buildOverview({
+    catalog: {
+      scannedAt: '2026-07-20T00:00:00Z',
+      skills: [skill({ dirName: 'old', tool: 'codex', path: '/s/old', realPath: '/s/old', source: 'https://github.com/acme/old/tree/main', version: '1.0.0', upstreamFreshness: { status: 'outdated', remoteVersion: '1.1.0' } })],
+      mcpServers: [], security: { summary: { high: 0, medium: 0, low: 0, info: 0 } }, warnings: [],
+    }, usage: { skills: {}, mcp: {}, earliest: null }, sessions: [], lang: 'en',
+  });
+  assert.equal(overview.domains.versions.outdated, 1);
+  assert.match(overview.domains.versions.commands.join(' '), /skm outdated/);
+  assert.match(renderOverview(overview, 'en'), /outdated/);
+});
+
+test('overview：远端失败与本地领先使用独立状态统计', () => {
+  const overview = buildOverview({
+    catalog: {
+      scannedAt: '2026-07-20T00:00:00Z',
+      skills: [
+        skill({ dirName: 'failed', tool: 'codex', path: '/s/failed', realPath: '/s/failed', source: 'https://github.com/acme/failed', upstreamFreshness: { status: 'unknown', checkedAt: '2026-07-20T00:00:00Z' } }),
+        skill({ dirName: 'ahead', tool: 'codex', path: '/s/ahead', realPath: '/s/ahead', source: 'https://github.com/acme/ahead', upstreamFreshness: { status: 'ahead', checkedAt: '2026-07-20T00:00:00Z' } }),
+      ],
+      mcpServers: [], security: { summary: { high: 0, medium: 0, low: 0, info: 0 } }, warnings: [],
+    }, usage: { skills: {}, mcp: {}, earliest: null }, sessions: [], lang: 'en',
+  });
+  assert.equal(overview.domains.versions.failed, 1);
+  assert.equal(overview.domains.versions.ahead, 1);
+  assert.equal(overview.domains.versions.unknown, 0);
+  const summary = tr('en', 'overview.versions.summary', overview.domains.versions);
+  assert.match(summary, /failed 1/);
+  assert.match(summary, /ahead 1/);
+});
+
 test('overview：英文渲染不泄露未翻译 key', () => {
   const overview = buildOverview({
     catalog: {
@@ -103,7 +136,7 @@ test('CLI：兜底静默扫描不追加治理总览到 stderr', () => {
   assert.doesNotMatch(result.stderr, /Governance Overview/);
 });
 
-function skill({ dirName, tool, path, realPath, source, version }) {
+function skill({ dirName, tool, path, realPath, source, version, upstreamFreshness }) {
   return {
     dirName,
     name: dirName,
@@ -115,6 +148,7 @@ function skill({ dirName, tool, path, realPath, source, version }) {
     description: `${dirName} skill`,
     descTokens: 10,
     upstream: { source, version },
+    upstreamFreshness,
     securityFindings: [],
   };
 }

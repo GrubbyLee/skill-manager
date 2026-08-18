@@ -34,10 +34,10 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   doctor          只读环境诊断：Node、目录、catalog、advisor CLI、macOS/Windows CI
   risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、MCP schema 估算、日志体积
   report          生成一页式总览报告（summary/json/html），汇总健康、风险、审计、会话与图谱概览
-  web             启动本地只读 Web 工作台（127.0.0.1，三主题，含 3D 加载动画）
+  web             启动本地 Web 治理工作台（127.0.0.1，来源/版本操作需显式确认）
   scan            扫描 Claude Code、Codex、Cursor、Gemini、WorkBuddy、Kimi，生成 catalog 后展示同一份治理总览
   outdated        检查 skill 上游版本线索；--online 才访问 GitHub/Gitee 或 git remote
-  sources         管理本机补充的 skill 上游地址（list/missing/add/remove/check/wizard）
+  sources         管理本机补充的 skill 上游地址（list/missing/add/discover/remove/check/wizard）
   state           skill 状态治理：plan 生成降载建议；list 查看 Claude 状态；set 写入 Claude 原生状态
   install         安装 skill（本地目录完整复制；远程 SKILL.md/GitHub/Gitee 目录单文件安装，先审计）
   update          事务更新完整 skill 包；支持实例筛选、批量计划、目录 diff、策略门禁与自动备份
@@ -74,6 +74,8 @@ list 选项：
 
 scan 选项：
   --verbose               显示全部解析警告
+  --online                扫描后联网刷新已记录来源的版本状态（默认只使用 24 小时缓存）
+  --refresh               配合 --online 忽略版本检查缓存
   --export <json>         导出扫描结果；可配 --output 写文件
 
 setup 选项：
@@ -88,6 +90,7 @@ sources 选项：
   skm sources add <skill> --source <url> [--tool <工具>] [--scope <范围>] [--instance <ID>] [--all]
   skm sources check <skill> [--tool <工具>] [--scope <范围>] [--instance <ID>] [--all]
   skm sources remove <skill> [--instance <ID>]
+  skm sources discover <skill> [--provider github] [--select <编号>] [--yes]
   skm sources wizard       交互式逐个补充上游地址
 
 state 选项：
@@ -187,10 +190,10 @@ Commands:
   doctor            Read-only diagnostics: Node, directories, catalog, advisor CLI, macOS/Windows CI
   risks             Risk report: duplicates, idle MCP, context cost, MCP schema estimate, log size
   report            One-page overview report (summary/json/html): health, risks, usage, sessions, graph summary
-  web               Start the local read-only Web dashboard (127.0.0.1, three themes, 3D loading animation)
+  web               Start the local Web governance dashboard (127.0.0.1; source/version actions require confirmation)
   scan              Scan Claude Code, Codex, Cursor, Gemini, WorkBuddy, and Kimi, write the catalog, then show the same governance overview
   outdated          Check skill upstream freshness; --online accesses GitHub/Gitee or git remotes
-  sources           Manage local skill upstream sources (list/missing/add/remove/check/wizard)
+  sources           Manage local skill upstream sources (list/missing/add/discover/remove/check/wizard)
   state             Skill state governance: plan recommendations, list Claude states, set Claude native state
   install           Install a skill after local static audit
   update            Transactionally update complete skill packages with instance selection, diff, policy gates, and backups
@@ -227,6 +230,8 @@ list options:
 
 scan options:
   --verbose               Show all parse warnings
+  --online                Refresh recorded upstream versions after scanning (default scan only uses the 24-hour cache)
+  --refresh               With --online, ignore the update-check cache
   --export <json>         Export scan result; combine with --output to write a file
 
 setup options:
@@ -241,6 +246,7 @@ sources options:
   skm sources add <skill> --source <url> [--tool <tool>] [--scope <scope>] [--instance <ID>] [--all]
   skm sources check <skill> [--tool <tool>] [--scope <scope>] [--instance <ID>] [--all]
   skm sources remove <skill> [--instance <ID>]
+  skm sources discover <skill> [--provider github] [--select <number>] [--yes]
   skm sources wizard       Fill missing upstream URLs interactively
 
 state options:
@@ -368,6 +374,8 @@ try {
       category: { type: 'string' },
       scope: { type: 'string' },
       instance: { type: 'string' },
+      provider: { type: 'string' },
+      select: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
     allowPositionals: true,
@@ -394,6 +402,14 @@ if (values.advisor && !['codex', 'claude'].includes(values.advisor)) {
 }
 if (values.scope && !['user', 'project', 'plugin'].includes(values.scope)) {
   console.error(tr(lang, 'cli.scopeInvalid', { value: values.scope }));
+  process.exit(1);
+}
+if (values.provider && values.provider !== 'github') {
+  console.error(tr(lang, 'cli.providerInvalid', { value: values.provider }));
+  process.exit(1);
+}
+if (values.select != null && (!/^\d+$/.test(values.select) || Number(values.select) < 1)) {
+  console.error(tr(lang, 'cli.selectInvalid', { value: values.select }));
   process.exit(1);
 }
 for (const flag of ['keep', 'days']) {
@@ -433,7 +449,7 @@ async function main() {
   else if (cmd === 'risks') runRisks(ctx);
   else if (cmd === 'report') runReport(ctx);
   else if (cmd === 'web') runWeb(ctx);
-  else if (cmd === 'scan') runScan(ctx);
+  else if (cmd === 'scan') await runScan(ctx);
   else if (cmd === 'outdated') await runOutdated(ctx);
   else if (cmd === 'sources') await runSources(ctx, positionals.slice(1));
   else if (cmd === 'state') await runState(ctx, positionals.slice(1));

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadCatalog } from '../catalog.js';
-import { runScan } from './scan.js';
+import { runScanLocal } from './scan.js';
 import { confirm, fileStamp, loadJsonFile, saveJsonFile } from '../utils.js';
 import { DATA_DIR, CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR, CLAUDE_CONFIG_FILE, CODEX_CONFIG_FILE } from '../paths.js';
 import { tr } from '../i18n.js';
@@ -82,7 +82,7 @@ async function toggleSkills({ cwd, names, dryRun = false, 'dry-run': dashedDryRu
     console.log(`\n${tr(lang, 'toggle.dryRun')}`);
   } else if (changed) {
     console.log(`\n${tr(lang, 'toggle.rescan')}`);
-    runScan({ cwd, lang });
+    runScanLocal({ cwd, lang });
   }
 }
 
@@ -177,7 +177,7 @@ async function toggleMcp({ cwd, names, yes, dryRun = false, 'dry-run': dashedDry
   } else if (touchedAny) {
     console.log(`\n${tr(lang, 'toggle.rescan')}`);
     try {
-      runScan({ cwd, lang });
+      runScanLocal({ cwd, lang });
     } catch (e) {
       console.error(tr(lang, 'toggle.rescanFailed', { message: e.message }));
     }

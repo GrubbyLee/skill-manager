@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { ensureCatalog, runScan } from './scan.js';
+import { ensureCatalog, runScanLocal } from './scan.js';
 import { mergeByDirName, isDupEntity } from '../catalog.js';
 import { scanUsage, buildUsageLookup } from '../usage.js';
 import { auditSkillDirectory, auditSkillSecurity, localizeSecurityFinding, summarizeFindings } from '../securityAudit.js';
@@ -337,7 +337,7 @@ function lockRow(skill) {
 
 function buildCurrentLock(ctx, { refresh }) {
   const lang = ctx.lang || 'zh-CN';
-  if (refresh) runScan({ cwd: ctx.cwd, silent: true, quiet: true, lang });
+  if (refresh) runScanLocal({ cwd: ctx.cwd, silent: true, quiet: true, lang });
   const catalog = ensureCatalog(ctx.cwd, lang);
   const rows = applySourcesToSkills(catalog.skills || []).map((skill) => lockRow(skill));
   const items = assignLockKeys(rows).sort(compareLockItems);
@@ -498,6 +498,8 @@ function hashText(text) {
 }
 
 function installSourceRecord(data, source, acquired = {}) {
+  const declaredUrl = [data.source, data.repository || data.repo, data.homepage].some((value) => isValidSourceUrl(cleanText(value)));
+  const installedUrl = isValidSourceUrl(source);
   const record = {
     source: validUrlOrNull(data.source),
     repository: validUrlOrNull(data.repository || data.repo),
@@ -507,6 +509,11 @@ function installSourceRecord(data, source, acquired = {}) {
     subdir: cleanText(acquired.subdir),
     resolvedCommit: cleanText(acquired.resolvedCommit),
     packageHash: cleanText(acquired.packageHash),
+    discovery: declaredUrl
+      ? { method: 'frontmatter', confirmedByUser: false }
+      : installedUrl
+        ? { method: 'install-url', verifiedAt: new Date().toISOString(), confirmedByUser: true }
+        : null,
   };
   record.ignoredFields = ignoredSourceFields(data);
   if (!record.source && !record.repository && !record.homepage && isValidSourceUrl(source)) record.source = source;
@@ -556,7 +563,7 @@ function ensureDataWritable(lang) {
 
 function refreshCatalog(ctx, lang, action) {
   try {
-    runScan({ cwd: ctx.cwd, silent: true, quiet: true, lang });
+    runScanLocal({ cwd: ctx.cwd, silent: true, quiet: true, lang });
   } catch (e) {
     if (String(action).startsWith('pre-')) throw e;
     console.error(zh(lang, `提示：${action} 已完成，但自动刷新 catalog 失败。请手动运行 skm scan。原因：${e.message}`, `Tip: ${action} completed, but automatic catalog refresh failed. Run skm scan manually. Reason: ${e.message}`));

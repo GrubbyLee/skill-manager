@@ -83,7 +83,11 @@ export function buildOverview({ catalog, usage, sessions = [], lang = 'zh-CN' })
         commands: ['skm state plan', 'skm state list'],
       },
       versions: {
-        outdated: 0,
+        outdated: updates.outdated,
+        diverged: updates.diverged,
+        ahead: updates.ahead,
+        latest: updates.latest,
+        failed: updates.failed,
         unchecked: updates.checkable,
         unknown: updates.unknown,
         untracked: updates.untracked,
@@ -212,11 +216,14 @@ function stateProblem(data, lang) {
 
 function versionSummary(data, lang) {
   const d = data.domains.versions;
-  return tr(lang, 'overview.versions.summary', { unchecked: d.unchecked, unknown: d.unknown, untracked: d.untracked });
+  return tr(lang, 'overview.versions.summary', { latest: d.latest, outdated: d.outdated, diverged: d.diverged, ahead: d.ahead, failed: d.failed, unchecked: d.unchecked, unknown: d.unknown, untracked: d.untracked });
 }
 
 function versionProblem(data, lang) {
   const d = data.domains.versions;
+  if (d.outdated) return tr(lang, 'overview.versions.outdatedProblem', { count: d.outdated, command: 'skm update' });
+  if (d.diverged) return tr(lang, 'overview.versions.divergedProblem', { count: d.diverged });
+  if (d.failed) return tr(lang, 'overview.versions.unknownProblem', { count: d.failed });
   if (d.sourceMissing) return tr(lang, 'overview.versions.sourceProblem', { count: d.sourceMissing });
   if (d.unchecked) return tr(lang, 'overview.versions.checkProblem', { count: d.unchecked });
   return tr(lang, 'common.none');
@@ -269,7 +276,8 @@ function priorityLines(data, lang) {
   const usage = data.domains.usage;
   const sessions = data.domains.sessions;
   if (risks.high || risks.medium) out.push(tr(lang, 'overview.priority.risks', { command: 'skm risks' }));
-  if (versions.unchecked || versions.sourceMissing) out.push(tr(lang, 'overview.priority.versions', { command: 'skm outdated --online', sources: 'skm sources missing' }));
+  if (versions.outdated || versions.diverged) out.push(tr(lang, 'overview.priority.updates', { command: 'skm update <skill> --dry-run' }));
+  if (versions.unchecked || versions.failed || versions.sourceMissing) out.push(tr(lang, 'overview.priority.versions', { command: 'skm outdated --online', sources: 'skm sources missing' }));
   if (data.domains.lifecycle.sourceMissing) out.push(tr(lang, 'overview.priority.lifecycle', { command: 'skm lock / skm policy check' }));
   if (usage.duplicateNeverUsed || usage.neverUsed) out.push(tr(lang, 'overview.priority.usage', { command: 'skm audit' }));
   if (data.domains.state.candidates) out.push(tr(lang, 'overview.priority.state', { command: 'skm state plan' }));
@@ -281,16 +289,28 @@ function priorityLines(data, lang) {
 
 function summarizeVersionStatus(merged) {
   let checkable = 0;
+  let latest = 0;
+  let outdated = 0;
+  let diverged = 0;
+  let ahead = 0;
+  let failed = 0;
   let unknown = 0;
   let untracked = 0;
   for (const skill of merged) {
-    const upstream = chooseUpstream(skill.entries || [skill]);
+    const entries = skill.entries || [skill];
+    const statuses = entries.map((entry) => entry.upstreamFreshness?.status).filter(Boolean);
+    if (statuses.includes('outdated')) { outdated++; continue; }
+    if (statuses.includes('diverged')) { diverged++; continue; }
+    if (statuses.includes('unknown')) { failed++; continue; }
+    if (statuses.includes('ahead')) { ahead++; continue; }
+    if (statuses.includes('latest')) { latest++; continue; }
+    const upstream = chooseUpstream(entries);
     const hasSource = Boolean(upstream.git?.remote || upstream.source || upstream.repository || upstream.homepage);
     if ((upstream.git?.remote && upstream.git?.head) || hasCheckableSkillMdUrl(upstream)) checkable++;
     else if (hasSource || upstream.version) unknown++;
     else untracked++;
   }
-  return { checkable, unknown, untracked };
+  return { checkable, latest, outdated, diverged, ahead, failed, unknown, untracked };
 }
 
 function countStaleRows(rows) {

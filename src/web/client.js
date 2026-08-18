@@ -17,6 +17,7 @@
     cmdGroup: 'all',
     cmdFavorites: new Set(),
     cmdTerminals: new Map(), // id -> { status, output }
+    governance: { skill: null, sessionId: null, candidates: [], error: '', returnFocus: null },
     graph: {
       enabledTypes: new Set(),
       positions: new Map(),
@@ -125,6 +126,35 @@
     renderAll();
   }
 
+  async function postJson(path, body) {
+    const response = await fetch(apiUrl(path), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.message || result.error || state.labels.cmdError || 'Request failed');
+    return result;
+  }
+
+  async function runVersionCheck(force = false) {
+    const buttons = [$('version-check-btn'), $('version-refresh-btn')].filter(Boolean);
+    buttons.forEach((button) => { button.disabled = true; });
+    $('loader-title').textContent = state.labels.versionChecking;
+    $('loader-text').textContent = state.labels.versionRefreshHint;
+    try {
+      const result = await postJson('/api/versions/check', { refresh: force });
+      state.data = result.dashboard;
+      state.labels = state.data.labels || state.labels;
+      renderAll();
+      const versions = state.data.overview?.domains?.versions || {};
+      const incomplete = versions.unchecked || versions.failed || versions.unknown || versions.untracked;
+      toast(incomplete ? state.labels.versionCheckIncomplete : state.labels.versionCheckDone);
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; });
+    }
+  }
+
   function apiUrl(path, params = {}) {
     const url = new URL(path, window.location.origin);
     url.searchParams.set('lang', state.lang);
@@ -166,6 +196,7 @@
     const data = state.data;
     const health = data.report.health;
     const labels = state.labels;
+    const versions = data.overview?.domains?.versions || {};
     $('overview').innerHTML = [
       metric(labels.healthScore, `${data.overview.score} / 100`, labels.scoreNote, data.overview.score >= 80 ? 'good' : data.overview.score >= 60 ? 'warn' : 'bad'),
       metric(labels.skillMetricTitle || initialLabel('Skill 总量', 'Skills'), data.overview.skills, labels.skillMetric),
@@ -175,6 +206,7 @@
       metric(labels.sessionBytes, bytes(health.sessionBytes), labels.sessionNote),
       metric(labels.reclaimable, bytes(health.reclaimableBytes), labels.reclaimNote),
       metric(labels.security, [data.catalog.security.high, data.catalog.security.medium, data.catalog.security.low].join(' / '), labels.securityNote),
+      metric(labels.versionState, `${versions.outdated || 0} / ${versions.diverged || 0}`, `${labels.versionOutdated} / ${labels.versionDiverged}`),
     ].join('');
   }
 
@@ -217,10 +249,9 @@
       <td>${(skill.tools || []).map((tool) => pill(tool)).join('')}</td>
       <td>${esc(skill.usageCount)}<br><span class="muted">${esc(fmtDate(skill.lastUsed))}</span></td>
       <td>${esc(skill.descTokens)} token</td>
-      <td>${skill.hasSource
-        ? `<button class="source-status" data-source-skill="${esc(skill.name)}">${esc(state.labels.hasSource)}</button>`
-        : `<span class="source-status missing">${esc(state.labels.noSource)}</span>`}</td>
-    </tr>`).join('') || `<tr><td colspan="6">${esc(query ? state.labels.noMatch : state.labels.noSkills)}</td></tr>`;
+      <td><button class="source-status ${skill.sourceStatus === 'missing' ? 'missing' : skill.sourceStatus === 'partial' ? 'partial' : ''}" data-source-skill="${esc(skill.name)}" aria-label="${esc(skill.sourceStatus === 'tracked' ? state.labels.sourceTooltipTitle : state.labels.sourceEdit)}">${esc(sourceStatusLabel(skill.sourceStatus))}</button></td>
+      <td>${versionStatusHtml(skill)}</td>
+    </tr>`).join('') || `<tr><td colspan="7">${esc(query ? state.labels.noMatch : state.labels.noSkills)}</td></tr>`;
     document.querySelectorAll('.skill-page-summary').forEach((element) => {
       element.textContent = `${state.labels.totalPrefix} ${filtered.length} ${state.labels.pageSummary} ${state.skillPage} ${state.labels.pageOf} ${totalPages}${state.labels.pageEnd}`;
     });
@@ -235,15 +266,35 @@
     });
   }
 
+  function sourceStatusLabel(status) {
+    if (status === 'partial') return state.labels.sourcePartial;
+    if (status === 'missing') return state.labels.sourceMissing;
+    return state.labels.sourceTracked;
+  }
+
+  function versionStatusLabel(status) {
+    return state.labels[`version${String(status || '').charAt(0).toUpperCase()}${String(status || '').slice(1)}`] || status || state.labels.versionUnknown;
+  }
+
+  function versionStatusHtml(skill) {
+    const freshness = skill.freshness || { status: 'untracked' };
+    const status = freshness.status || 'unknown';
+    const cls = ['outdated', 'diverged', 'unknown', 'unchecked', 'untracked'].includes(status) ? 'warn' : 'read';
+    const checked = freshness.checkedAt ? `${state.labels.versionChecked} ${fmtDate(freshness.checkedAt)}` : state.labels.versionUnchecked;
+    const previews = (skill.updateTargets || []).map((target) => `<button data-preview-update="${esc(skill.name)}" data-preview-instance="${esc(target.instanceId)}">${esc(state.labels.versionUpdatePreview)} · ${esc(target.tool || '-')}</button>`).join('');
+    return `<div class="version-status">${pill(versionStatusLabel(status), cls)}<span class="version-meta">${esc(checked)}${freshness.cached ? ` · ${esc(state.labels.versionCached)}` : ''}</span>${previews}</div>`;
+  }
+
   function showSourceTooltip(target) {
     window.clearTimeout(state.sourceTooltipTimer);
     const skill = state.data.skills.find((item) => item.name === target.dataset.sourceSkill);
     if (!skill?.sources?.length) return;
     const tooltip = $('source-tooltip');
+    const provenance = (skill.instances || []).flatMap((instance) => instance.sourceDiscovery ? [{ ...instance.sourceDiscovery, tool: instance.tool, scope: instance.scope }] : []);
     tooltip.innerHTML = `<strong>${esc(state.labels.sourceTooltipTitle)}</strong>${skill.sources.map((source) => {
       const safeUrl = /^https?:\/\//i.test(source);
       return safeUrl ? `<a href="${esc(source)}" target="_blank" rel="noreferrer">${esc(source)}</a>` : `<code>${esc(source)}</code>`;
-    }).join('')}`;
+    }).join('')}${provenance.length ? `<div class="source-provenance">${provenance.map((item) => `<span>${esc(state.labels.sourceMethod)}: ${esc(item.method || '-')} · ${esc(item.provider || '')}${item.tool ? ` · ${esc(item.tool)}/${esc(item.scope || '-')}` : ''}</span><span>${esc(state.labels.sourceConfidence)}: ${item.confidence == null ? '-' : `${Math.round(item.confidence * 100)}%`} · ${esc(state.labels.sourceVerifiedAt)}: ${esc(fmtDate(item.verifiedAt))}</span>`).join('')}</div>` : ''}`;
     tooltip.classList.remove('hidden');
     const rect = target.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
@@ -252,6 +303,123 @@
     const top = below + tooltipRect.height <= window.innerHeight - 12 ? below : Math.max(12, rect.top - tooltipRect.height - 8);
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
+  }
+
+  function openGovernanceModal(skillName) {
+    const skill = state.data.skills.find((item) => item.name === skillName);
+    if (!skill) return;
+    state.governance = { skill, sessionId: null, candidates: [], error: '', returnFocus: document.activeElement };
+    renderSourceDialog();
+    const modal = $('governance-modal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    modal.querySelector('.governance-dialog')?.focus();
+  }
+
+  function closeGovernanceModal() {
+    const modal = $('governance-modal');
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    state.governance.returnFocus?.focus?.();
+    state.governance = { skill: null, sessionId: null, candidates: [], error: '', returnFocus: null };
+  }
+
+  function selectedSourceTargets() {
+    return [...document.querySelectorAll('[data-governance-target]:checked')].map((input) => input.value);
+  }
+
+  function targetRows(skill) {
+    return (skill.instances || []).filter((instance) => !instance.hasSource);
+  }
+
+  function renderSourceDialog() {
+    const skill = state.governance.skill;
+    if (!skill) return;
+    const targets = targetRows(skill);
+    $('governance-title').textContent = `${state.labels.sourceDialogTitle}: ${skill.name}`;
+    $('governance-subtitle').textContent = state.labels.sourceDialogText;
+    const candidates = state.governance.candidates;
+    const error = state.governance.error ? `<div class="governance-error" role="alert">${esc(state.governance.error)}</div>` : '';
+    const targetHtml = targets.length ? `<div class="governance-targets">${targets.map((target, index) => `<label class="governance-target"><input type="checkbox" data-governance-target value="${esc(target.instanceId)}" checked><span>${esc(target.tool || '-')} / ${esc(target.scope || '-')} · ${esc(target.currentVersion || '-')} ${index === 0 && targets.length === 1 ? '' : ''}</span></label>`).join('')}</div>` : `<p>${esc(state.labels.sourceTracked)}</p>`;
+    const candidateHtml = candidates.length ? `<div class="governance-section"><h4>${esc(state.labels.sourceCandidatesTitle)}</h4><div class="candidate-list">${candidates.map((candidate) => `<label class="candidate-option"><input type="radio" name="source-candidate" value="${esc(candidate.index)}"><span><strong>${esc(candidate.name || candidate.path || candidate.source)}</strong><small>${esc(candidate.source)}${candidate.version ? ` · ${esc(candidate.version)}` : ''} · ${Math.round((candidate.confidence || 0) * 100)}%</small><small>${esc(candidate.description || '')}</small></span></label>`).join('')}</div><div class="governance-actions"><button class="action-btn primary" data-source-candidate-save>${esc(state.labels.sourceCandidateSave)}</button></div></div>` : '';
+    $('governance-body').innerHTML = `${error}<div class="governance-section"><h4>${esc(state.labels.sourceTargets)}</h4>${targetHtml}</div><div class="governance-section"><h4>${esc(state.labels.sourceManualTitle)}</h4><p>${esc(state.labels.sourceManualHint)}</p><form class="governance-form" id="source-manual-form"><label for="source-url">${esc(state.labels.sourceUrlLabel)}</label><input id="source-url" type="text" inputmode="url" autocomplete="url" placeholder="${esc(state.labels.sourceUrlPlaceholder)}" required><div class="governance-actions"><button class="action-btn primary" type="submit" data-source-manual-save>${esc(state.labels.sourceSave)}</button></div></form></div><div class="governance-section"><h4>${esc(state.labels.sourceSearchTitle)}</h4><p>${esc(state.labels.sourceSearchHint)}</p><div class="governance-actions"><button class="action-btn" data-source-search>${esc(state.labels.sourceAllowSearch)}</button></div></div>${candidateHtml}`;
+  }
+
+  async function saveManualSource() {
+    const skill = state.governance.skill;
+    const targets = selectedSourceTargets();
+    const source = $('source-url')?.value.trim();
+    if (!targets.length) return setGovernanceError(state.labels.sourceTargetRequired);
+    if (!source) return setGovernanceError(state.labels.invalidSource || state.labels.sourceUrlLabel);
+    await withGovernanceBusy(async () => {
+      await postJson('/api/sources/manual', { skill: skill.name, source, instanceIds: targets });
+      closeGovernanceModal();
+      await loadDashboard(false);
+      toast(state.labels.sourceSaved);
+    });
+  }
+
+  async function searchSources() {
+    const skill = state.governance.skill;
+    await withGovernanceBusy(async () => {
+      const result = await postJson('/api/sources/discover', { skill: skill.name, consent: true });
+      state.governance.sessionId = result.sessionId;
+      state.governance.candidates = result.candidates || [];
+      state.governance.error = state.governance.candidates.length ? '' : state.labels.sourceNoCandidates;
+      renderSourceDialog();
+    });
+  }
+
+  async function saveSelectedCandidate() {
+    const skill = state.governance.skill;
+    const targetIds = selectedSourceTargets();
+    const selected = document.querySelector('input[name="source-candidate"]:checked');
+    if (!targetIds.length) return setGovernanceError(state.labels.sourceTargetRequired);
+    if (!selected) return setGovernanceError(state.labels.sourceChooseCandidate);
+    await withGovernanceBusy(async () => {
+      await postJson('/api/sources/confirm', { sessionId: state.governance.sessionId, candidateIndex: Number(selected.value), instanceIds: targetIds });
+      closeGovernanceModal();
+      await loadDashboard(false);
+      toast(state.labels.sourceSaved);
+    });
+  }
+
+  function setGovernanceError(message) {
+    state.governance.error = message;
+    renderSourceDialog();
+  }
+
+  async function withGovernanceBusy(action) {
+    const buttons = document.querySelectorAll('#governance-body button, #governance-body input');
+    buttons.forEach((element) => { element.disabled = true; });
+    try { await action(); } catch (error) { state.governance.error = error.message; renderSourceDialog(); }
+    finally { buttons.forEach((element) => { element.disabled = false; }); }
+  }
+
+  async function previewUpdate(skill, instanceId) {
+    openGlassModal();
+    const modal = $('glass-modal');
+    const titleEl = modal.querySelector('.glass-term-title');
+    const outputEl = modal.querySelector('.glass-term-body pre');
+    const exitEl = modal.querySelector('.glass-term-exit');
+    const durationEl = modal.querySelector('.glass-term-duration');
+    const command = `skm update ${quoteArg(skill)} --instance ${quoteArg(instanceId)} --dry-run`;
+    titleEl.textContent = command;
+    outputEl.textContent = `$ ${command}\n\n`;
+    exitEl.textContent = state.labels.cmdLoading;
+    exitEl.className = 'glass-term-exit';
+    const start = Date.now();
+    try {
+      const result = await postJson('/api/update/preview', { skill, instanceId });
+      outputEl.textContent += `${result.stdout || state.labels.cmdNoOutput}${result.stderr ? `\n\n--- stderr ---\n${result.stderr}` : ''}`;
+      exitEl.textContent = result.exitCode === 0 ? '✓ success' : `✕ exit ${result.exitCode}`;
+      exitEl.classList.add(result.exitCode === 0 ? 'ok' : 'err');
+    } catch (error) {
+      outputEl.textContent += `\n[error] ${error.message}`;
+      exitEl.textContent = '✕ error';
+      exitEl.classList.add('err');
+    }
+    durationEl.textContent = `${((Date.now() - start) / 1000).toFixed(2)}s`;
   }
 
   function showSkillTooltip(target) {
@@ -1131,11 +1299,14 @@
   document.addEventListener('click', (event) => {
     const glassClose = event.target.closest('[data-glass-close]');
     if (glassClose) closeGlassModal();
+    const governanceClose = event.target.closest('[data-governance-close]');
+    if (governanceClose) closeGovernanceModal();
     const termDotClose = event.target.closest('.glass-term-dots span:nth-child(1)');
     if (termDotClose) closeGlassModal();
     const sourceButton = event.target.closest('[data-source-skill]');
     const skillButton = event.target.closest('[data-skill-name]');
-    if (sourceButton) showSourceTooltip(sourceButton);
+    if (sourceButton && ['missing', 'partial'].some((name) => sourceButton.classList.contains(name))) openGovernanceModal(sourceButton.dataset.sourceSkill);
+    else if (sourceButton) showSourceTooltip(sourceButton);
     else if (skillButton) showSkillTooltip(skillButton);
     else if (!event.target.closest('#source-tooltip')) $('source-tooltip').classList.add('hidden');
     const theme = event.target.closest('[data-theme-target]');
@@ -1225,6 +1396,20 @@
       renderSkills();
       $('skills').scrollIntoView({ block: 'start' });
     }
+    const preview = event.target.closest('[data-preview-update]');
+    if (preview) previewUpdate(preview.dataset.previewUpdate, preview.dataset.previewInstance).catch((error) => toast(error.message));
+    const manualSave = event.target.closest('[data-source-manual-save]');
+    if (manualSave && manualSave.type !== 'submit') saveManualSource();
+    const search = event.target.closest('[data-source-search]');
+    if (search) searchSources();
+    const candidateSave = event.target.closest('[data-source-candidate-save]');
+    if (candidateSave) saveSelectedCandidate();
+  });
+
+  document.addEventListener('submit', (event) => {
+    if (event.target.id !== 'source-manual-form') return;
+    event.preventDefault();
+    saveManualSource();
   });
 
   document.addEventListener('pointerover', (event) => {
@@ -1272,6 +1457,8 @@
   });
 
   $('refresh-btn').addEventListener('click', () => loadDashboard(true).catch((error) => toast(error.message)));
+  $('version-check-btn').addEventListener('click', () => runVersionCheck(false).catch((error) => toast(error.message)));
+  $('version-refresh-btn').addEventListener('click', () => runVersionCheck(true).catch((error) => toast(error.message)));
   $('skill-filter').addEventListener('input', (event) => { state.skillFilter = event.target.value; state.skillPage = 1; renderSkills(); });
   $('skill-usage-filter').addEventListener('change', (event) => { state.skillUsageFilter = event.target.value; state.skillPage = 1; renderSkills(); });
   $('graph-search').addEventListener('input', (event) => { state.graph.query = event.target.value; scheduleGraph(); });
@@ -1281,6 +1468,19 @@
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !$('glass-modal').classList.contains('hidden')) {
       closeGlassModal();
+    }
+    const governance = $('governance-modal');
+    if (event.key === 'Escape' && governance && !governance.classList.contains('hidden')) {
+      closeGovernanceModal();
+      return;
+    }
+    if (event.key === 'Tab' && governance && !governance.classList.contains('hidden')) {
+      const focusable = [...governance.querySelectorAll('button:not(:disabled), input:not(:disabled), [href], select, textarea')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
   });
   const cmdSearch = $('cmd-search');

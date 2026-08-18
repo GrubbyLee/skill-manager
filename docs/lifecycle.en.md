@@ -58,7 +58,7 @@ After a successful install, `skm` records usable source metadata in version-2 `~
 
 - Remote URL install: records the URL and, when available, repository ref/subdir, resolved commit, and package hash.
 - Local directory install: reads `source` / `repository` / `homepage` / `version` from `SKILL.md` frontmatter.
-- Local directory without a source: install still succeeds, but skm prints a `skm sources add <skill> --source <url>` hint.
+- Local directory without a source: install still succeeds, but skm suggests either `skm sources add <skill> --source <url>` or an explicitly authorized `skm sources discover <skill>` search.
 - Invalid source fields: skm prints which field was ignored, so users do not assume an upgrade source was recorded.
 
 This lets `skm update <skill>` find the upgrade source later without manual catalog edits. After a successful install, skm refreshes the local catalog automatically, so users can usually run `skm update <skill> --dry-run` immediately to verify the loop.
@@ -69,7 +69,12 @@ This lets `skm update <skill>` find the upgrade source later without manual cata
 
 ```bash
 skm sources add my-skill --source https://github.com/org/repo/tree/main/skills/my-skill
+skm sources discover my-skill
 ```
+
+`sources discover` uses the official GitHub API, sends only the skill name, and reads public candidate `SKILL.md` files for verification. It never auto-binds a result; source metadata is written only after user selection, together with provider, query, confidence, verification time, and confirmation state. In non-interactive mode, use `--yes --json` to inspect and `--yes --select <number>` to save. Set `GITHUB_TOKEN` when GitHub requires code-search authentication.
+
+After source registration, plain `skm scan` only uses valid 24-hour cache entries. `skm scan --online` explicitly refreshes freshness and prints instance-specific dry-run update commands for outdated or diverged skills.
 
 Same-name skills can exist in different tools, scopes, or directories. Ambiguous writes are rejected until an instance is selected:
 

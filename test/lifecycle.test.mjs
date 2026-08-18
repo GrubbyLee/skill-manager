@@ -23,6 +23,7 @@ test('生命周期：本地目录安装会记录来源，并支持更新、回�
     fs.writeFileSync(path.join(target, 'assets', 'keep.txt'), 'keep me');
     const sources = JSON.parse(fs.readFileSync(path.join(home, '.skill-manager', 'sources.json'), 'utf8'));
     assert.equal(sources.sources.alpha.source, server.url);
+    assert.equal(sources.sources.alpha.discovery.method, 'frontmatter');
 
     remoteText = skillMd('alpha', 'v2 description', '2.0.0');
     const dryUpdate = await runAsync(['update', 'alpha', '--tool', 'claude', '--dry-run', '--lang', 'en'], home);

@@ -106,10 +106,10 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm doctor` | 环境诊断 | `--json` |
 | `skm risks` | 风险报告 | `--json` |
 | `skm report` | 一页式总览报告 | `--format html`、`--output`、`--anonymize`、`--json` |
-| `skm web` | 本地只读 Web 工作台 | `--port` |
-| `skm scan` | 扫描 skill / MCP 并展示治理总览 | `--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
+| `skm web` | 本地 Web 治理工作台（来源、版本检查需要显式确认） | `--port` |
+| `skm scan` | 扫描 skill / MCP 并展示治理总览；默认只读版本缓存 | `--online`、`--refresh`、`--verbose`、`--json`、`--export json`、`--output`、`--anonymize` |
 | `skm outdated` | 检查 skill 上游新旧 | `--online`、`--refresh`、`--json` |
-| `skm sources` | 管理名称级或实例级上游地址 | `missing`、`add`、`list`、`remove`、`check`、`wizard`、`--instance`、`--all` |
+| `skm sources` | 管理名称级或实例级上游地址 | `missing`、`add`、`discover`、`list`、`remove`、`check`、`wizard`、`--instance`、`--all` |
 | `skm state` | skill 状态治理计划与 Claude 原生状态写入 | `plan`、`list`、`set`、`--mode`、`--scope`、`--dry-run`、`--yes` |
 | `skm install` | 安装完整目录/仓库包或直链 `SKILL.md` | `<源>`、`--tool`、`--dry-run`、`--yes`、`--allow-risk` |
 | `skm update` | 按实例从已登记来源事务式更新 | `<skill>`、`--tool`、`--scope`、`--instance`、`--all`、`--allow-risk`、`--dry-run`、`--yes` |
@@ -208,7 +208,7 @@ skm web
 skm web --port 17362
 ```
 
-`web` 会启动 `127.0.0.1` 本地只读工作台，页面包含总览、支持使用次数/上下文排序与上下双端分页的 skill 清单、可行动的 3D 知识图谱、推荐入口和命令中心。图谱会汇总前缀套件、功能重叠、可串联流程和 MCP 依赖，可按具体套件、平台或分类聚焦；选中节点后可聚焦一跳关系、查看带置信度的关系证据、复制建议命令，并定位回 Skill 清单。Skill 清单里的名称支持悬浮查看描述，来源地址也支持悬浮查看。只读命令可在卡片终端中直接运行，写操作仍只提供可复制的 dry-run 建议。它使用 Node.js 内置 `http` 与原生 HTML/CSS/JS，不引入第三方依赖；页面支持赛博朋克、宇宙星系、蓝天白云三种主题和 3D 立体加载动画。工作台在缺少事实或手动刷新时，可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，不会执行 skill/MCP，也不会读取 MCP `env` 值。
+`web` 会启动 `127.0.0.1` 本地 Web 治理工作台，页面包含总览、支持使用次数/上下文排序与上下双端分页的 skill 清单、来源溯源、版本新鲜度、可行动的 3D 知识图谱、推荐入口和命令中心。来源列区分已记录、部分记录和缺失；缺失/部分记录可显式选择实例后手填 URL，或授权 GitHub 搜索并在候选验证后确认保存。版本列显示最新、过期、分叉、领先、待检查等状态；过期/分叉项可请求实例级 `update --dry-run` 预览。右上角提供本地清单刷新、读取 24 小时缓存的版本检查和忽略缓存的强制检查。图谱会汇总前缀套件、功能重叠、可串联流程和 MCP 依赖，可按具体套件、平台或分类聚焦；选中节点后可聚焦一跳关系、查看带置信度的关系证据、复制建议命令，并定位回 Skill 清单。Skill 清单里的名称支持悬浮查看描述，来源地址和记录方式也支持悬浮查看。只读命令可在卡片终端中直接运行；来源写入、网络搜索、版本检查和升级预览都通过本机同源专用 API，并要求显式用户操作，真实安装/更新/回滚/禁用/恢复不会由 Web 自动执行。它使用 Node.js 内置 `http` 与原生 HTML/CSS/JS，不引入第三方依赖；页面支持赛博朋克、宇宙星系、蓝天白云三种主题和 3D 立体加载动画。工作台可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，也不会读取 MCP `env` 值。
 
 ## outdated
 
@@ -228,6 +228,9 @@ skm outdated --json
 ```bash
 skm sources missing
 skm sources wizard
+skm sources discover baoyu-image-gen
+skm sources discover baoyu-image-gen --yes --json
+skm sources discover baoyu-image-gen --yes --select 1
 skm sources add baoyu-image-gen --source https://github.com/org/repo/tree/main/baoyu-image-gen
 skm sources add baoyu-image-gen --source <url> --instance <安装实例ID>
 skm sources check baoyu-image-gen --tool codex --scope user
@@ -238,7 +241,9 @@ skm sources remove baoyu-image-gen
 
 `sources` 用于补充没有声明 `source` / `repository` 的已安装 skill。v2 文件同时保存兼容的名称级记录与安装实例记录；同名多实例需用 `--tool`、`--scope`、`--instance` 精确选择，或用 `--all` 明确处理全部。实例来源优先，且不会套用到未匹配的同名实例。它不会修改已安装文件。
 
-最便捷的方式是 `sources wizard`：它会逐个展示无法判断版本的 skill，输入上游 skill 目录或 `SKILL.md` URL 后立即保存；回车或 `s` 跳过，`q` 退出。需要脚本化处理时，可用 `sources missing --json` 导出待补充清单。
+`sources wizard` 会逐个提供两个选项：直接输入上游 URL，或输入 `2` 请求 GitHub 搜索。搜索前会说明隐私边界并要求确认；只发送 skill 名称，不上传本地路径或正文。候选必须能读取并解析 `SKILL.md`，且只有用户选择后才保存。非交互模式需显式 `--yes`；`--json` 只输出候选，保存还必须加 `--select <编号>`。GitHub Code Search 要求鉴权或遇到限流时可设置 `GITHUB_TOKEN`。
+
+普通 `skm scan` 不联网，只消费 24 小时内的版本检查缓存。`skm scan --online` 才刷新已登记来源，并把 `latest`、`outdated`、`ahead`、`diverged` 或检查失败状态写入 catalog；发现过期或分叉时会给出实例级 `skm update <skill> --instance <ID> --dry-run`。只要仍有检查失败或未记录来源的实例，就会明确显示“版本检查不完整”，不会误报全部最新。
 
 ## lifecycle：install / update / rollback / lock / policy / profile / eval / history
 

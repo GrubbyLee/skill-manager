@@ -83,7 +83,7 @@ SKM_LANG=zh-CN skm doctor
 | 太多 skill 显示无法判断版本？ | `skm sources wizard` | 把缺失的上游地址补到 skm 本地来源表 |
 | 能否形成安装、更新、回滚闭环？ | `skm lock` / `skm lock verify` / `skm policy check` | 生成本机 skill 锁定文件，对比当前环境是否漂移，并按策略检查治理基线 |
 | 某个 skill 质量如何？ | `skm eval <skill>` | 从描述、来源、重复、使用、安全信号给出评分 |
-| 命令太多，想直接可视化查看？ | `skm web` | 本地只读 Web 工作台，集中查看总览、清单、图谱、推荐和命令中心 |
+| 命令太多，想直接可视化查看？ | `skm web` | 本地 Web 治理工作台，集中查看总览、来源、版本、清单、图谱、推荐和命令中心 |
 | skill 之间有什么关系？ | `skm graph --format html` | 可筛选、可拖动、单文件知识图谱 |
 | 当前有没有用户风险？ | `skm risks` | 分级风险清单和保守处理建议 |
 | 能否导出一页总览？ | `skm report --format html` | 健康、风险、使用、会话、图谱摘要汇总 |
@@ -99,7 +99,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm doctor` | 只读环境诊断 |
 | `skm risks` | 风险报告，不修改 AIDE 数据 |
 | `skm report` | 一页式总览报告 |
-| `skm web` | 启动本地只读 Web 工作台，支持赛博朋克 / 宇宙星系 / 蓝天白云三主题 |
+| `skm web` | 启动本地 Web 治理工作台，支持赛博朋克 / 宇宙星系 / 蓝天白云三主题 |
 | `skm scan` | 扫描 skill / MCP，重建目录，然后展示同一份治理总览 |
 | `skm outdated` | 检查上游版本线索；`--online` 比对 GitHub/Gitee 或 git remote |
 | `skm sources` | 管理缺少来源 metadata 的 skill 上游地址 |
@@ -204,7 +204,7 @@ skm web
 skm web --port 17362
 ```
 
-`skm web` 会在 `127.0.0.1` 启动本地只读工作台，把总览、skill 清单、知识图谱、推荐入口和命令中心放到一个现代科技感页面里。页面右上角支持中英文切换，默认跟随 CLI 启动语言，并把用户选择保存在浏览器本地；同时保留赛博朋克、宇宙星系、蓝天白云三种主题切换。Skill 清单默认按使用次数降序，支持按使用次数或上下文开销切换排序、上下双端分页，并可在悬浮时查看已记录的上游地址；技能名称悬浮还会显示描述。3D 图谱不再只做展示：它会汇总前缀套件、功能重叠、可串联流程和 MCP 依赖，可按具体套件、平台或分类聚焦，并支持一跳关系、置信度证据、建议命令及清单定位。只读命令可在网页内运行并在卡片终端返回结果；安装、更新、回滚、禁用、恢复等写操作仍只提供可复制的 dry-run 建议。页面内置真实 3D 立体加载动画。工作台在缺少事实或手动刷新时，可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，不会执行 skill/MCP，也不会读取 MCP `env` 值。
+`skm web` 会在 `127.0.0.1` 启动本地 Web 治理工作台，把总览、skill 清单、来源溯源、上游版本新鲜度、知识图谱、推荐入口和命令中心放到一个现代科技感页面里。页面右上角支持中英文切换、本地清单刷新、使用缓存的版本检查和忽略缓存的强制版本检查，并保留赛博朋克、宇宙星系、蓝天白云三种主题。Skill 清单默认按使用次数降序，支持按使用次数或上下文开销切换排序、上下双端分页；来源列会区分已记录、部分记录和缺失，缺失/部分记录可进入显式确认流程，手填 URL 或授权 GitHub 搜索来源。搜索结果会验证公开 `SKILL.md`，用户选择前不会保存。版本列会显示最新、过期、分叉、领先、待检查等状态，过期/分叉项可直接预览实例级 `update --dry-run`。3D 图谱会汇总前缀套件、功能重叠、可串联流程和 MCP 依赖，可按具体套件、平台或分类聚焦，并支持一跳关系、置信度证据、建议命令及清单定位。只读命令可在网页内运行并在卡片终端返回结果；来源写入、联网搜索、版本检查和升级预览均通过本机同源专用 API，并要求用户显式操作，绝不会自动执行真实更新、skill 或 MCP。页面内置真实 3D 立体加载动画。工作台可能读取 AIDE 的 skill/MCP 元数据，并刷新 skm 自身的 `~/.skill-manager/catalog.json` 或缓存文件；但不会修改 AIDE 数据，也不会读取 MCP `env` 值。
 
 ![skm Web 工作台真机截图](docs/web-dashboard.zh-CN.png)
 
@@ -230,6 +230,7 @@ skm outdated
 skm outdated --online
 skm sources missing
 skm sources wizard
+skm sources discover <skill>
 skm lock
 skm lock verify
 skm policy check
@@ -244,7 +245,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-排查时先用 `skm scan` 刷新事实；扫描结束后会直接显示治理总览。之后单独运行 `skm` 不会强制重扫，而是基于已有 catalog、使用统计和会话索引，按基础子命令分域提示问题在哪里、下一步该运行什么。`skm state plan` 适合在发现 skill 太多时先做降载方案，而不是直接删除。`skm outdated` 默认离线，只看本地 metadata；`skm outdated --online` 才访问上游且不会自动更新 skill。如果大量 skill 因缺少 source/repository 而无法判断，可用 `skm sources missing` 或 `skm sources wizard` 把上游地址补到 `~/.skill-manager/sources.json`。需要建立生命周期基线时，用 `skm lock` 固化当前清单，用 `skm lock diff` 查看后续漂移，用 `skm lock verify` 在脚本或 CI 中校验是否偏离基线，用 `skm policy check` 检查是否超过治理阈值，用 `skm eval --all` 找出最需要整理的 skill。需要发到社区或 Issue 时用匿名导出；运行写操作前先 dry-run；只想浏览事实时停在 `skm sessions` 即可。
+排查时先用 `skm scan` 刷新事实；普通扫描不联网，只复用 24 小时内的版本检查缓存。显式运行 `skm scan --online` 才刷新已记录来源，并对过期/分叉 skill 给出实例级 `skm update ... --dry-run` 提示。如果 skill 缺少来源，可以手动运行 `skm sources add <skill> --source <URL>`，也可以运行 `skm sources discover <skill>`，在明确授权后通过 GitHub 官方 API 搜索并验证候选。搜索只发送 skill 名称，不上传本地路径或正文，且选择候选前不会保存。其余治理可继续用 `skm lock diff`、`skm lock verify`、`skm policy check` 和 `skm eval --all` 建立与检查生命周期基线；分享数据时使用匿名导出，写操作前先 dry-run。
 
 ### skill 全生命周期治理
 

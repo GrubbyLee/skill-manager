@@ -58,7 +58,7 @@ skm install https://github.com/org/repo/tree/main/skills/my-skill --tool claude 
 
 - 远程 URL 安装：记录安装 URL、仓库 ref/subdir、解析到的 commit 和整包 hash（可用时）。
 - 本地目录安装：读取 `SKILL.md` frontmatter 中的 `source` / `repository` / `homepage` / `version`。
-- 本地目录没有来源：安装仍会完成，但会提示运行 `skm sources add <skill> --source <url>`。
+- 本地目录没有来源：安装仍会完成，但会提示手动运行 `skm sources add <skill> --source <url>`，或在授权后运行 `skm sources discover <skill>` 搜索公开来源。
 - 来源字段格式不合法：会明确提示被忽略的字段，避免误以为已经建立升级源。
 
 这样后续 `skm update <skill>` 可以直接找到升级源，不需要手工修改 catalog。安装成功后会自动刷新本机 catalog，所以通常可以安装后直接运行 `skm update <skill> --dry-run` 验证闭环。
@@ -69,7 +69,12 @@ skm install https://github.com/org/repo/tree/main/skills/my-skill --tool claude 
 
 ```bash
 skm sources add my-skill --source https://github.com/org/repo/tree/main/skills/my-skill
+skm sources discover my-skill
 ```
+
+`sources discover` 通过 GitHub 官方 API 搜索名称，只发送 skill 名称并读取公开候选的 `SKILL.md` 做验证。候选不会自动绑定；用户选择后才写入来源表，并记录搜索 provider、query、置信度、验证时间和确认状态。非交互模式使用 `--yes --json` 查看候选，使用 `--yes --select <编号>` 保存。GitHub 要求代码搜索鉴权时可设置 `GITHUB_TOKEN`。
+
+来源登记后，普通 `skm scan` 仅使用 24 小时内的本地检查缓存；`skm scan --online` 才联网刷新版本状态，并在过期或分叉时给出实例级 dry-run 更新命令。
 
 同名 skill 可能同时存在于不同工具、scope 或目录中。模糊写操作会拒绝执行，必须明确选择：
 

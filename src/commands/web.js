@@ -1,4 +1,5 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
@@ -7,10 +8,13 @@ import { buildOverview } from '../overview.js';
 import { buildSessionIndex } from '../sessionsIndex.js';
 import { buildUsageLookup, scanUsage } from '../usage.js';
 import { paint } from '../utils.js';
-import { runScan, ensureCatalog } from './scan.js';
+import { runScan, runScanLocal, ensureCatalog } from './scan.js';
 import { buildKnowledgeGraph, edgeReason } from './graph.js';
 import { buildReportData } from './report.js';
 import { rankRecommendations } from './recommend.js';
+import { discoverSkillSources } from '../sourceDiscovery.js';
+import { applySourcesToSkills, isValidSourceUrl, upsertSource } from '../sources.js';
+import { installationId } from '../skillPackage.js';
 
 const DEFAULT_PORT = 17361;
 const HOST = '127.0.0.1';
@@ -28,7 +32,7 @@ export function runWeb(ctx) {
   server.listen(port, HOST, () => {
     const url = `http://${HOST}:${port}`;
     console.log(paint.green(zh(lang, `skm Web 工作台已启动：${url}`, `skm Web dashboard is running: ${url}`)));
-    console.log(zh(lang, '第一阶段为本地只读工作台；关闭终端进程即可停止服务。', 'Phase 1 is a local read-only dashboard; stop the terminal process to shut it down.'));
+    console.log(zh(lang, '本地治理工作台已启动；来源写入和联网检查都需要页面内显式确认，关闭终端进程即可停止服务。', 'Local governance dashboard is ready; source writes and network checks require explicit in-page confirmation. Stop the terminal process to shut it down.'));
   });
   server.on('error', (e) => {
     console.error(zh(lang, `Web 服务启动失败：${e.message}`, `Failed to start the web server: ${e.message}`));
@@ -36,25 +40,219 @@ export function runWeb(ctx) {
   });
 }
 
-export function createWebServer({ cwd, lang = 'zh-CN', port = DEFAULT_PORT }) {
+export function createWebServer({ cwd, lang = 'zh-CN', port = DEFAULT_PORT, services = null }) {
+  const webServices = services || createWebServices({ cwd });
+  const discoverySessions = new Map();
   return http.createServer(async (req, res) => {
     try {
       if (!isAllowedHost(req.headers.host, port)) return sendJson(res, 403, { error: 'forbidden_host' });
       const url = new URL(req.url || '/', `http://${HOST}`);
       const requestLang = resolveWebLang(url.searchParams.get('lang'), lang);
-      if (req.method !== 'GET') return sendJson(res, 405, { error: 'method_not_allowed' });
       if (url.pathname.startsWith('/api/') && !isAllowedApiRequest(req, port)) return sendJson(res, 403, { error: 'forbidden_origin' });
-      if (url.pathname === '/') return sendHtml(res, renderWebHtml(requestLang));
-      if (url.pathname === '/app.js') return sendJavaScript(res, loadWebClient());
-      if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') return sendFavicon(res);
-      if (url.pathname === '/api/dashboard') return sendJson(res, 200, collectDashboard({ cwd, lang: requestLang, refresh: url.searchParams.get('refresh') === '1' }));
-      if (url.pathname === '/api/recommend') return sendJson(res, 200, collectRecommendation({ cwd, lang: requestLang, query: url.searchParams.get('q') || '', top: url.searchParams.get('top') || '5' }));
-      if (url.pathname === '/api/run') return runReadonlyCommand({ cwd, lang: requestLang, cmd: url.searchParams.get('cmd') || '', args: url.searchParams.get('args') || '' }, res);
+      if (req.method === 'GET') {
+        if (url.pathname === '/') return sendHtml(res, renderWebHtml(requestLang));
+        if (url.pathname === '/app.js') return sendJavaScript(res, loadWebClient());
+        if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') return sendFavicon(res);
+        if (url.pathname === '/api/dashboard') return sendJson(res, 200, collectDashboard({ cwd, lang: requestLang, refresh: url.searchParams.get('refresh') === '1' }));
+        if (url.pathname === '/api/recommend') return sendJson(res, 200, collectRecommendation({ cwd, lang: requestLang, query: url.searchParams.get('q') || '', top: url.searchParams.get('top') || '5' }));
+        if (url.pathname === '/api/run') return runReadonlyCommand({ cwd, lang: requestLang, cmd: url.searchParams.get('cmd') || '', args: url.searchParams.get('args') || '' }, res);
+      }
+      if (req.method === 'POST') {
+        const body = await readJsonBody(req);
+        if (url.pathname === '/api/versions/check') {
+          await webServices.checkVersions({ lang: requestLang, refresh: body.refresh === true });
+          return sendJson(res, 200, { ok: true, dashboard: collectDashboard({ cwd, lang: requestLang }) });
+        }
+        if (url.pathname === '/api/sources/manual') {
+          const skill = validSkillName(body.skill);
+          const source = validSourceAddress(body.source);
+          const instanceIds = validInstanceIds(body.instanceIds);
+          const result = await webServices.saveSource({ skill, instanceIds, input: manualSourceInput(source) });
+          return sendJson(res, 200, { ok: true, ...result, dashboard: collectDashboard({ cwd, lang: requestLang }) });
+        }
+        if (url.pathname === '/api/sources/discover') {
+          if (body.consent !== true) throw new WebRequestError('search_consent_required');
+          const skill = validSkillName(body.skill);
+          let result;
+          try {
+            result = await webServices.discoverSource({ skill });
+          } catch (error) {
+            throw new WebRequestError(`source_search_failed: ${error.message || error}`, 502);
+          }
+          pruneDiscoverySessions(discoverySessions);
+          const sessionId = crypto.randomUUID();
+          discoverySessions.set(sessionId, { skill, result, createdAt: Date.now() });
+          return sendJson(res, 200, { sessionId, provider: result.provider, searchedAt: result.searchedAt, candidates: publicDiscoveryCandidates(result.candidates) });
+        }
+        if (url.pathname === '/api/sources/confirm') {
+          const sessionId = String(body.sessionId || '');
+          const session = discoverySessions.get(sessionId);
+          if (!session || Date.now() - session.createdAt > 10 * 60 * 1000) throw new WebRequestError('discovery_session_expired');
+          const candidateIndex = Number(body.candidateIndex);
+          if (!Number.isInteger(candidateIndex) || !session.result.candidates[candidateIndex]) throw new WebRequestError('invalid_candidate');
+          const instanceIds = validInstanceIds(body.instanceIds);
+          const input = discoveredSourceInput(session.result.candidates[candidateIndex], session.result);
+          const result = await webServices.saveSource({ skill: session.skill, instanceIds, input });
+          discoverySessions.delete(sessionId);
+          return sendJson(res, 200, { ok: true, ...result, dashboard: collectDashboard({ cwd, lang: requestLang }) });
+        }
+        if (url.pathname === '/api/update/preview') {
+          const skill = validSkillName(body.skill);
+          const instanceId = validInstanceIds([body.instanceId])[0];
+          return sendJson(res, 200, await webServices.previewUpdate({ skill, instanceId, lang: requestLang }));
+        }
+      }
+      if (!['GET', 'POST'].includes(req.method || '')) return sendJson(res, 405, { error: 'method_not_allowed' });
       return sendJson(res, 404, { error: 'not_found' });
     } catch (e) {
-      sendJson(res, 500, { error: 'internal_error', message: e.message || String(e) });
+      const status = e instanceof WebRequestError ? e.statusCode : 500;
+      sendJson(res, status, { error: e instanceof WebRequestError ? e.code : 'internal_error', message: e.message || String(e) });
     }
   });
+}
+
+export function createWebServices({ cwd }) {
+  return {
+    async checkVersions({ lang, refresh }) {
+      await runScan({ cwd, quiet: true, online: true, refresh, lang });
+    },
+    async discoverSource({ skill }) {
+      return discoverSkillSources(skill, { provider: 'github' });
+    },
+    async saveSource({ skill, instanceIds, input }) {
+      return saveWebSource({ cwd, skill, instanceIds, input });
+    },
+    async previewUpdate({ skill, instanceId, lang }) {
+      return previewWebUpdate({ cwd, skill, instanceId, lang });
+    },
+  };
+}
+
+function saveWebSource({ cwd, skill, instanceIds, input }) {
+  const catalog = ensureCatalog(cwd);
+  const matches = applySourcesToSkills(catalog.skills || []).filter((entry) => entry.dirName === skill || entry.name === skill);
+  if (!matches.length) throw new WebRequestError('skill_not_found');
+  const byId = new Map(matches.map((entry) => [entry.id || installationId(entry), entry]));
+  const selected = instanceIds.map((id) => byId.get(id));
+  if (selected.some((entry) => !entry)) throw new WebRequestError('invalid_instance');
+  if (selected.some((entry) => entry.upstream && (entry.upstream.source || entry.upstream.repository || entry.upstream.homepage || entry.upstream.git?.remote))) {
+    throw new WebRequestError('source_already_tracked');
+  }
+  for (const entry of selected) upsertSource(skill, input, { instanceId: entry.id || installationId(entry) });
+  if (matches.length === 1) upsertSource(skill, input);
+  runScanLocal({ cwd, silent: true, quiet: true });
+  return { skill, saved: selected.length };
+}
+
+function previewWebUpdate({ cwd, skill, instanceId, lang }) {
+  const catalog = ensureCatalog(cwd, lang);
+  const matches = applySourcesToSkills(catalog.skills || []).filter((entry) => entry.dirName === skill || entry.name === skill);
+  const target = matches.find((entry) => (entry.id || installationId(entry)) === instanceId);
+  if (!target) throw new WebRequestError('invalid_instance');
+  const argv = ['update', skill, '--instance', instanceId, '--dry-run'];
+  const proc = spawnSync(process.execPath, [CLI_ENTRY, ...argv], {
+    cwd, encoding: 'utf8', timeout: 60000,
+    env: { ...process.env, SKM_LANG: lang },
+  });
+  return {
+    command: `skm ${argv.join(' ')}`,
+    exitCode: proc.status,
+    stdout: proc.stdout || '',
+    stderr: proc.stderr || '',
+  };
+}
+
+function manualSourceInput(source) {
+  return {
+    source,
+    note: 'manual',
+    discovery: { method: 'manual', confirmedByUser: true },
+  };
+}
+
+function discoveredSourceInput(candidate, result) {
+  return {
+    source: candidate.source,
+    repository: candidate.repositoryUrl,
+    version: candidate.version,
+    ref: candidate.ref,
+    subdir: candidate.subdir,
+    note: 'discovered',
+    discovery: {
+      method: 'search',
+      provider: result.provider,
+      query: result.query,
+      confidence: candidate.confidence,
+      verifiedAt: result.searchedAt,
+      confirmedByUser: true,
+      candidatePath: candidate.path,
+    },
+  };
+}
+
+function publicDiscoveryCandidates(candidates = []) {
+  return candidates.map((candidate, index) => ({
+    index,
+    name: candidate.name,
+    description: candidate.description,
+    source: candidate.source,
+    repository: candidate.repository,
+    repositoryUrl: candidate.repositoryUrl,
+    path: candidate.path,
+    version: candidate.version,
+    confidence: candidate.confidence,
+    verified: candidate.verified === true,
+  }));
+}
+
+function pruneDiscoverySessions(sessions) {
+  const cutoff = Date.now() - 10 * 60 * 1000;
+  for (const [id, session] of sessions) if (session.createdAt < cutoff) sessions.delete(id);
+}
+
+function validSkillName(value) {
+  const skill = String(value || '').trim();
+  if (!skill || skill.length > 200 || /[\u0000-\u001f]/.test(skill)) throw new WebRequestError('invalid_skill');
+  return skill;
+}
+
+function validSourceAddress(value) {
+  const source = String(value || '').trim();
+  if (!source || source.length > 4096 || !isValidSourceUrl(source)) throw new WebRequestError('invalid_source');
+  return source;
+}
+
+function validInstanceIds(value) {
+  if (!Array.isArray(value) || !value.length || value.length > 50) throw new WebRequestError('instances_required');
+  const ids = [...new Set(value.map((item) => String(item || '').trim()))];
+  if (ids.some((id) => !id || id.length > 500 || /[\u0000-\u001f]/.test(id))) throw new WebRequestError('invalid_instance');
+  return ids;
+}
+
+async function readJsonBody(req) {
+  const contentType = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  if (contentType !== 'application/json') throw new WebRequestError('json_required', 415);
+  let body = '';
+  for await (const chunk of req) {
+    body += chunk;
+    if (Buffer.byteLength(body) > 32 * 1024) throw new WebRequestError('request_too_large', 413);
+  }
+  try {
+    const parsed = JSON.parse(body || '{}');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('invalid');
+    return parsed;
+  } catch {
+    throw new WebRequestError('invalid_json');
+  }
+}
+
+class WebRequestError extends Error {
+  constructor(code, statusCode = 400) {
+    super(code);
+    this.name = 'WebRequestError';
+    this.code = code;
+    this.statusCode = statusCode;
+  }
 }
 
 export function isAllowedHost(host, port = DEFAULT_PORT) {
@@ -104,7 +302,7 @@ function normalizeWebLang(value) {
 }
 
 export function collectDashboard({ cwd, lang = 'zh-CN', refresh = false }) {
-  if (refresh) runScan({ cwd, silent: true, quiet: true, lang });
+  if (refresh) runScanLocal({ cwd, silent: true, quiet: true, lang });
   const catalog = ensureCatalog(cwd, lang);
   const merged = mergeByDirName(catalog.skills || []);
   const usage = scanUsage({ log: () => {}, lang });
@@ -132,6 +330,10 @@ export function collectDashboard({ cwd, lang = 'zh-CN', refresh = false }) {
       .map((skill) => {
         const u = usageOf(skill);
         const sources = skillSourceUrls(skill);
+        const instances = webSkillInstances(skill);
+        const sourceCount = instances.filter((instance) => instance.hasSource).length;
+        const sourceStatus = sourceCount === instances.length ? 'tracked' : sourceCount ? 'partial' : 'missing';
+        const freshness = aggregateFreshness(instances);
         return {
           name: skill.dirName,
           title: skill.name || skill.dirName,
@@ -142,8 +344,20 @@ export function collectDashboard({ cwd, lang = 'zh-CN', refresh = false }) {
           descTokens: skill.descTokens || 0,
           usageCount: u.count,
           lastUsed: u.lastUsed || null,
-          hasSource: sources.length > 0,
+          hasSource: sourceStatus === 'tracked',
+          hasAnySource: sourceCount > 0,
+          sourceStatus,
           sources,
+          instances,
+          freshness,
+          updateTargets: instances.filter((instance) => ['outdated', 'diverged'].includes(instance.freshness.status)).map((instance) => ({
+            instanceId: instance.instanceId,
+            tool: instance.tool,
+            scope: instance.scope,
+            status: instance.freshness.status,
+            currentVersion: instance.currentVersion,
+            remoteVersion: instance.freshness.remoteVersion,
+          })),
         };
       })
       .sort((a, b) => b.usageCount - a.usageCount || b.descTokens - a.descTokens || a.name.localeCompare(b.name)),
@@ -164,21 +378,81 @@ export function collectDashboard({ cwd, lang = 'zh-CN', refresh = false }) {
   };
 }
 
-export function skillSourceUrls(skill) {
-  const urls = [];
-  for (const entry of skill.entries || [skill]) {
+function webSkillInstances(skill) {
+  return (skill.entries || [skill]).map((entry) => {
+    const sources = entrySourceUrls(entry);
     const upstream = entry.upstream || {};
-    urls.push(
-      upstream.source,
-      upstream.repository,
-      upstream.homepage,
-      upstream.git?.remote,
-      ...(Array.isArray(upstream.urls) ? upstream.urls : []),
-    );
-  }
-  return [...new Set(urls
+    const sourceDiscovery = publicSourceDiscovery(upstream.sourceDiscovery);
+    return {
+      instanceId: entry.id || installationId(entry),
+      tool: entry.tool || null,
+      scope: entry.scope || null,
+      currentVersion: upstream.version || null,
+      hasSource: sources.length > 0,
+      sources,
+      sourceDiscovery,
+      freshness: normalizeWebFreshness(entry, sources.length > 0),
+    };
+  });
+}
+
+function entrySourceUrls(entry) {
+  const upstream = entry.upstream || {};
+  return [...new Set([
+    upstream.source,
+    upstream.repository,
+    upstream.homepage,
+    upstream.git?.remote,
+    ...(Array.isArray(upstream.urls) ? upstream.urls : []),
+  ]
     .filter((value) => typeof value === 'string' && value.trim())
     .map((value) => redactSourceAddress(value.trim())))];
+}
+
+function publicSourceDiscovery(value) {
+  if (!value || typeof value !== 'object') return null;
+  return {
+    method: value.method || null,
+    provider: value.provider || null,
+    confidence: Number.isFinite(Number(value.confidence)) ? Number(value.confidence) : null,
+    verifiedAt: value.verifiedAt || null,
+    confirmedByUser: value.confirmedByUser === true,
+    candidatePath: value.candidatePath || null,
+  };
+}
+
+function normalizeWebFreshness(entry, hasSource) {
+  const value = entry.upstreamFreshness;
+  if (value && typeof value === 'object' && value.status) {
+    return {
+      status: value.status,
+      checkedAt: value.checkedAt || null,
+      cached: value.cached === true,
+      remoteVersion: value.remoteVersion || null,
+      remoteCommit: value.remoteCommit || null,
+      remotePackageHash: value.remotePackageHash || null,
+    };
+  }
+  return {
+    status: hasSource ? 'unchecked' : entry.upstream?.version ? 'unknown' : 'untracked',
+    checkedAt: null,
+    cached: false,
+    remoteVersion: null,
+    remoteCommit: null,
+    remotePackageHash: null,
+  };
+}
+
+function aggregateFreshness(instances) {
+  const order = { outdated: 0, diverged: 1, unknown: 2, unchecked: 3, untracked: 4, ahead: 5, latest: 6 };
+  const selected = instances
+    .map((instance) => instance.freshness)
+    .sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9))[0];
+  return selected || { status: 'untracked', checkedAt: null, cached: false, remoteVersion: null };
+}
+
+export function skillSourceUrls(skill) {
+  return [...new Set((skill.entries || [skill]).flatMap(entrySourceUrls))];
 }
 
 function redactSourceAddress(value) {
@@ -754,7 +1028,7 @@ table { width:100%; border-collapse:collapse; min-width:720px; }
 th, td { text-align:left; padding:10px 11px; border-bottom:1px solid var(--line); vertical-align:top; font-size:13px; }
 th { color:var(--muted); font-weight:760; background:color-mix(in srgb, var(--panel-strong) 86%, transparent); }
 tr:last-child td { border-bottom:0; }
-.skill-table { min-width:1040px; table-layout:fixed; }
+.skill-table { min-width:1160px; table-layout:fixed; }
 .skill-table th:not(:first-child), .skill-table td:not(:first-child) { text-align:center; vertical-align:middle; }
 .skill-table th:nth-child(1) { width:36%; }
 .skill-table th:nth-child(2) { width:14%; }
@@ -762,11 +1036,18 @@ tr:last-child td { border-bottom:0; }
 .skill-table th:nth-child(4) { width:13%; }
 .skill-table th:nth-child(5) { width:12%; }
 .skill-table th:nth-child(6) { width:12%; }
+.skill-table th:nth-child(7) { width:16%; }
 .sort-button { display:inline-flex; align-items:center; justify-content:center; gap:5px; width:100%; padding:0; background:transparent; color:inherit; font-weight:inherit; }
 .sort-button:hover, .sort-button.active { color:var(--text); }
 .sort-indicator { width:14px; color:var(--accent); font-size:12px; }
 .source-status { display:inline-flex; align-items:center; justify-content:center; min-width:62px; min-height:28px; padding:4px 9px; border:1px solid color-mix(in srgb, var(--accent) 34%, transparent); border-radius:6px; background:color-mix(in srgb, var(--accent) 12%, transparent); color:var(--text); font-size:12px; white-space:nowrap; cursor:help; }
-.source-status.missing { border-color:color-mix(in srgb, var(--warn) 34%, transparent); background:color-mix(in srgb, var(--warn) 12%, transparent); color:var(--warn); }
+.source-status.missing, .source-status.partial { border-color:color-mix(in srgb, var(--warn) 34%, transparent); background:color-mix(in srgb, var(--warn) 12%, transparent); color:var(--warn); cursor:pointer; }
+.version-status { display:grid; gap:4px; justify-items:center; }
+.version-status button { min-height:26px; padding:3px 7px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--text); font-size:11px; cursor:pointer; }
+.version-status button:hover { border-color:var(--accent); color:var(--accent); }
+.version-status .pill { margin:0; }
+.version-meta { color:var(--muted); font-size:10px; line-height:1.35; }
+.source-provenance { display:grid; gap:4px; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; line-height:1.45; }
 .source-tooltip { position:fixed; z-index:30; width:min(420px,calc(100vw - 24px)); padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--panel-strong); box-shadow:var(--shadow); color:var(--text); }
 .source-tooltip strong { display:block; margin-bottom:7px; font-size:12px; }
 .source-tooltip p { margin:0; color:var(--muted); font-size:12px; line-height:1.55; overflow-wrap:anywhere; }
@@ -849,12 +1130,38 @@ tr:last-child td { border-bottom:0; }
 .toast { position:fixed; right:18px; bottom:18px; z-index:20; border:1px solid var(--line); background:var(--panel-strong); color:var(--text); padding:10px 12px; border-radius:10px; box-shadow:var(--shadow); opacity:0; transform:translateY(10px); transition:.22s ease; }
 .toast.show { opacity:1; transform:translateY(0); }
 .hidden { display:none !important; }
+.governance-modal { position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center; padding:18px; background:rgba(4,8,16,.68); backdrop-filter:blur(16px); }
+.governance-modal.hidden { display:none; }
+.governance-dialog { width:min(720px, 96vw); max-height:88vh; overflow:auto; border:1px solid var(--line); border-radius:14px; background:var(--panel-strong); box-shadow:var(--shadow); padding:20px; }
+.governance-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:14px; }
+.governance-head h3 { margin:0; font-size:18px; overflow-wrap:anywhere; }
+.governance-head p { margin:5px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
+.governance-close { width:36px; height:36px; border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--text); font-size:18px; cursor:pointer; flex:0 0 auto; }
+.governance-section { display:grid; gap:10px; padding:14px 0; border-top:1px solid var(--line); }
+.governance-section h4 { margin:0; font-size:13px; }
+.governance-section p { margin:0; color:var(--muted); font-size:12px; line-height:1.55; }
+.governance-form { display:grid; gap:8px; }
+.governance-form label { color:var(--muted); font-size:12px; }
+.governance-form input[type="url"] { width:100%; min-height:40px; padding:0 11px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--text); }
+.governance-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.governance-targets { display:grid; gap:6px; max-height:150px; overflow:auto; }
+.governance-target { display:flex; align-items:center; gap:9px; min-height:36px; padding:7px 9px; border:1px solid var(--line); border-radius:7px; background:color-mix(in srgb, var(--panel) 72%, transparent); color:var(--text); font-size:12px; }
+.governance-target input { accent-color:var(--accent); }
+.candidate-list { display:grid; gap:7px; max-height:270px; overflow:auto; }
+.candidate-option { display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px; align-items:start; padding:9px; border:1px solid var(--line); border-radius:8px; background:color-mix(in srgb, var(--panel) 76%, transparent); cursor:pointer; }
+.candidate-option:has(input:checked) { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.candidate-option input { margin-top:3px; accent-color:var(--accent); }
+.candidate-option strong { display:block; font-size:12px; overflow-wrap:anywhere; }
+.candidate-option small { display:block; margin-top:3px; color:var(--muted); line-height:1.4; overflow-wrap:anywhere; }
+.governance-error { color:var(--warn); font-size:12px; line-height:1.45; }
+.governance-success { color:var(--accent-3); font-size:12px; line-height:1.45; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
 @keyframes cubeSpin { from { transform:rotateX(-22deg) rotateY(0deg) rotateZ(0deg); } to { transform:rotateX(338deg) rotateY(360deg) rotateZ(360deg); } }
 @keyframes orbit { from { transform:rotateX(64deg) rotateZ(0deg); } to { transform:rotateX(64deg) rotateZ(360deg); } }
 @keyframes sweep { from { transform:translateX(-90%); } to { transform:translateX(90%); } }
 @media (max-width:1180px) { .graph-layout { grid-template-columns:190px minmax(0,1fr); } .graph-detail { grid-column:1 / -1; } .graph-insights { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:1040px) { .hero { grid-template-columns:1fr; } .layout { grid-template-columns:1fr; } .rail { position:relative; top:auto; display:flex; overflow:auto; } .grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media (max-width:680px) { html { scroll-padding-top:12px; } .shell, .topbar, .hero, .layout, .content, .card { max-width:100vw; min-width:0; } .topbar { position:relative; top:auto; align-items:flex-start; flex-direction:column; overflow:hidden; } .controls { width:100%; min-width:0; display:grid; grid-template-columns:1fr; gap:8px; } .lang-btn, .theme-btn, .action-btn { width:100%; min-width:0; padding:0 6px; font-size:14px; } .hero { grid-template-columns:minmax(0,1fr); overflow:hidden; } .hero-main { padding:22px; min-width:0; } .grid, .domains, .graph-layout, .graph-insights { grid-template-columns:1fr; } .wide { grid-column:1 / -1; } .hero h2 { font-size:28px; line-height:1.04; white-space:normal; } .graph-filters { max-height:250px; overflow:auto; } .graph-detail { grid-column:auto; } .graph-toolbar { align-items:stretch; flex-direction:column; } .graph-stats { white-space:normal; } .pagination { justify-content:space-between; } }
+@media (max-width:680px) { html { scroll-padding-top:12px; } .shell, .topbar, .hero, .layout, .content, .card { max-width:100vw; min-width:0; } .topbar { position:relative; top:auto; align-items:flex-start; flex-direction:column; overflow:hidden; } .controls { width:100%; min-width:0; display:grid; grid-template-columns:1fr; gap:8px; } .lang-btn, .theme-btn, .action-btn { width:100%; min-width:0; padding:0 6px; font-size:14px; } .hero { grid-template-columns:minmax(0,1fr); overflow:hidden; } .hero-main { padding:22px; min-width:0; } .grid, .domains, .graph-layout, .graph-insights { grid-template-columns:1fr; } .wide { grid-column:1 / -1; } .hero h2 { font-size:28px; line-height:1.04; white-space:normal; } .graph-filters { max-height:250px; overflow:auto; } .graph-detail { grid-column:auto; } .graph-toolbar { align-items:stretch; flex-direction:column; } .graph-stats { white-space:normal; } .pagination { justify-content:space-between; } .governance-dialog { padding:16px; } .governance-actions .action-btn { width:auto; flex:1 1 160px; } }
 
 /* ── 命令中心 ──────────────────────────────────── */
 .pill.read { background:color-mix(in srgb, #10b981 18%, transparent); border-color:color-mix(in srgb, #10b981 30%, transparent); color:#6ee7b7; }
@@ -1088,7 +1395,9 @@ tr:last-child td { border-bottom:0; }
       <button class="theme-btn active" data-theme-target="cyberpunk">${escapeHtml(labels.cyberpunk)}</button>
       <button class="theme-btn" data-theme-target="galaxy">${escapeHtml(labels.galaxy)}</button>
       <button class="theme-btn" data-theme-target="sky">${escapeHtml(labels.sky)}</button>
-      <button class="action-btn primary" id="refresh-btn">${escapeHtml(labels.refresh)}</button>
+      <button class="action-btn" id="refresh-btn">${escapeHtml(labels.refresh)}</button>
+      <button class="action-btn primary" id="version-check-btn">${escapeHtml(labels.versionCheck)}</button>
+      <button class="action-btn" id="version-refresh-btn" title="${escapeHtml(labels.versionRefreshHint)}">${escapeHtml(labels.versionRefresh)}</button>
     </div>
   </header>
   <section class="hero">
@@ -1124,7 +1433,7 @@ tr:last-child td { border-bottom:0; }
     </nav>
     <main class="content">
       <section id="overview" class="grid"></section>
-      <section id="skills" class="card full"><div class="section-head"><div><h3>${escapeHtml(labels.navSkills)}</h3><p>${escapeHtml(labels.skillHint)}</p></div><div class="searchbar"><input id="skill-filter" placeholder="${escapeHtml(labels.filterPlaceholder)}"><select id="skill-usage-filter" aria-label="${escapeHtml(labels.usageFilter)}"><option value="all">${escapeHtml(labels.usageAll)}</option><option value="used">${escapeHtml(labels.usageInUse)}</option><option value="unused">${escapeHtml(labels.usageUnused)}</option></select></div></div>${skillPagination(labels, 'top')}<div class="table-wrap"><table class="skill-table"><thead><tr><th>${escapeHtml(labels.name)}</th><th>${escapeHtml(labels.category)}</th><th>${escapeHtml(labels.tools)}</th><th aria-sort="descending"><button class="sort-button active" data-skill-sort="usage">${escapeHtml(labels.usage)}<span class="sort-indicator">↓</span></button></th><th aria-sort="none"><button class="sort-button" data-skill-sort="context">${escapeHtml(labels.context)}<span class="sort-indicator">↕</span></button></th><th>${escapeHtml(labels.source)}</th></tr></thead><tbody id="skill-rows"></tbody></table></div>${skillPagination(labels, 'bottom')}</section>
+      <section id="skills" class="card full"><div class="section-head"><div><h3>${escapeHtml(labels.navSkills)}</h3><p>${escapeHtml(labels.skillHint)}</p></div><div class="searchbar"><input id="skill-filter" placeholder="${escapeHtml(labels.filterPlaceholder)}"><select id="skill-usage-filter" aria-label="${escapeHtml(labels.usageFilter)}"><option value="all">${escapeHtml(labels.usageAll)}</option><option value="used">${escapeHtml(labels.usageInUse)}</option><option value="unused">${escapeHtml(labels.usageUnused)}</option></select></div></div>${skillPagination(labels, 'top')}<div class="table-wrap"><table class="skill-table"><thead><tr><th>${escapeHtml(labels.name)}</th><th>${escapeHtml(labels.category)}</th><th>${escapeHtml(labels.tools)}</th><th aria-sort="descending"><button class="sort-button active" data-skill-sort="usage">${escapeHtml(labels.usage)}<span class="sort-indicator">↓</span></button></th><th aria-sort="none"><button class="sort-button" data-skill-sort="context">${escapeHtml(labels.context)}<span class="sort-indicator">↕</span></button></th><th>${escapeHtml(labels.source)}</th><th>${escapeHtml(labels.versionState)}</th></tr></thead><tbody id="skill-rows"></tbody></table></div>${skillPagination(labels, 'bottom')}</section>
       <section id="graph" class="card full">
         <div class="section-head"><div><h3>${escapeHtml(labels.navGraph)}</h3><p>${escapeHtml(labels.graphHint)}</p></div></div>
         <div class="graph-insights" id="graph-insights"></div>
@@ -1173,6 +1482,13 @@ tr:last-child td { border-bottom:0; }
     </div>
   </div>
 </div>
+<div class="governance-modal hidden" id="governance-modal" role="dialog" aria-modal="true" aria-labelledby="governance-title">
+  <div class="governance-backdrop" data-governance-close></div>
+  <section class="governance-dialog" tabindex="-1">
+    <div class="governance-head"><div><h3 id="governance-title"></h3><p id="governance-subtitle"></p></div><button class="governance-close" data-governance-close aria-label="${escapeHtml(labels.close)}">✕</button></div>
+    <div id="governance-body"></div>
+  </section>
+</div>
 <div class="toast" id="toast"></div>
 <div class="source-tooltip hidden" id="source-tooltip" role="tooltip"></div>
 <script src="/app.js"></script>
@@ -1188,16 +1504,19 @@ function webLabels(lang) {
   const en = lang === 'en';
   return {
     title: en ? 'skill-manager Web Console' : 'skill-manager Web 工作台',
-    subtitle: en ? 'Local read-only AIDE skill governance cockpit' : '本地只读 AIDE skill 治理驾驶舱',
+    subtitle: en ? 'Local AIDE skill governance cockpit with explicit confirmations' : '带显式确认的本地 AIDE skill 治理驾驶舱',
     eyebrow: en ? 'VibeCoding control plane' : 'VibeCoding 控制平面',
     heroTitle: en ? 'Skill lifecycle cockpit.' : 'skill 生命周期治理驾驶舱。',
-    heroText: en ? 'Inventory, risks, usage, lifecycle baselines, knowledge graph, and next commands are gathered into one local page.' : '清单、风险、使用频率、生命周期基线、知识图谱和下一步命令，集中到一个本地页面里。',
+    heroText: en ? 'Inventory, sources, freshness checks, lifecycle baselines, risks, usage, and the knowledge graph are gathered into one local page.' : '清单、来源、版本新鲜度、生命周期基线、风险、使用频率和知识图谱，集中到一个本地页面里。',
     cyberpunk: en ? 'Cyberpunk' : '赛博朋克',
     galaxy: en ? 'Galaxy' : '宇宙星系',
     sky: en ? 'Sky' : '蓝天白云',
     langZh: en ? 'Chinese' : '中文',
     langEn: 'English',
     refresh: en ? 'Refresh Scan' : '刷新扫描',
+    versionCheck: en ? 'Check Versions' : '检查版本',
+    versionRefresh: en ? 'Force Check' : '强制检查',
+    versionRefreshHint: en ? 'Ignore the 24-hour cache and query recorded sources now.' : '忽略 24 小时缓存，立即查询已记录来源。',
     loading: en ? 'Loading local governance data' : '正在读取本机治理数据',
     loadingTitle: en ? '3D scan core warming up' : '3D 扫描核心正在预热',
     loadingText: en ? 'Reading catalog, usage cache, session index, and graph signals. No AIDE files are modified.' : '正在读取 catalog、使用缓存、会话索引和图谱信号。不会修改 AIDE 文件。',
@@ -1210,8 +1529,8 @@ function webLabels(lang) {
     readyTitle: en ? 'Local governance data is ready' : '本机治理数据已就绪',
     readyText: en ? 'Drag nodes, rotate or zoom the graph, or run a read-only command below.' : '可拖动节点、旋转或缩放图谱，也可在下方运行只读命令。',
     refreshingTitle: en ? 'Refreshing inventory' : '正在刷新清单',
-    refreshingText: en ? 'Running the same read-only scan path as skm scan.' : '正在运行与 skm scan 相同的只读扫描路径。',
-    localOnly: en ? 'local only · 127.0.0.1 · read-only phase' : '仅本机 · 127.0.0.1 · 第一阶段只读',
+    refreshingText: en ? 'Running the same local inventory path as skm scan.' : '正在运行与 skm scan 相同的本地清单扫描路径。',
+    localOnly: en ? 'local only · 127.0.0.1 · writes require explicit confirmation' : '仅本机 · 127.0.0.1 · 写入操作需要显式确认',
     navOverview: en ? 'Overview' : '总览',
     navSkills: en ? 'Skills' : 'Skill 清单',
     navGraph: en ? 'Knowledge Graph' : '知识图谱',
@@ -1230,6 +1549,34 @@ function webLabels(lang) {
     pageOf: en ? 'of' : '/',
     pageEnd: en ? '' : ' 页',
     sourceTooltipTitle: en ? 'Recorded source addresses' : '已记录的来源地址',
+    sourceMethod: en ? 'Recording method' : '记录方式',
+    sourceVerifiedAt: en ? 'Verified' : '验证时间',
+    sourceConfidence: en ? 'Confidence' : '置信度',
+    sourceEdit: en ? 'Complete source' : '补全来源',
+    sourceTracked: en ? 'tracked' : '已记录',
+    sourcePartial: en ? 'partial' : '部分记录',
+    sourceMissing: en ? 'missing' : '缺失',
+    sourceDialogTitle: en ? 'Complete upstream source' : '补全上游来源',
+    sourceDialogText: en ? 'Choose the installations this source applies to. A URL is saved only after you confirm.' : '选择该来源适用的安装实例。只有你确认后才会保存 URL。',
+    sourceTargets: en ? 'Installations needing a source' : '需要补来源的安装实例',
+    sourceManualTitle: en ? 'Enter a source URL' : '填写来源 URL',
+    sourceManualHint: en ? 'Use a GitHub/Gitee skill directory, SKILL.md, git, file, or HTTPS URL.' : '可填写 GitHub/Gitee skill 目录、SKILL.md、git、file 或 HTTPS URL。',
+    sourceUrlLabel: en ? 'Source URL' : '来源 URL',
+    sourceUrlPlaceholder: en ? 'https://github.com/org/repo/tree/main/skill' : 'https://github.com/org/repo/tree/main/skill',
+    sourceSave: en ? 'Save URL' : '保存 URL',
+    sourceSearchTitle: en ? 'Search public sources' : '搜索公开来源',
+    sourceSearchHint: en ? 'With your permission, only the skill name and static GitHub qualifiers are sent to GitHub. Results are suggestions, never auto-saved.' : '经你授权后，仅会把 skill 名称和固定 GitHub 搜索限定词发送到 GitHub；结果只作候选，不会自动保存。',
+    sourceAllowSearch: en ? 'Allow GitHub search' : '允许搜索来源',
+    sourceCandidatesTitle: en ? 'Verified candidates' : '已验证候选来源',
+    sourceCandidateSave: en ? 'Save selected candidate' : '保存选中的候选',
+    sourceSearchLoading: en ? 'Searching GitHub…' : '正在搜索 GitHub…',
+    sourceSaveLoading: en ? 'Saving…' : '正在保存…',
+    sourceNoCandidates: en ? 'No verified candidates were found.' : '没有找到可验证的候选来源。',
+    sourceChooseCandidate: en ? 'Select one candidate first.' : '请先选择一个候选来源。',
+    sourceSaved: en ? 'Source saved successfully.' : '来源已保存。',
+    sourceSearchFailed: en ? 'Search failed. Nothing was saved.' : '搜索失败，未保存任何来源。',
+    sourceTargetRequired: en ? 'Select at least one installation.' : '至少选择一个安装实例。',
+    close: en ? 'Close' : '关闭',
     skillDescriptionTitle: en ? 'Skill description' : 'Skill 描述',
     skillNoDescription: en ? 'No description recorded.' : '未记录描述。',
     graphHint: en ? 'Filter relations on the left. Drag a node to reposition it, drag empty space to rotate, and scroll to zoom.' : '左侧筛选关系；拖动节点可调整位置，拖动空白处可旋转，滚轮可缩放。',
@@ -1334,6 +1681,21 @@ function webLabels(lang) {
     source: en ? 'Source' : '来源',
     hasSource: en ? 'tracked' : '已记录',
     noSource: en ? 'missing' : '缺失',
+    versionState: en ? 'Version' : '版本状态',
+    versionLatest: en ? 'latest' : '最新',
+    versionOutdated: en ? 'outdated' : '过期',
+    versionDiverged: en ? 'diverged' : '分叉',
+    versionAhead: en ? 'ahead' : '领先',
+    versionUnchecked: en ? 'unchecked' : '待检查',
+    versionUnknown: en ? 'unknown' : '无法判断',
+    versionUntracked: en ? 'untracked' : '未记录',
+    versionChecked: en ? 'checked' : '已检查',
+    versionCached: en ? 'cached' : '缓存',
+    versionUpdatePreview: en ? 'Preview update' : '预览升级',
+    versionNoPreview: en ? 'No update preview available' : '暂无升级预览',
+    versionChecking: en ? 'Checking recorded sources…' : '正在检查已记录来源…',
+    versionCheckDone: en ? 'Version check complete.' : '版本检查完成。',
+    versionCheckIncomplete: en ? 'Some skills could not be checked; review missing or unknown sources.' : '部分 skill 无法完成检查，请处理缺失或无法判断的来源。',
     risks: en ? 'Risks' : '风险',
     state: en ? 'State' : '状态',
     versions: en ? 'Versions' : '版本',

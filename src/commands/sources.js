@@ -2,17 +2,19 @@ import readline from 'node:readline/promises';
 import { ensureCatalog } from './scan.js';
 import { collectOutdatedRows } from './outdated.js';
 import { applySourcesToSkills, loadSources, missingSourceRows, removeSource, upsertSource, isValidSourceUrl } from '../sources.js';
+import { discoverSkillSources } from '../sourceDiscovery.js';
 import { renderTable, termWidth } from '../table.js';
 import { paint } from '../utils.js';
 import { tr } from '../i18n.js';
 
-export async function runSources({ cwd, json = false, source, repository, homepage, version, tool, scope, instance, all = false, lang = 'zh-CN' }, args = []) {
+export async function runSources({ cwd, json = false, source, repository, homepage, version, tool, scope, instance, all = false, yes = false, select = null, provider = 'github', lang = 'zh-CN' }, args = []) {
   const action = args[0] || 'list';
   if (action === 'list') return runSourcesList({ json, lang });
   if (action === 'missing') return runSourcesMissing({ cwd, json, lang });
   if (action === 'add') return runSourcesAdd({ cwd, json, source, repository, homepage, version, tool, scope, instance, all, lang }, args.slice(1));
   if (action === 'remove') return runSourcesRemove({ json, instance, lang }, args.slice(1));
   if (action === 'check') return runSourcesCheck({ cwd, json, tool, scope, instance, all, lang }, args.slice(1));
+  if (action === 'discover') return runSourcesDiscover({ cwd, json, yes, select, provider, tool, scope, instance, all, lang }, args.slice(1));
   if (action === 'wizard') return runSourcesWizard({ cwd, lang });
   throw new Error(tr(lang, 'sources.unknownAction', { action }));
 }
@@ -27,6 +29,7 @@ function runSourcesList({ json = false, lang = 'zh-CN' }) {
       repository: record.repository || '',
       homepage: record.homepage || '',
       version: record.version || '',
+      discovery: record.discovery || null,
       updatedAt: record.updatedAt || '',
     })),
     ...Object.entries(data.instances || {}).map(([instanceId, record]) => ({
@@ -36,6 +39,7 @@ function runSourcesList({ json = false, lang = 'zh-CN' }) {
       repository: record.repository || '',
       homepage: record.homepage || '',
       version: record.version || '',
+      discovery: record.discovery || null,
       updatedAt: record.updatedAt || '',
     })),
   ].sort((a, b) => a.name.localeCompare(b.name) || a.instanceId.localeCompare(b.instanceId));
@@ -51,9 +55,10 @@ function runSourcesList({ json = false, lang = 'zh-CN' }) {
     [
       { title: tr(lang, 'sources.col.skill'), width: 28 },
       { title: tr(lang, 'sources.col.version'), width: 12 },
+      { title: tr(lang, 'sources.col.method'), width: 10 },
       { title: tr(lang, 'sources.col.source'), width: 0 },
     ],
-    rows.map((row) => [row.instanceId ? `${row.name} [${row.instanceId}]` : row.name, row.version || '—', row.source || row.repository || row.homepage || '—']),
+    rows.map((row) => [row.instanceId ? `${row.name} [${row.instanceId}]` : row.name, row.version || '—', row.discovery?.method || '—', row.source || row.repository || row.homepage || '—']),
     termWidth(),
   ));
 }
@@ -70,7 +75,7 @@ function runSourcesMissing({ cwd, json = false, lang = 'zh-CN' }) {
 function runSourcesAdd({ cwd, json = false, source, repository, homepage, version, tool, scope, instance, all, lang = 'zh-CN' }, args) {
   const name = args[0];
   if (!name) throw new Error(tr(lang, 'sources.nameRequired'));
-  const input = { source, repository, homepage, version, note: 'manual' };
+  const input = { source, repository, homepage, version, note: 'manual', discovery: manualDiscovery() };
   const entries = matchingEntries(cwd, name, { tool, scope, instance });
   if (entries.length > 1 && !all) throw new Error(instanceChoiceError(entries, lang));
   const results = entries.length
@@ -136,6 +141,16 @@ async function runSourcesWizard({ cwd, lang = 'zh-CN' }) {
       const answer = (await rl.question(tr(lang, 'sources.prompt'))).trim();
       if (!answer || answer.toLowerCase() === 's') continue;
       if (answer.toLowerCase() === 'q') break;
+      if (answer === '2' || /^search$/i.test(answer)) {
+        if (!(await confirmSearchPermission(rl, lang))) continue;
+        const result = await discoverForWizard(row.dirName, lang);
+        const selected = await chooseCandidate(result.candidates, rl, lang);
+        if (!selected) continue;
+        saveSource(row.dirName, discoveryRecord(selected, result), lang, row.instanceId);
+        saved++;
+        console.log(paint.green(tr(lang, 'sources.saved', { name: row.dirName })));
+        continue;
+      }
       if (answer === '?') {
         console.log(tr(lang, 'sources.helpText'));
         i--;
@@ -146,7 +161,7 @@ async function runSourcesWizard({ cwd, lang = 'zh-CN' }) {
         i--;
         continue;
       }
-      saveSource(row.dirName, { source: answer, note: 'wizard' }, lang, row.instanceId);
+      saveSource(row.dirName, { source: answer, note: 'wizard', discovery: manualDiscovery() }, lang, row.instanceId);
       saved++;
       console.log(paint.green(tr(lang, 'sources.saved', { name: row.dirName })));
     }
@@ -154,6 +169,118 @@ async function runSourcesWizard({ cwd, lang = 'zh-CN' }) {
   } finally {
     rl.close();
   }
+}
+
+async function runSourcesDiscover({ cwd, json = false, yes = false, select = null, provider = 'github', tool, scope, instance, all, lang = 'zh-CN' }, args) {
+  const name = args[0];
+  if (!name) throw new Error(tr(lang, 'sources.nameRequired'));
+  if (!yes && !process.stdin.isTTY) throw new Error(tr(lang, 'sources.searchTtyRequired'));
+  if (yes && !process.stdin.isTTY && !json && select == null) throw new Error(tr(lang, 'sources.searchSelectRequired'));
+  const entries = matchingEntries(cwd, name, { tool, scope, instance });
+  if (entries.length > 1 && !all) throw new Error(instanceChoiceError(entries, lang));
+  if (!(await confirmSearchPermission(null, lang, yes))) return;
+  const result = await discoverSkillSources(name, { provider });
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  if (!result.candidates.length) {
+    console.log(paint.yellow(tr(lang, 'sources.noSearchResults', { name })));
+    return;
+  }
+  const rl = select == null ? readline.createInterface({ input: process.stdin, output: process.stdout }) : null;
+  try {
+    const selected = await chooseCandidate(result.candidates, rl, lang, select);
+    if (!selected) return;
+    const record = discoveryRecord(selected, result);
+    if (entries.length) {
+      for (const entry of entries) saveSource(name, record, lang, entry.id);
+      if (entries.length === 1) saveSource(name, record, lang);
+    } else {
+      saveSource(name, record, lang);
+    }
+    console.log(paint.green(tr(lang, 'sources.discoverySaved', { name, source: selected.source })));
+  } finally {
+    rl?.close();
+  }
+}
+
+async function discoverForWizard(name, lang) {
+  try {
+    return await discoverSkillSources(name);
+  } catch (error) {
+    console.log(paint.yellow(tr(lang, 'sources.searchFailed', { message: error.message })));
+    return { candidates: [] };
+  }
+}
+
+async function confirmSearchPermission(rl, lang, alreadyAllowed = false) {
+  if (alreadyAllowed) return true;
+  if (!process.stdin.isTTY && !rl) throw new Error(tr(lang, 'sources.searchTtyRequired'));
+  const input = rl || readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await input.question(tr(lang, 'sources.searchConsent'))).trim().toLowerCase();
+    return ['y', 'yes', '是', '确认'].includes(answer);
+  } finally {
+    if (!rl) input.close();
+  }
+}
+
+async function chooseCandidate(candidates, rl, lang, selectedIndex = null) {
+  if (!candidates.length) {
+    console.log(paint.yellow(tr(lang, 'sources.noSearchResults', { name: 'skill' })));
+    return null;
+  }
+  console.log(`\n${tr(lang, 'sources.searchResults')}`);
+  console.log(renderTable(
+    [
+      { title: '#', width: 4 },
+      { title: tr(lang, 'sources.col.skill'), width: 22 },
+      { title: tr(lang, 'sources.col.source'), width: 0 },
+      { title: tr(lang, 'sources.col.status'), width: 12 },
+    ],
+    candidates.map((candidate, index) => [index + 1, candidate.name, candidate.source, `${Math.round(candidate.confidence * 100)}%`]),
+    termWidth(),
+  ));
+  let index = selectedIndex == null ? null : Number(selectedIndex) - 1;
+  if (index == null || !Number.isInteger(index)) {
+    if (!rl) throw new Error(tr(lang, 'sources.searchSelectRequired'));
+    const answer = (await rl.question(tr(lang, 'sources.searchSelect'))).trim().toLowerCase();
+    if (!answer || answer === 'q' || answer === 's') return null;
+    index = Number(answer) - 1;
+  }
+  if (!Number.isInteger(index) || !candidates[index]) {
+    console.log(paint.yellow(tr(lang, 'sources.searchSelectionInvalid')));
+    return null;
+  }
+  return candidates[index];
+}
+
+function discoveryRecord(candidate, result) {
+  return {
+    source: candidate.source,
+    repository: candidate.repositoryUrl,
+    version: candidate.version,
+    ref: candidate.ref,
+    subdir: candidate.subdir,
+    note: 'discovered',
+    discovery: {
+      method: 'search',
+      provider: result.provider,
+      query: result.query,
+      confidence: candidate.confidence,
+      verifiedAt: result.searchedAt,
+      confirmedByUser: true,
+      candidatePath: candidate.path,
+    },
+  };
+}
+
+function manualDiscovery() {
+  return {
+    method: 'manual',
+    confirmedByUser: true,
+  };
 }
 
 function getMissingRows(cwd) {

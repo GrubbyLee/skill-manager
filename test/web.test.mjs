@@ -21,6 +21,9 @@ test('web：页面包含三主题、3D 加载动画与只读 API 入口', () => 
   assert.equal((html.match(/data-skill-page="prev"/g) || []).length, 2);
   assert.equal((html.match(/data-skill-page="next"/g) || []).length, 2);
   assert.match(html, /id="skill-usage-filter"/);
+  assert.match(html, /id="version-check-btn"/);
+  assert.match(html, /id="version-refresh-btn"/);
+  assert.match(html, /id="governance-modal"/);
   assert.match(html, /data-skill-sort="usage"/);
   assert.match(html, /data-skill-sort="context"/);
   assert.match(html, /<script src="\/app\.js"><\/script>/);
@@ -99,6 +102,12 @@ test('web：非法 Host / Origin / 跨站 API 请求返回 403', async () => {
     assert.match(client.body, /searchParams\.set\('lang'/);
     assert.match(client.body, /skill-name/);
     assert.match(client.body, /showSkillTooltip/);
+    assert.match(client.body, /\/api\/versions\/check/);
+    assert.match(client.body, /\/api\/sources\/discover/);
+    assert.match(client.body, /\/api\/sources\/confirm/);
+    assert.match(client.body, /\/api\/update\/preview/);
+    assert.match(client.body, /data-source-manual-save/);
+    assert.match(client.body, /data-source-search/);
     assert.match(client.body, /graphScopeOptions/);
     assert.match(client.body, /graph-scope-select/);
     assert.match(client.body, /data-focus-node/);
@@ -167,6 +176,113 @@ test('web：status 通过裸命令路径执行并返回 skm', async () => {
   }
 });
 
+test('web：版本检查必须显式 POST，且只在授权后调用在线服务', async () => {
+  const calls = [];
+  const server = createWebServer({
+    cwd: os.tmpdir(),
+    lang: 'en',
+    port: 17361,
+    services: {
+      async checkVersions(input) { calls.push(input); },
+      async discoverSource() { throw new Error('not expected'); },
+      async saveSource() { throw new Error('not expected'); },
+      async previewUpdate() { throw new Error('not expected'); },
+    },
+  });
+  await listen(server);
+  const address = server.address();
+  try {
+    const wrongMethod = await request(address.port, '/api/versions/check', { Host: '127.0.0.1:17361' });
+    assert.equal(wrongMethod.status, 404);
+    const result = await request(address.port, '/api/versions/check', { Host: '127.0.0.1:17361', 'Content-Type': 'application/json' }, { method: 'POST', body: JSON.stringify({ refresh: true }) });
+    assert.equal(result.status, 200);
+    assert.deepEqual(calls, [{ lang: 'en', refresh: true }]);
+  } finally {
+    await close(server);
+  }
+});
+
+test('web：来源搜索拒绝未授权，并把候选保存在短期会话直到确认', async () => {
+  const saved = [];
+  const server = createWebServer({
+    cwd: os.tmpdir(),
+    lang: 'en',
+    port: 17361,
+    services: {
+      async checkVersions() {},
+      async discoverSource({ skill }) {
+        assert.equal(skill, 'demo-skill');
+        return {
+          provider: 'github',
+          query: 'demo-skill filename:SKILL.md',
+          searchedAt: '2026-08-18T00:00:00.000Z',
+          candidates: [{
+            name: 'demo-skill', description: 'verified', source: 'https://github.com/acme/skills/tree/main/demo-skill',
+            repository: 'acme/skills', repositoryUrl: 'https://github.com/acme/skills', path: 'demo-skill/SKILL.md',
+            version: '1.2.0', ref: 'main', subdir: 'demo-skill', confidence: 0.93, verified: true,
+          }],
+        };
+      },
+      async saveSource(input) { saved.push(input); return { skill: input.skill, saved: input.instanceIds.length }; },
+      async previewUpdate() { throw new Error('not expected'); },
+    },
+  });
+  await listen(server);
+  const address = server.address();
+  const headers = { Host: '127.0.0.1:17361', 'Content-Type': 'application/json' };
+  try {
+    const denied = await request(address.port, '/api/sources/discover', headers, { method: 'POST', body: JSON.stringify({ skill: 'demo-skill' }) });
+    assert.equal(denied.status, 400);
+    assert.match(denied.body, /search_consent_required/);
+
+    const discovered = await request(address.port, '/api/sources/discover', headers, { method: 'POST', body: JSON.stringify({ skill: 'demo-skill', consent: true }) });
+    assert.equal(discovered.status, 200);
+    const discovery = JSON.parse(discovered.body);
+    assert.equal(discovery.candidates[0].index, 0);
+    assert.equal(discovery.candidates[0].verified, true);
+
+    const confirmed = await request(address.port, '/api/sources/confirm', headers, { method: 'POST', body: JSON.stringify({ sessionId: discovery.sessionId, candidateIndex: 0, instanceIds: ['demo-instance'] }) });
+    assert.equal(confirmed.status, 200);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].input.discovery.confirmedByUser, true);
+    assert.equal(saved[0].input.discovery.method, 'search');
+  } finally {
+    await close(server);
+  }
+});
+
+test('web：手填来源与升级预览使用专用 API，不开放通用写命令', async () => {
+  const calls = [];
+  const server = createWebServer({
+    cwd: os.tmpdir(),
+    lang: 'en',
+    port: 17361,
+    services: {
+      async checkVersions() {},
+      async discoverSource() { throw new Error('not expected'); },
+      async saveSource(input) { calls.push(['source', input]); return { skill: input.skill, saved: 1 }; },
+      async previewUpdate(input) { calls.push(['preview', input]); return { command: 'skm update demo-skill --dry-run', exitCode: 0, stdout: 'plan', stderr: '' }; },
+    },
+  });
+  await listen(server);
+  const address = server.address();
+  const headers = { Host: '127.0.0.1:17361', 'Content-Type': 'application/json' };
+  try {
+    const manual = await request(address.port, '/api/sources/manual', headers, { method: 'POST', body: JSON.stringify({ skill: 'demo-skill', source: 'https://github.com/acme/demo', instanceIds: ['demo-instance'] }) });
+    assert.equal(manual.status, 200);
+    assert.equal(calls[0][0], 'source');
+    assert.equal(calls[0][1].input.discovery.method, 'manual');
+    const preview = await request(address.port, '/api/update/preview', headers, { method: 'POST', body: JSON.stringify({ skill: 'demo-skill', instanceId: 'demo-instance' }) });
+    assert.equal(preview.status, 200);
+    assert.equal(JSON.parse(preview.body).stdout, 'plan');
+    const generic = await request(address.port, '/api/run?cmd=update', { Host: '127.0.0.1:17361' });
+    assert.equal(generic.status, 400);
+    assert.match(generic.body, /command_not_allowed/);
+  } finally {
+    await close(server);
+  }
+});
+
 function listen(server) {
   return new Promise((resolve, reject) => {
     server.listen(0, '127.0.0.1', resolve);
@@ -180,9 +296,11 @@ function close(server) {
   });
 }
 
-function request(port, path, headers = {}) {
+function request(port, path, headers = {}, { method = 'GET', body = null } = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: '127.0.0.1', port, path, method: 'GET', headers }, (res) => {
+    const requestHeaders = { ...headers };
+    if (body != null && !requestHeaders['Content-Length'] && !requestHeaders['content-length']) requestHeaders['Content-Length'] = Buffer.byteLength(body);
+    const req = http.request({ host: '127.0.0.1', port, path, method, headers: requestHeaders }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (chunk) => {
@@ -191,6 +309,6 @@ function request(port, path, headers = {}) {
       res.on('end', () => resolve({ status: res.statusCode, body }));
     });
     req.on('error', reject);
-    req.end();
+    req.end(body);
   });
 }

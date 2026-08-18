@@ -29,7 +29,9 @@ skm audit
 skm sessions
 ```
 
-其中 `scan`、`audit`、`risks`、`sessions`、`outdated --online`、`lock`、`policy`、`profile create`、`history` 可能更新 `~/.skill-manager` 下的 skm 自身数据，例如 catalog、usage cache、audit history、sessions index、update cache、lock、policy、profiles、lifecycle history。这些不是 AIDE 数据，不会改变任何受支持 AIDE 的行为。`outdated --online` 只读访问已登记上游，不会自动更新 skill。
+其中 `scan`、`audit`、`risks`、`sessions`、`outdated --online`、`lock`、`policy`、`profile create`、`history` 可能更新 `~/.skill-manager` 下的 skm 自身数据，例如 catalog、usage cache、audit history、sessions index、update cache、lock、policy、profiles、lifecycle history。这些不是 AIDE 数据，不会改变任何受支持 AIDE 的行为。普通 `scan` 不为版本检查联网；只有 `scan --online` / `outdated --online` 只读访问已登记上游，且不会自动更新 skill。
+
+`sources discover` 只在用户确认后访问 GitHub 官方 API，只发送 skill 名称，不发送本地路径、skill 正文或其他清单。它读取公开候选 `SKILL.md` 做验证，用户选择前不写来源。`GITHUB_TOKEN` 仅作为请求头使用，不写缓存、不显示在输出中。
 
 显式运行 `skm setup` 或 `node scripts/install.mjs` 是安装阶段的例外：它们会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 与 `~/.codex/skills/`。如果目标目录已有不同内容，会先备份旧目录再替换。
 

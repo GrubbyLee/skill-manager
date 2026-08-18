@@ -104,6 +104,7 @@ export function applySourceToSkill(skill, data = loadSources()) {
       subdir: upstream.subdir || record.subdir || null,
       resolvedCommit: upstream.resolvedCommit || record.resolvedCommit || null,
       packageHash: upstream.packageHash || record.packageHash || null,
+      sourceDiscovery: upstream.sourceDiscovery || record.discovery || null,
       localSourceKey: found.key,
       localSourceInstance: found.instanceId || null,
       localSource: true,
@@ -173,7 +174,21 @@ function normalizeSourceRecord(value) {
     subdir: clean(value.subdir),
     resolvedCommit: clean(value.resolvedCommit),
     packageHash: clean(value.packageHash),
+    discovery: normalizeDiscovery(value.discovery),
     updatedAt: clean(value.updatedAt),
+  };
+}
+
+function normalizeDiscovery(value) {
+  if (!value || typeof value !== 'object') return null;
+  return {
+    method: clean(value.method),
+    provider: clean(value.provider),
+    query: clean(value.query),
+    confidence: Number.isFinite(Number(value.confidence)) ? Number(value.confidence) : null,
+    verifiedAt: clean(value.verifiedAt),
+    confirmedByUser: value.confirmedByUser === true,
+    candidatePath: clean(value.candidatePath),
   };
 }
 

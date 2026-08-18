@@ -77,7 +77,7 @@ SKM_LANG=zh-CN skm doctor
 | Too many skills show unknown freshness? | `skm sources wizard` | Add missing upstream URLs into skm's local source map |
 | Can installs, updates, and rollback be governed? | `skm lock` / `skm lock verify` / `skm policy check` | Create a local skill lock file, detect drift from the baseline, and check lifecycle policy baselines |
 | How healthy is one skill? | `skm eval <skill>` | Score description, source metadata, duplication, usage, and safety signals |
-| Too many commands to remember? | `skm web` | A local read-only Web dashboard for overview, inventory, graph, recommendations, and command center |
+| Too many commands to remember? | `skm web` | A local Web governance dashboard for overview, sources, freshness, inventory, graph, recommendations, and command center |
 | How are skills related? | `skm graph --format html` | Filterable, draggable, single-file knowledge graph |
 | What are the risky items? | `skm risks` | Prioritized risk list and conservative suggestions |
 | Can I share one local overview? | `skm report --format html` | Single-file overview with health, risks, usage, sessions, graph summary |
@@ -93,7 +93,7 @@ SKM_LANG=zh-CN skm doctor
 | `skm doctor` | Read-only environment diagnostics |
 | `skm risks` | Risk report without changing AIDE data |
 | `skm report` | One-page overview report |
-| `skm web` | Start a local read-only Web dashboard with Cyberpunk / Galaxy / Sky themes |
+| `skm web` | Start a local Web governance dashboard with Cyberpunk / Galaxy / Sky themes |
 | `skm scan` | Scan skills and MCP servers, rebuild the catalog, then show the same governance overview |
 | `skm outdated` | Check upstream version metadata; `--online` compares GitHub/Gitee or git remote |
 | `skm sources` | Manage local upstream URLs for skills that lack source metadata |
@@ -196,7 +196,7 @@ skm web
 skm web --port 17362
 ```
 
-`skm web` starts a local read-only dashboard on `127.0.0.1`. It brings overview, skill inventory, knowledge graph, recommendation entry, and command center into one modern technical interface. The top-right controls now include Chinese/English switching, defaulting to the CLI startup language and persisting the user's browser choice locally, alongside Cyberpunk, Galaxy, and Sky themes. The skill inventory defaults to descending usage, can sort by usage or context cost, provides pagination above and below the table, and exposes recorded upstream addresses on hover; skill names also show descriptions on hover. The 3D graph turns relationships into actions with suite/overlap/workflow/MCP insights, concrete suite/platform/category scopes, one-hop focus, confidence-tagged evidence, suggested commands, and direct navigation back to the inventory. Read-only commands can run locally and return output in embedded terminals; write-capable commands such as install, update, rollback, disable, and enable remain copy-only dry-run suggestions. The page includes a real CSS 3D loading cube. The dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files when facts are missing or manually refreshed, but it does not modify AIDE data, execute skills/MCP servers, or read MCP `env` values.
+`skm web` starts a local governance dashboard on `127.0.0.1`. It brings overview, skill inventory, source provenance, upstream freshness, knowledge graph, recommendation entry, and command center into one modern technical interface. The top-right controls include Chinese/English switching, local inventory refresh, cached version checks, and an explicit force-refresh version check, alongside Cyberpunk, Galaxy, and Sky themes. The skill inventory defaults to descending usage, can sort by usage or context cost, provides pagination above and below the table, and exposes source provenance on hover; missing or partially tracked sources open a confirmation flow that supports manual URL entry or an explicitly authorized GitHub search. Search results are verified candidates and are never saved until the user selects one. Outdated or diverged skills show status, checked time, and an instance-specific `update --dry-run` preview. Read-only commands can run locally and return output in embedded terminals. Source writes, network searches, version checks, and update previews use dedicated same-origin APIs and require explicit user actions; the dashboard never executes a real update, skill, or MCP server. The page includes a real CSS 3D loading cube. The dashboard may read AIDE skill/MCP metadata and refresh skm's own `~/.skill-manager/catalog.json` or cache files, but it does not modify AIDE data or read MCP `env` values.
 
 ![skm Web dashboard real-machine screenshot](docs/web-dashboard.en.png)
 
@@ -222,6 +222,7 @@ skm outdated
 skm outdated --online
 skm sources missing
 skm sources wizard
+skm sources discover <skill>
 skm lock
 skm lock verify
 skm policy check
@@ -236,7 +237,7 @@ skm sessions
 skm sessions --clean --days 30 --keep 3 --dry-run
 ```
 
-Start with read-only commands. Run `skm scan` to refresh facts; after scanning, skm prints the governance overview automatically. Later, plain `skm` does not force a rescan: it uses the existing catalog plus usage/session indexes to show which domain has findings and which subcommand to run next. `skm state plan` is the first stop when the setup has too many skills: downshift before you disable, and disable before you ever delete manually. `skm outdated` is offline by default; `skm outdated --online` only checks upstream and never updates skills automatically. When freshness is unknown because a skill lacks source metadata, use `skm sources missing` or `skm sources wizard` to add upstream URLs into `~/.skill-manager/sources.json`. To build a lifecycle baseline, run `skm lock`; use `skm lock diff` to inspect later drift, `skm lock verify` in scripts or CI, `skm policy check` for policy thresholds, and `skm eval --all` for cleanup priorities. Use anonymized exports when sharing data with others, and use dry-run before write-capable commands.
+Start with read-only commands. Plain `skm scan` makes no version-check network request and only consumes valid 24-hour cache entries. Run `skm scan --online` to refresh recorded upstream sources and show instance-specific `skm update ... --dry-run` prompts for outdated or diverged skills. When source metadata is missing, either enter a URL with `skm sources add <skill> --source <URL>` or run `skm sources discover <skill>` and explicitly allow an official GitHub API search. Discovery sends only the skill name, never local paths or content, verifies candidate `SKILL.md` files, and saves nothing until the user selects a candidate. Set `GITHUB_TOKEN` when GitHub code search requires authentication or a higher rate limit. Use `skm lock diff`, `skm lock verify`, `skm policy check`, and `skm eval --all` for the rest of the lifecycle baseline; use anonymized exports when sharing data and dry-run before writes.
 
 ### Skill Lifecycle Governance
 
