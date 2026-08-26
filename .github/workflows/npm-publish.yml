@@ -17,8 +17,7 @@ permissions:
   id-token: write
 
 concurrency:
-  # Keep independent release tags from blocking each other when a runner is delayed.
-  group: npm-publish-${{ github.ref_name }}
+  group: npm-publish
   cancel-in-progress: false
 
 jobs:
