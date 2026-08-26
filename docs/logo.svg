@@ -1,63 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" role="img" aria-labelledby="title desc">
-  <title id="title">skill-manager logo</title>
-  <desc id="desc">skill-manager wordmark with a shield crown skill graph logo mark.</desc>
+  <title id="title">skill-manager</title>
+  <desc id="desc">A clean skill-manager wordmark with SK and LL in a rainbow gradient and a wrench forming the I in SKILL.</desc>
   <defs>
-    <linearGradient id="word" x1="312" y1="92" x2="1068" y2="214" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7dd3fc"/>
-      <stop offset=".45" stop-color="#86efac"/>
-      <stop offset="1" stop-color="#c084fc"/>
-    </linearGradient>
     <linearGradient id="panel" x1="0" y1="0" x2="1280" y2="360" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0b1020"/>
-      <stop offset=".58" stop-color="#111827"/>
-      <stop offset="1" stop-color="#020617"/>
+      <stop offset="0" stop-color="#07111f"/><stop offset=".56" stop-color="#0d1830"/><stop offset="1" stop-color="#101426"/>
     </linearGradient>
-    <linearGradient id="edge" x1="58" y1="42" x2="284" y2="298" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7dd3fc"/>
-      <stop offset=".48" stop-color="#86efac"/>
-      <stop offset="1" stop-color="#c084fc"/>
+    <linearGradient id="left-word" x1="218" y1="126" x2="520" y2="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#64dcff"/><stop offset=".48" stop-color="#6d9dff"/><stop offset="1" stop-color="#a875ff"/>
     </linearGradient>
-    <linearGradient id="crown" x1="100" y1="70" x2="244" y2="164" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#facc15"/>
-      <stop offset=".52" stop-color="#86efac"/>
-      <stop offset="1" stop-color="#7dd3fc"/>
+    <linearGradient id="right-word" x1="638" y1="126" x2="950" y2="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a875ff"/><stop offset=".36" stop-color="#ef72d3"/><stop offset=".7" stop-color="#ff8b80"/><stop offset="1" stop-color="#ffd45c"/>
     </linearGradient>
-    <filter id="soft-shadow" x="-10%" y="-20%" width="120%" height="150%">
-      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#000000" flood-opacity=".42"/>
-    </filter>
+    <linearGradient id="wrench" x1="574" y1="88" x2="616" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d4ffe9"/><stop offset=".48" stop-color="#8af0ce"/><stop offset="1" stop-color="#63d9f5"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-30%" width="140%" height="170%"><feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000000" flood-opacity=".35"/></filter>
   </defs>
-
-  <rect width="1280" height="360" rx="42" fill="url(#panel)"/>
-  <g opacity=".42">
-    <path d="M0 72h1280M0 144h1280M0 216h1280M0 288h1280M160 0v360M320 0v360M480 0v360M640 0v360M800 0v360M960 0v360M1120 0v360" stroke="#243044" stroke-width="1"/>
+  <rect width="1280" height="360" rx="38" fill="url(#panel)"/>
+  <path d="M42 292h1196" stroke="#22304a" stroke-width="1" opacity=".7"/>
+  <g filter="url(#shadow)">
+    <text x="196" y="205" fill="url(#left-word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="148" font-weight="850" letter-spacing="-7">SK</text>
+    <!-- The wrench is the I in SKILL: maintenance, upgrades, and governance. -->
+    <g transform="translate(560 155) rotate(-50) translate(-12 -12) scale(4.9)" fill="none" stroke="url(#wrench)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 7.5a5.5 5.5 0 0 1-7.6 5.1L7 19a2.1 2.1 0 1 1-3-3l6.4-6.4A5.5 5.5 0 0 1 16.5 2L13 5.5l1.5 2L17 9l3.5-3.5A5.5 5.5 0 0 1 21 7.5Z"/>
+      <circle cx="5.5" cy="18.5" r="1.2" fill="#07111f" stroke="url(#wrench)" stroke-width="1.2"/>
+    </g>
+    <text x="642" y="205" fill="url(#right-word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="148" font-weight="850" letter-spacing="-7">LL</text>
   </g>
-
-  <g transform="translate(58 38)" filter="url(#soft-shadow)">
-    <path d="M132 0 244 50v94c0 74-43 129-112 158C63 273 20 218 20 144V50L132 0Z" fill="#0b1224" stroke="url(#edge)" stroke-width="8"/>
-    <path d="M54 92 92 46l40 52 40-52 38 46v39H54V92Z" fill="url(#crown)"/>
-    <path d="M64 140h136" stroke="#e5e7eb" stroke-width="8" stroke-linecap="round"/>
-    <path d="M68 202h128M68 202l39-38h50l39 38M107 164v75M157 164v75M107 239h50" fill="none" stroke="#7dd3fc" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M107 239h50" stroke="#86efac" stroke-width="8" stroke-linecap="round"/>
-    <circle cx="68" cy="202" r="13" fill="#020617" stroke="#e5e7eb" stroke-width="6"/>
-    <circle cx="107" cy="164" r="13" fill="#020617" stroke="#e5e7eb" stroke-width="6"/>
-    <circle cx="157" cy="164" r="13" fill="#020617" stroke="#e5e7eb" stroke-width="6"/>
-    <circle cx="196" cy="202" r="13" fill="#020617" stroke="#e5e7eb" stroke-width="6"/>
-    <text x="132" y="222" text-anchor="middle" fill="#f8fafc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="43" font-weight="900" letter-spacing="-3">SKM</text>
-  </g>
-
-  <g transform="translate(332 90)">
-    <text x="0" y="74" fill="url(#word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="84" font-weight="900" letter-spacing="-4">skill-manager</text>
-    <text x="2" y="124" fill="#cbd5e1" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="21" font-weight="800" letter-spacing="2.8">AIDE SKILL GOVERNANCE</text>
-    <text x="2" y="172" fill="#94a3b8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="600">Scan · Recommend · Deduplicate · Audit · Graph · Govern</text>
-  </g>
-
-  <g transform="translate(1074 102)" fill="none" stroke-linecap="round">
-    <path d="M0 80h122M28 32h94M58 128h64" stroke="#334155" stroke-width="10"/>
-    <circle cx="0" cy="80" r="13" fill="#7dd3fc"/>
-    <circle cx="28" cy="32" r="13" fill="#86efac"/>
-    <circle cx="58" cy="128" r="13" fill="#c084fc"/>
-    <circle cx="122" cy="80" r="13" fill="#facc15"/>
-    <circle cx="122" cy="32" r="13" fill="#fb7185"/>
-    <circle cx="122" cy="128" r="13" fill="#22d3ee"/>
-  </g>
+  <text x="202" y="270" fill="#e7eef8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="43" font-weight="650" letter-spacing="1.4">skill-manager</text>
+  <text x="206" y="314" fill="#91a5bf" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" font-weight="750" letter-spacing="3.5">AI SKILL GOVERNANCE</text>
 </svg>

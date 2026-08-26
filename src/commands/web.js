@@ -978,7 +978,7 @@ button { border:0; cursor:pointer; color:var(--text); }
 .shell { position:relative; z-index:1; min-height:100vh; }
 .topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:18px clamp(16px,3vw,34px); position:sticky; top:0; backdrop-filter:blur(18px); background:color-mix(in srgb, var(--bg) 72%, transparent); border-bottom:1px solid var(--line); z-index:5; }
 .brand { display:flex; align-items:center; gap:12px; min-width:0; }
-.mark { width:38px; height:38px; border-radius:12px; background:linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow:0 0 28px color-mix(in srgb, var(--accent) 48%, transparent); display:grid; place-items:center; font-weight:900; color:#020617; }
+.mark-logo { width:46px; height:46px; border-radius:13px; display:block; box-shadow:0 0 28px color-mix(in srgb, var(--accent) 32%, transparent); }
 .brand h1 { margin:0; font-size:18px; line-height:1; }
 .brand p { margin:5px 0 0; color:var(--muted); font-size:12px; }
 .controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
@@ -1388,7 +1388,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 <body data-theme="cyberpunk">
 <div class="shell">
   <header class="topbar">
-    <div class="brand"><div class="mark">SKM</div><div><h1>${escapeHtml(labels.title)}</h1><p>${escapeHtml(labels.subtitle)}</p></div></div>
+    <div class="brand"><img class="mark-logo" src="/favicon.svg" alt=""><div><h1>${escapeHtml(labels.title)}</h1><p>${escapeHtml(labels.subtitle)}</p></div></div>
     <div class="controls">
       <button class="lang-btn${lang === 'zh-CN' ? ' active' : ''}" data-lang-target="zh-CN" aria-pressed="${lang === 'zh-CN'}">${escapeHtml(labels.langZh)}</button>
       <button class="lang-btn${lang === 'en' ? ' active' : ''}" data-lang-target="en" aria-pressed="${lang === 'en'}">${escapeHtml(labels.langEn)}</button>

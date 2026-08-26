@@ -13,6 +13,7 @@ test('web：页面包含三主题、3D 加载动画与只读 API 入口', () => 
   assert.match(html, /data-theme-target="galaxy"/);
   assert.match(html, /data-theme-target="sky"/);
   assert.match(html, /class="cube"/);
+  assert.match(html, /class="mark-logo" src="\/favicon\.svg"/);
   assert.match(html, /class="face f1"/);
   assert.match(html, /rel="icon" href="\/favicon\.svg"/);
   assert.match(html, /id="graph-canvas"/);
