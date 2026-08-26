@@ -5,10 +5,10 @@
     <linearGradient id="panel" x1="0" y1="0" x2="1280" y2="360" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#07111f"/><stop offset=".56" stop-color="#0d1830"/><stop offset="1" stop-color="#101426"/>
     </linearGradient>
-    <linearGradient id="left-word" x1="218" y1="126" x2="520" y2="214" gradientUnits="userSpaceOnUse">
+    <linearGradient id="left-word" x1="196" y1="126" x2="382" y2="214" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#64dcff"/><stop offset=".48" stop-color="#6d9dff"/><stop offset="1" stop-color="#a875ff"/>
     </linearGradient>
-    <linearGradient id="right-word" x1="638" y1="126" x2="950" y2="214" gradientUnits="userSpaceOnUse">
+    <linearGradient id="right-word" x1="462" y1="126" x2="650" y2="214" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#a875ff"/><stop offset=".36" stop-color="#ef72d3"/><stop offset=".7" stop-color="#ff8b80"/><stop offset="1" stop-color="#ffd45c"/>
     </linearGradient>
     <linearGradient id="wrench" x1="574" y1="88" x2="616" y2="248" gradientUnits="userSpaceOnUse">
@@ -21,11 +21,11 @@
   <g filter="url(#shadow)">
     <text x="196" y="205" fill="url(#left-word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="148" font-weight="850" letter-spacing="-7">SK</text>
     <!-- The wrench is the I in SKILL: maintenance, upgrades, and governance. -->
-    <g transform="translate(560 155) rotate(-50) translate(-12 -12) scale(4.9)" fill="none" stroke="url(#wrench)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(365 155) rotate(-50) translate(-12 -12) scale(4.9)" fill="none" stroke="url(#wrench)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 7.5a5.5 5.5 0 0 1-7.6 5.1L7 19a2.1 2.1 0 1 1-3-3l6.4-6.4A5.5 5.5 0 0 1 16.5 2L13 5.5l1.5 2L17 9l3.5-3.5A5.5 5.5 0 0 1 21 7.5Z"/>
       <circle cx="5.5" cy="18.5" r="1.2" fill="#07111f" stroke="url(#wrench)" stroke-width="1.2"/>
     </g>
-    <text x="642" y="205" fill="url(#right-word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="148" font-weight="850" letter-spacing="-7">LL</text>
+    <text x="462" y="205" fill="url(#right-word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="148" font-weight="850" letter-spacing="-7">LL</text>
   </g>
   <text x="202" y="270" fill="#e7eef8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="43" font-weight="650" letter-spacing="1.4">skill-manager</text>
   <text x="206" y="314" fill="#91a5bf" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="17" font-weight="750" letter-spacing="3.5">AI SKILL GOVERNANCE</text>
