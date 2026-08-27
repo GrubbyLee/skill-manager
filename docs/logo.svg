@@ -2,14 +2,11 @@
   <title id="title">skill-manager</title>
   <desc id="desc">The skill-manager wordmark with SK and LL in a rainbow gradient and a wrench forming the I in SKILL.</desc>
   <defs>
-    <linearGradient id="panel" x1="0" y1="0" x2="1280" y2="360" gradientUnits="userSpaceOnUse">
+    <linearGradient id="panel" x1="0" y1="0" x2="1280" y2="280" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#07111f"/><stop offset=".56" stop-color="#0d1830"/><stop offset="1" stop-color="#101426"/>
     </linearGradient>
-    <linearGradient id="left-word" x1="196" y1="126" x2="382" y2="214" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#64dcff"/><stop offset=".48" stop-color="#6d9dff"/><stop offset="1" stop-color="#a875ff"/>
-    </linearGradient>
-    <linearGradient id="right-word" x1="462" y1="126" x2="650" y2="214" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#a875ff"/><stop offset=".36" stop-color="#ef72d3"/><stop offset=".7" stop-color="#ff8b80"/><stop offset="1" stop-color="#ffd45c"/>
+    <linearGradient id="rainbow" x1="0" y1="0" x2="1" y2="0" gradientUnits="objectBoundingBox">
+      <stop offset="0" stop-color="#ff6b8a"/><stop offset=".18" stop-color="#ffd166"/><stop offset=".36" stop-color="#7ee8a7"/><stop offset=".54" stop-color="#64dcff"/><stop offset=".72" stop-color="#7b9bff"/><stop offset=".88" stop-color="#d477ed"/><stop offset="1" stop-color="#ff6b8a"/>
     </linearGradient>
     <linearGradient id="wrench" x1="574" y1="88" x2="616" y2="248" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#d4ffe9"/><stop offset=".48" stop-color="#8af0ce"/><stop offset="1" stop-color="#63d9f5"/>
@@ -18,13 +15,22 @@
   </defs>
   <rect width="1280" height="280" rx="34" fill="url(#panel)"/>
   <g filter="url(#shadow)">
-    <text x="150" y="185" fill="url(#left-word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="136" font-weight="850" letter-spacing="-7">SK</text>
+    <g fill="url(#rainbow)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="136" font-weight="850" letter-spacing="-7">
+      <text x="150" y="185">S</text>
+      <text x="220" y="185">K</text>
+    </g>
     <!-- The wrench is the I in SKILL: maintenance, upgrades, and governance. -->
-    <g transform="translate(346 135) rotate(-50) translate(-12 -12) scale(4.5)" fill="none" stroke="url(#wrench)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(296 135) rotate(-50) translate(-12 -12) scale(4.5)" fill="none" stroke="url(#wrench)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 7.5a5.5 5.5 0 0 1-7.6 5.1L7 19a2.1 2.1 0 1 1-3-3l6.4-6.4A5.5 5.5 0 0 1 16.5 2L13 5.5l1.5 2L17 9l3.5-3.5A5.5 5.5 0 0 1 21 7.5Z"/>
       <circle cx="5.5" cy="18.5" r="1.2" fill="#07111f" stroke="url(#wrench)" stroke-width="1.2"/>
     </g>
-    <text x="435" y="185" fill="url(#right-word)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="136" font-weight="850" letter-spacing="-7">LL</text>
-    <text x="600" y="179" fill="#e7eef8" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="86" font-weight="650" letter-spacing="-2">-manager</text>
+    <g fill="url(#rainbow)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="136" font-weight="850" letter-spacing="-7">
+      <text x="375" y="185">L</text>
+      <text x="445" y="185">L</text>
+    </g>
+    <text x="518" y="179" fill="#e7eef8" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="78" font-weight="650" letter-spacing="-2">-</text>
+    <g fill="url(#rainbow)" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="78" font-weight="650" letter-spacing="-2">
+      <text x="556" y="179">M</text><text x="621" y="179">a</text><text x="664" y="179">n</text><text x="716" y="179">a</text><text x="759" y="179">g</text><text x="808" y="179">e</text><text x="854" y="179">r</text>
+    </g>
   </g>
 </svg>
