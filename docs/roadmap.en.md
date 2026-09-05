@@ -6,7 +6,7 @@ skill-manager aims to become the most useful open-source governance tool for AID
 
 `v0.1.x` focuses on the core loop:
 
-- scan Claude Code / Codex skills and MCP servers
+- scan Claude Code / Codex / Pi skills and MCP servers (Pi has no MCP config layer)
 - classify, search, recommend, and visualize
 - detect duplicates, audit usage, and report risks
 - govern skill lifecycle: sources, update, rollback, lock files, policy, profiles, and quality evaluation
@@ -55,7 +55,7 @@ skill-manager aims to become the most useful open-source governance tool for AID
 
 ## Adapters and MCP
 
-- Implemented: Claude Code / Codex skill and MCP scanning
+- Implemented: Claude Code / Codex / Pi skill scanning and observable session usage audit; Claude Code / Codex skill and MCP scanning
 - Implemented: Cursor / Gemini common skill-directory and MCP-config scanning without reading sensitive caches or launching external tools
 - Implemented: static security audit in `scan` / `audit`, covering skill text, directory metadata, and non-env MCP config fields
 - Implemented: static MCP schema context estimates for risk reports and HTML reports

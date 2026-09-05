@@ -574,7 +574,10 @@ function scoreSkill(skill, queryTerms, queryTokens, requiredTerms, direction, us
 
   if (skill.tools.length > 1) {
     score += 4;
-    reasonSet.add('Claude/Codex 两侧可用');
+    const labels = skill.tools.map((tool) => tool === 'claude-code' ? 'claude' : tool).sort();
+    reasonSet.add(labels.length === 2 && labels.includes('claude') && labels.includes('codex')
+      ? 'Claude/Codex 两侧可用'
+      : `可用工具：${labels.join('、')}`);
   }
   if (usage.count > 0) {
     score += Math.min(8, 3 + Math.floor(Math.log2(usage.count + 1)));
@@ -887,6 +890,8 @@ function localizeReason(reason, lang) {
   if (reason === '描述匹配') return 'description match';
   if (reason === '任务词相似') return 'similar task terms';
   if (reason === 'Claude/Codex 两侧可用') return 'available in both Claude and Codex';
+  let tools = reason.match(/^可用工具：(.+)$/);
+  if (tools) return `available in: ${tools[1].split('、').join(', ')}`;
   if (reason === '最近 30 天用过') return 'used in the last 30 days';
   if (reason === '最近 90 天用过') return 'used in the last 90 days';
   if (reason === '个人偏好：常用分类/套件') return 'personal preference: commonly used category/suite';

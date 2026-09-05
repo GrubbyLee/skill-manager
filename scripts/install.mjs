@@ -17,6 +17,7 @@ const bridgeSkillSource = path.join(root, 'integrations', bridgeSkillName);
 const bridgeSkillTargets = [
   { tool: 'Claude Code', dir: path.join(os.homedir(), '.claude', 'skills', bridgeSkillName) },
   { tool: 'Codex', dir: path.join(os.homedir(), '.codex', 'skills', bridgeSkillName) },
+  { tool: 'Pi', dir: path.join(os.homedir(), '.pi', 'agent', 'skills', bridgeSkillName) },
 ];
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
@@ -35,8 +36,8 @@ Usage:
 
 Notes:
   This script runs npm link in the current repository so the skm command is available locally.
-  It also installs the bundled skill-navigator bridge skill into Claude Code and Codex user skill directories.
-  It does not scan, clean, disable, or modify Claude/Codex configs, MCP servers, or session logs.` : `${tr(lang, 'install.title')}
+  It also installs the bundled skill-navigator bridge skill into Claude Code, Codex, and Pi user skill directories.
+  It does not scan, clean, disable, or modify AIDE configs, MCP servers, or session logs.` : `${tr(lang, 'install.title')}
 
 ${tr(lang, 'install.usage')}
   node scripts/install.mjs

@@ -114,7 +114,7 @@ skm profile list
 skm profile apply writing --dry-run
 ```
 
-`profile create` records scanned skills and tries to preserve current Claude Code `skillOverrides` states. `profile apply` writes only Claude Code user-level `settings.json`, with a backup first. Codex, Cursor, and Gemini state toggles should still use their native UI.
+`profile create` records scanned skills and tries to preserve current Claude Code `skillOverrides` states. `profile apply` writes only Claude Code user-level `settings.json`, with a backup first. Codex, Cursor, Gemini, WorkBuddy, Kimi, and Pi state toggles should still use their native UI or directory settings.
 
 ## Quality Evaluation
 

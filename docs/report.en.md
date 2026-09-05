@@ -41,4 +41,4 @@ The report includes a static per-server MCP schema context estimate. This versio
 
 ## Safety
 
-`report` is read-only for AIDE data. It may update skm's own `~/.skill-manager/usage-cache.json` and session index cache, but it does not modify Claude/Codex/Cursor/Gemini configs, skills, MCP servers, or session logs.
+`report` is read-only for AIDE data. It may update skm's own `~/.skill-manager/usage-cache.json` and session index cache, but it does not modify Claude/Codex/Cursor/Gemini/WorkBuddy/Kimi/Pi configs, skills, MCP servers, or session logs.

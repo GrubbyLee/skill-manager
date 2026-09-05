@@ -1,5 +1,13 @@
 # 更新日志
 
+## v0.1.13 - 2026-09-06
+
+- 完整接入 Pi coding agent：扫描标准目录、文件型 skill、settings 配置和 package skill。
+- 支持 Pi 项目 skill 的 Git 根边界、可配置 sessionDir、使用统计和会话治理。
+- 修正多工具 skill 的展示与推荐标签，不再把所有多工具安装误称为 Claude/Codex 两侧。
+- Pi 文件型 skill 保持只读生命周期边界，更新或回滚时给出明确提示。
+- 补充 Pi 适配器、路径解析、生命周期和推荐回归测试。
+
 ## 未发布
 
 - 重制品牌 Logo：以扳手替代 `SKILL` 中的 `I`，`SK` 与 `LL` 使用彩虹渐变，移除盾牌、皇冠、节点网络等复杂装饰，并同步横版 SVG/PNG、小图标和 Web 工作台标识。

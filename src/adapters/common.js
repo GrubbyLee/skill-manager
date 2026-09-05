@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { parseFrontmatter, fallbackDescription } from '../frontmatter.js';
-import { auditSkillDirectory } from '../securityAudit.js';
+import { auditSkillDirectory, auditSkillSecurity } from '../securityAudit.js';
 import { isValidSourceUrl } from '../sources.js';
 import { buildPackageManifest, installationId } from '../skillPackage.js';
 
@@ -12,7 +12,7 @@ const gitCache = new Map();
 
 // 扫描一个 skills 根目录：每个子目录一个 skill，以 SKILL.md 为准。
 // 以 . 或 _ 开头的目录视为已归档/隐藏，跳过但计数。
-export function scanSkillDir(baseDir, { tool, scope, source = null }) {
+export function scanSkillDir(baseDir, { tool, scope, source = null, allowRootFiles = false }) {
   const skills = [];
   const warnings = [];
   let archived = 0;
@@ -24,6 +24,11 @@ export function scanSkillDir(baseDir, { tool, scope, source = null }) {
       continue;
     }
     const dir = path.join(baseDir, ent.name);
+    if (allowRootFiles && ent.isFile() && ent.name.toLowerCase().endsWith('.md')) {
+      const skill = scanSkillFile(dir, { tool, scope, source });
+      if (skill) skills.push(skill);
+      continue;
+    }
     // 很多用户用软链把 skill 指向共享库（如 ~/.agents/skills），必须跟随软链
     if (!isDir(dir)) continue;
     const mdPath = path.join(dir, 'SKILL.md');
@@ -63,6 +68,44 @@ export function scanSkillDir(baseDir, { tool, scope, source = null }) {
     skills.push(skill);
   }
   return { skills, warnings, archived };
+}
+
+export function scanSkillFile(file, { tool, scope, source = null } = {}) {
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+  const { data, hasFrontmatter } = parseFrontmatter(text);
+  const fileName = path.basename(file, path.extname(file));
+  const dirName = fileName || 'skill';
+  const description = String(data.description || fallbackDescription(text) || '').trim();
+  const stat = fs.statSync(file);
+  const hash = crypto.createHash('sha256').update(text).digest('hex').slice(0, 12);
+  const packageHash = crypto.createHash('sha256').update(`SKILL.md\0${text}`).digest('hex');
+  const skill = {
+    tool,
+    scope,
+    source,
+    dirName,
+    name: String(data.name || dirName),
+    description,
+    path: file,
+    realPath: safeRealPath(file),
+    isSymlink: !!safeLstat(file)?.isSymbolicLink(),
+    hasFrontmatter,
+    skillMdHash: hash,
+    skillMdBytes: Buffer.byteLength(text),
+    fileCount: 1,
+    totalBytes: stat.size,
+    packageHash,
+    descTokens: estimateTokens(`${data.name || dirName} ${description}`),
+    upstream: collectUpstreamMetadata(data, path.dirname(file)),
+  };
+  skill.id = installationId(skill);
+  skill.securityFindings = auditSkillSecurity(text, skill);
+  return skill;
 }
 
 function collectUpstreamMetadata(data, dir) {

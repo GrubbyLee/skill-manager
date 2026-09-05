@@ -4,6 +4,7 @@ import { scanCursor } from '../adapters/cursor.js';
 import { scanGemini } from '../adapters/gemini.js';
 import { scanWorkBuddy } from '../adapters/workbuddy.js';
 import { scanKimi } from '../adapters/kimi.js';
+import { scanPi } from '../adapters/pi.js';
 import { loadRules, classify } from '../classify.js';
 import { saveCatalog, loadCatalog, mergeByDirName, CATALOG_REL } from '../catalog.js';
 import { renderTable, termWidth } from '../table.js';
@@ -44,17 +45,18 @@ function collectLocalInventory(cwd) {
   const gemini = scanGemini({ cwd });
   const workbuddy = scanWorkBuddy({ cwd });
   const kimi = scanKimi({ cwd });
+  const pi = scanPi({ cwd });
   const ruleSet = loadRules();
   const sourceMap = loadSources();
-  const skills = applySourcesToSkills([...claude.skills, ...codex.skills, ...cursor.skills, ...gemini.skills, ...workbuddy.skills, ...kimi.skills], sourceMap).map((s) => ({
+  const skills = applySourcesToSkills([...claude.skills, ...codex.skills, ...cursor.skills, ...gemini.skills, ...workbuddy.skills, ...kimi.skills, ...pi.skills], sourceMap).map((s) => ({
     ...s,
     category: classify(s, ruleSet),
   }));
   return {
     skills,
-    mcpServers: [...claude.mcpServers, ...codex.mcpServers, ...cursor.mcpServers, ...gemini.mcpServers, ...workbuddy.mcpServers, ...kimi.mcpServers],
-    warnings: [...claude.warnings, ...codex.warnings, ...cursor.warnings, ...gemini.warnings, ...workbuddy.warnings, ...kimi.warnings],
-    archived: { 'claude-code': claude.archived, codex: codex.archived, cursor: cursor.archived, gemini: gemini.archived, workbuddy: workbuddy.archived, kimi: kimi.archived },
+    mcpServers: [...claude.mcpServers, ...codex.mcpServers, ...cursor.mcpServers, ...gemini.mcpServers, ...workbuddy.mcpServers, ...kimi.mcpServers, ...pi.mcpServers],
+    warnings: [...claude.warnings, ...codex.warnings, ...cursor.warnings, ...gemini.warnings, ...workbuddy.warnings, ...kimi.warnings, ...pi.warnings],
+    archived: { 'claude-code': claude.archived, codex: codex.archived, cursor: cursor.archived, gemini: gemini.archived, workbuddy: workbuddy.archived, kimi: kimi.archived, pi: pi.archived },
   };
 }
 
@@ -122,6 +124,7 @@ function finishScan({ cwd, json = false, verbose = false, silent = false, quiet 
   const geminiStats = skillStats('gemini');
   const workbuddyStats = skillStats('workbuddy');
   const kimiStats = skillStats('kimi');
+  const piStats = skillStats('pi');
 
   print(`\n${tr(lang, 'scan.overview')}`);
   print(renderTable(
@@ -142,6 +145,7 @@ function finishScan({ cwd, json = false, verbose = false, silent = false, quiet 
       ['Gemini CLI', geminiStats.skills, geminiStats.user, geminiStats.project, geminiStats.plugin, geminiStats.mcp, geminiStats.archived, tr(lang, 'scan.tokens', { n: geminiStats.tokens })],
       ['WorkBuddy', workbuddyStats.skills, workbuddyStats.user, workbuddyStats.project, workbuddyStats.plugin, workbuddyStats.mcp, workbuddyStats.archived, tr(lang, 'scan.tokens', { n: workbuddyStats.tokens })],
       ['Kimi', kimiStats.skills, kimiStats.user, kimiStats.project, kimiStats.plugin, kimiStats.mcp, kimiStats.archived, tr(lang, 'scan.tokens', { n: kimiStats.tokens })],
+      ['Pi', piStats.skills, piStats.user, piStats.project, piStats.plugin, piStats.mcp, piStats.archived, tr(lang, 'scan.tokens', { n: piStats.tokens })],
     ],
     Math.min(width, 100),
   ));

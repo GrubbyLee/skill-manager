@@ -41,4 +41,4 @@ skm report --format html --output skm-report.html --anonymize
 
 ## 安全边界
 
-`report` 是只读命令。它可能更新 `~/.skill-manager/usage-cache.json` 和会话索引缓存，但不会修改 Claude/Codex/Cursor/Gemini 的配置、skill、MCP 或会话日志。
+`report` 是只读命令。它可能更新 `~/.skill-manager/usage-cache.json` 和会话索引缓存，但不会修改 Claude/Codex/Cursor/Gemini/WorkBuddy/Kimi/Pi 的配置、skill、MCP 或会话日志。

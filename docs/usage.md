@@ -11,7 +11,7 @@ npm i -g aide-skill-manager
 skm scan
 ```
 
-可选：安装桥接 skill，让 Claude Code / Codex 能在对话里调用本机 `skm`：
+可选：安装桥接 skill，让 Claude Code / Codex / Pi 能在对话里调用本机 `skm`：
 
 ```bash
 skm setup
@@ -51,7 +51,7 @@ node bin/skm.js scan
 node bin/skm.js ask "把网页转成 markdown"
 ```
 
-这种方式适合临时体验 CLI；如果希望 Claude Code / Codex 通过附属 skill 默认访问本机 `skm`，npm 安装后运行 `skm setup`，源码安装时运行 `node scripts/install.mjs`。
+这种方式适合临时体验 CLI；如果希望 Claude Code / Codex / Pi 通过附属 skill 默认访问本机 `skm`，npm 安装后运行 `skm setup`，源码安装时运行 `node scripts/install.mjs`。
 
 安装脚本支持 dry-run：
 
@@ -122,7 +122,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 | `skm eval` | skill 质量评测 | `[skill]`、`--all`、`--json` |
 | `skm history` | 生命周期事件记录 | `[skill]`、`--json` |
 | `skm setup` | 安装桥接 skill | `--dry-run` |
-| `skm list` | 列出 skill | `--category`、`--tool claude\|codex\|cursor\|gemini\|workbuddy\|kimi`、`--scope`、`--raw`、`--json` |
+| `skm list` | 列出 skill | `--category`、`--tool claude\|codex\|cursor\|gemini\|workbuddy\|kimi\|pi`、`--scope`、`--raw`、`--json` |
 | `skm list --mcp` | 列出 MCP | `--tool`、`--json` |
 | `skm search <词>` | 搜索 skill | `--json` |
 | `skm recommend <任务>` | 推荐 skill | `--top`、`--tool`、`--category`、`--why`、`--advisor`、`--json` |
@@ -140,7 +140,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 
 ## scan
 
-扫描 Claude Code、Codex、Cursor、Gemini 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`，然后展示和裸命令 `skm` 相同的治理总览。Cursor 与 Gemini 采用保守适配：扫描常见 skill 目录和 MCP 配置文件，不读取敏感编辑器缓存，不启动外部工具。
+扫描 Claude Code、Codex、Cursor、Gemini、WorkBuddy、Kimi 与 Pi 的 skill 与 MCP，生成 `~/.skill-manager/catalog.json`，然后展示和裸命令 `skm` 相同的治理总览。Pi 遵循 Agent Skills 标准，扫描 `~/.pi/agent/skills`、项目 `.pi/skills` 和共享 `.agents/skills`；Pi 不提供 MCP 配置层。
 
 ```bash
 skm scan
@@ -151,7 +151,7 @@ skm scan --export json --output skm-scan.json --anonymize
 
 输出会包含：
 
-- Claude Code、Codex、Cursor、Gemini 各侧 skill 数量
+- Claude Code、Codex、Cursor、Gemini、WorkBuddy、Kimi、Pi 各侧 skill 数量
 - 用户、项目、插件来源分布
 - MCP 数量
 - 已归档目录数量
@@ -345,7 +345,7 @@ skm audit --json
 - Claude Code：Skill 工具调用、斜杠命令、MCP 工具调用
 - Codex：只统计 `function_call` 中实际读取 `SKILL.md` 的行为
 
-使用频率只来自可观测日志。Claude Code / Codex 的 skill 使用信号更完整；Cursor / Gemini 当前以扫描、分类、重复检测、静态安全审计和报告展示为主，不会为了补齐统计而推断真实使用次数。
+使用频率只来自可观测日志。Claude Code / Codex / Pi 的 skill 使用信号更完整；Cursor / Gemini / WorkBuddy / Kimi 当前以扫描、分类、重复检测、静态安全审计和报告展示为主，不会为了补齐统计而推断真实使用次数。
 
 同时，`audit` 会展示 `scan` 已记录的静态安全审计结果，包括：
 
@@ -387,7 +387,7 @@ skm sessions --clean --days 30 --keep 3 --dry-run
 skm sessions --clean --days 30 --keep 3
 ```
 
-`sessions` 按工作区统计 Claude / Codex 会话日志数量、体积、最早和最新时间。
+`sessions` 按工作区统计 Claude / Codex / Pi 会话日志数量、体积、最早和最新时间。
 
 清理策略：
 

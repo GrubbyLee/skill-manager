@@ -8,7 +8,7 @@ import { auditSkillDirectory, auditSkillSecurity, localizeSecurityFinding, summa
 import { parseFrontmatter, fallbackDescription } from '../frontmatter.js';
 import { estimateTokens } from '../adapters/common.js';
 import { applySourcesToSkills, upsertSource, isValidSourceUrl } from '../sources.js';
-import { CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR, CURSOR_SKILLS_DIRS, GEMINI_SKILLS_DIRS, WORKBUDDY_SKILLS_DIR, KIMI_SKILLS_DIR, KIMI_CODE_SKILLS_DIR, KIMI_DESKTOP_SKILLS_DIR, DATA_DIR, LOCK_PATH, LIFECYCLE_HISTORY_PATH, POLICY_PATH, PROFILES_PATH, SKILL_BACKUP_DIR } from '../paths.js';
+import { CLAUDE_SKILLS_DIR, CODEX_SKILLS_DIR, CURSOR_SKILLS_DIRS, GEMINI_SKILLS_DIRS, WORKBUDDY_SKILLS_DIR, KIMI_SKILLS_DIR, KIMI_CODE_SKILLS_DIR, KIMI_DESKTOP_SKILLS_DIR, PI_SKILLS_DIR, DATA_DIR, LOCK_PATH, LIFECYCLE_HISTORY_PATH, POLICY_PATH, PROFILES_PATH, SKILL_BACKUP_DIR } from '../paths.js';
 import { confirm, fileStamp, loadJsonFile, paint, saveJsonFile } from '../utils.js';
 import { renderTable, termWidth } from '../table.js';
 import { buildPackageManifest, diffPackageManifests, installationId } from '../skillPackage.js';
@@ -18,7 +18,7 @@ const DEFAULT_PROFILE_MODES = ['on', 'name-only', 'user-invocable-only', 'off'];
 export async function runSkillInstall(ctx, args = []) {
   const source = args[0] || ctx.source;
   const lang = ctx.lang || 'zh-CN';
-  if (!source) return fail(lang, zh(lang, '用法：skm install <本地目录|SKILL.md URL|GitHub/Gitee skill 目录 URL> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]', 'Usage: skm install <local-dir|SKILL.md URL|GitHub/Gitee skill directory URL> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]'));
+  if (!source) return fail(lang, zh(lang, '用法：skm install <本地目录|SKILL.md URL|GitHub/Gitee skill 目录 URL> [--tool claude|codex|cursor|gemini|workbuddy|kimi|pi] [--dry-run] [--yes]', 'Usage: skm install <local-dir|SKILL.md URL|GitHub/Gitee skill directory URL> [--tool claude|codex|cursor|gemini|workbuddy|kimi|pi] [--dry-run] [--yes]'));
 
   const payload = await loadInstallPayload(source, lang);
   if (!payload) return;
@@ -118,7 +118,7 @@ export async function runSkillUpdate(ctx, args = []) {
 export async function runSkillRollback(ctx, args = []) {
   const name = args[0];
   const lang = ctx.lang || 'zh-CN';
-  if (!name) return fail(lang, zh(lang, '用法：skm rollback <skill名> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]', 'Usage: skm rollback <skill-name> [--tool claude|codex|cursor|gemini|workbuddy|kimi] [--dry-run] [--yes]'));
+  if (!name) return fail(lang, zh(lang, '用法：skm rollback <skill名> [--tool claude|codex|cursor|gemini|workbuddy|kimi|pi] [--dry-run] [--yes]', 'Usage: skm rollback <skill-name> [--tool claude|codex|cursor|gemini|workbuddy|kimi|pi] [--dry-run] [--yes]'));
   refreshCatalog(ctx, lang, 'pre-rollback');
   const entries = selectLifecycleEntries(ctx, name, { allowMany: Boolean(ctx.all), requireSource: false, lang });
   if (!entries.length) return;
@@ -242,6 +242,11 @@ function selectLifecycleEntries(ctx, name, { allowMany, requireSource, lang }) {
     fail(lang, zh(lang, `拒绝直接修改插件管理的 skill：${pluginEntries.map(entryLabel).join(', ')}。请通过插件管理器升级。`, `Refusing to modify plugin-managed skill: ${pluginEntries.map(entryLabel).join(', ')}. Update it through the plugin manager.`));
     return [];
   }
+  const fileEntries = entries.filter((entry) => !safeDirectory(entry.realPath || entry.path));
+  if (fileEntries.length) {
+    fail(lang, zh(lang, `拒绝直接修改 Pi 文件型 skill：${fileEntries.map(entryLabel).join(', ')}。请在 Pi 的原始文件或 package 中管理。`, `Refusing to modify file-based Pi skills: ${fileEntries.map(entryLabel).join(', ')}. Manage them in the original Pi file or package.`));
+    return [];
+  }
   if (requireSource) {
     entries = entries.filter((entry) => {
       if (sourceDescriptor(entry, false)) return true;
@@ -310,6 +315,7 @@ function targetRoots(tool, cwd) {
     { tool: 'kimi', catalogTool: 'kimi', label: 'kimi/cli', root: KIMI_SKILLS_DIR },
     { tool: 'kimi-code', catalogTool: 'kimi', label: 'kimi/code', root: KIMI_CODE_SKILLS_DIR },
     { tool: 'kimi-desktop', catalogTool: 'kimi', label: 'kimi/desktop', root: KIMI_DESKTOP_SKILLS_DIR },
+    { tool: 'pi', label: 'pi/user', root: PI_SKILLS_DIR },
   ];
   if (tool === 'kimi') return all.filter((item) => item.tool === 'kimi' || item.tool === 'kimi-code' || item.tool === 'kimi-desktop');
   if (normalized) return all.filter((item) => normalizeTool(item.tool) === normalized);

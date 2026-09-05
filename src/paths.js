@@ -1,5 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
+import fs from 'node:fs';
 
 export const HOME = os.homedir();
 
@@ -49,6 +50,51 @@ export const KIMI_DESKTOP_SKILLS_DIR = process.platform === 'win32'
 // Kimi Desktop（daimon 运行时）技能目录：按平台候选，目录不存在自动跳过。
 // 布局为社区公认约定 {平台数据目录}/kimi-desktop/daimon-share/daimon/skills
 export const KIMI_DESKTOP_SKILLS_DIRS = [KIMI_DESKTOP_SKILLS_DIR];
+// Pi coding agent：全局 ~/.pi/agent/skills，项目级 <cwd>/.pi/skills。
+// Pi 也会读取 ~/.agents/skills；该共享目录由各适配器分别标记可用工具。
+export const PI_AGENT_HOME = path.join(HOME, '.pi', 'agent');
+export const PI_SKILLS_DIR = path.join(PI_AGENT_HOME, 'skills');
+export const PI_SESSIONS_ROOT = path.join(PI_AGENT_HOME, 'sessions');
+
+export function resolvePiSessionRoot(cwd = process.cwd()) {
+  const configured = process.env.PI_CODING_AGENT_SESSION_DIR;
+  if (configured) return resolvePiPath(configured, cwd);
+  let sessionDir = null;
+  const globalSettings = readSettings(path.join(PI_AGENT_HOME, 'settings.json'));
+  if (typeof globalSettings?.sessionDir === 'string') sessionDir = resolvePiPath(globalSettings.sessionDir, PI_AGENT_HOME);
+  for (const root of projectRoots(cwd)) {
+    const settings = readSettings(path.join(root, '.pi', 'settings.json'));
+    if (typeof settings?.sessionDir === 'string') sessionDir = resolvePiPath(settings.sessionDir, path.join(root, '.pi'));
+  }
+  return sessionDir || PI_SESSIONS_ROOT;
+}
+
+function resolvePiPath(value, base) {
+  const text = String(value).trim();
+  if (text.startsWith('~')) return path.join(HOME, text.slice(1));
+  return path.isAbsolute(text) ? text : path.resolve(base, text);
+}
+
+function readSettings(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function projectRoots(cwd) {
+  const roots = [];
+  let current = path.resolve(cwd);
+  while (true) {
+    roots.push(current);
+    if (fs.existsSync(path.join(current, '.git'))) break;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return roots.reverse();
+}
 
 // 会话日志根目录（usage 统计与 sessions 索引共用，单一来源）
 export const CLAUDE_SESSIONS_ROOT = path.join(HOME, '.claude', 'projects');

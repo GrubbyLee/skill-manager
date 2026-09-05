@@ -1,11 +1,11 @@
 import path from 'node:path';
-import { DATA_DIR, CLAUDE_SESSIONS_ROOT, CODEX_SESSIONS_ROOT } from './paths.js';
+import { DATA_DIR, CLAUDE_SESSIONS_ROOT, CODEX_SESSIONS_ROOT, resolvePiSessionRoot } from './paths.js';
 import { walkFiles, forEachLine, loadJsonFile, saveJsonFile } from './utils.js';
 import { tr } from './i18n.js';
 
 const CACHE_PATH = path.join(DATA_DIR, 'usage-cache.json');
-// v3：内置斜杠命令不计入统计、codex 路径正则锚定；解析规则变更需作废旧缓存全量重扫
-const CACHE_VERSION = 3;
+// v4：加入 Pi JSONL 会话解析；解析规则变更需作废旧缓存全量重扫
+const CACHE_VERSION = 4;
 
 // Claude Code 的内置斜杠命令：出现在 <command-name> 里但不是 skill，不应计入使用统计
 const BUILTIN_COMMANDS = new Set([
@@ -27,11 +27,15 @@ const BUILTIN_COMMANDS = new Set([
 //   Codex（~/.codex/sessions/**/*.jsonl）：
 //     - function_call 记录中实际读取 skills/<name>/SKILL.md 才算使用（上下文注入的清单不算），
 //       同一会话同一 skill 只计 1 次
-export function scanUsage({ log = () => {}, lang = 'zh-CN' } = {}) {
+//   Pi（~/.pi/agent/sessions/**/*.jsonl）：
+//     - assistant toolCall 的 read/bash 参数中实际读取 SKILL.md 才算使用，
+//       同一会话同一 skill 只计 1 次
+export function scanUsage({ log = () => {}, lang = 'zh-CN', cwd = process.cwd() } = {}) {
   const cache = loadCache();
   const files = [
     ...walkFiles(CLAUDE_SESSIONS_ROOT).map((f) => ({ ...f, kind: 'claude' })),
     ...walkFiles(CODEX_SESSIONS_ROOT).map((f) => ({ ...f, kind: 'codex' })),
+    ...walkFiles(resolvePiSessionRoot(cwd)).map((f) => ({ ...f, kind: 'pi' })),
   ];
 
   let dirty = false;
@@ -42,7 +46,7 @@ export function scanUsage({ log = () => {}, lang = 'zh-CN' } = {}) {
     cache.files[f.path] = {
       size: f.size,
       mtimeMs: f.mtimeMs,
-      ...(f.kind === 'claude' ? scanClaudeFile(f.path) : scanCodexFile(f.path)),
+      ...(f.kind === 'claude' ? scanClaudeFile(f.path) : f.kind === 'codex' ? scanCodexFile(f.path) : scanPiFile(f.path)),
     };
     dirty = true;
     scanned++;
@@ -138,6 +142,39 @@ export function scanCodexFile(file) {
     });
   } catch {
     /* 同上 */
+  }
+  const skills = {};
+  for (const [name, ts] of seen) skills[name] = { count: 1, lastUsed: ts };
+  return { skills, mcp: {}, earliest };
+}
+
+export function scanPiFile(file) {
+  const seen = new Map();
+  let earliest = null;
+  try {
+    forEachLine(file, (line) => {
+      if (!line.includes('SKILL.md')) return;
+      let obj;
+      try { obj = JSON.parse(line); } catch { return; }
+      const ts = obj.timestamp || obj.message?.timestamp || null;
+      if (ts && (!earliest || ts < earliest)) earliest = ts;
+      const content = obj?.message?.content;
+      if (!Array.isArray(content)) return;
+      for (const item of content) {
+        if (item?.type !== 'toolCall') continue;
+        if (!['read', 'bash'].includes(item.name)) continue;
+        const raw = item.name === 'read' ? item.arguments?.path : item.arguments?.command;
+        if (typeof raw !== 'string') continue;
+        const re = /[\\/]skills[\\/]((?:[A-Za-z0-9._-]+[\\/])*[A-Za-z0-9._-]+)[\\/]SKILL\.md/g;
+        let match;
+        while ((match = re.exec(raw)) !== null) {
+          const name = match[1].split(/[\\/]/).pop();
+          if (!seen.has(name) || (ts && ts > seen.get(name))) seen.set(name, ts);
+        }
+      }
+    });
+  } catch {
+    /* 单个文件读取失败不影响整体 */
   }
   const skills = {};
   for (const [name, ts] of seen) skills[name] = { count: 1, lastUsed: ts };

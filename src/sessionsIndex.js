@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { DATA_DIR, CLAUDE_SESSIONS_ROOT, CODEX_SESSIONS_ROOT } from './paths.js';
+import { DATA_DIR, CLAUDE_SESSIONS_ROOT, CODEX_SESSIONS_ROOT, resolvePiSessionRoot } from './paths.js';
 import { walkFiles, loadJsonFile, saveJsonFile, groupBy, DAY_MS } from './utils.js';
 
 const INDEX_PATH = path.join(DATA_DIR, 'session-index.json');
@@ -12,13 +12,14 @@ export const SAFE_WINDOW_MS = DAY_MS;
 // 会话文件索引：为每个会话日志解析所属工作区（cwd）。
 // 两侧的会话文件头部都带 "cwd" 字段；解析成功的映射不可变、永久缓存；
 // 解析失败（如会话刚创建、头部尚未写入 cwd）不入缓存，下次运行重试，workspace 为 null。
-export function buildSessionIndex() {
+export function buildSessionIndex({ cwd = process.cwd() } = {}) {
   const cache = loadIndex();
   const sessions = [];
   let dirty = false;
   for (const { root, tool } of [
     { root: CLAUDE_SESSIONS_ROOT, tool: 'claude-code' },
     { root: CODEX_SESSIONS_ROOT, tool: 'codex' },
+    { root: resolvePiSessionRoot(cwd), tool: 'pi' },
   ]) {
     for (const f of walkFiles(root)) {
       const cached = cache.files[f.path];

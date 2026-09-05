@@ -22,7 +22,7 @@ skm recommend "生成知识图谱" --advisor codex --why
 - 任务意图：识别漫画、知识图谱、诊断、演示文稿、会议纪要等任务
 - 转换方向：识别 `markdown to html`、`html to markdown`、`网页转 markdown`
 - 使用记录：历史用过、最近 30/90 天用过会加权；相关候选内会学习常用分类和套件偏好
-- 可用范围：Claude/Codex 两侧都可用会优先
+- 可用范围：在多个客户端可用的 skill 会获得轻微优先级；推荐结果会列出实际客户端
 
 个人偏好只在候选已经与任务相关时生效。比如你经常使用 `baoyu-*` 图片套件，图片相关任务可能会给同套件候选小幅加分；但“会议纪要”任务不会因为图片套件历史高频而推荐图片 skill。
 
@@ -63,7 +63,7 @@ npm test
 | 参数 | 作用 | 示例 |
 |---|---|---|
 | `--top <N>` | 指定推荐数量，最多 20 | `skm recommend "生成封面图" --top 5` |
-| `--tool claude\|codex\|cursor\|gemini` | 只推荐某一侧可用的 skill | `skm recommend "图片卡片" --tool codex` |
+| `--tool claude\|codex\|cursor\|gemini\|workbuddy\|kimi\|pi` | 只推荐某一客户端可用的 skill | `skm recommend "图片卡片" --tool pi` |
 | `--category <关键字>` | 限制分类范围 | `skm recommend "封面图" --category 图像` |
 | `--why` | 显示分数、命中词、方向识别 | `skm recommend "markdown to html" --why` |
 | `--advisor codex\|claude` | 调用本机 AIDE CLI 做增强判断 | `skm recommend "生成知识图谱" --advisor codex` |

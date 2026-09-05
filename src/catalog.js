@@ -33,8 +33,9 @@ export function mergeByDirName(skills) {
 }
 
 export function toolLabel(tools) {
-  if (tools.length > 1) return '两侧';
-  return tools[0] === 'claude-code' ? 'claude' : tools[0];
+  const labels = [...new Set(tools || [])].map((tool) => tool === 'claude-code' ? 'claude' : tool).filter(Boolean);
+  if (labels.length === 2 && labels.includes('claude') && labels.includes('codex')) return '两侧';
+  return labels.join(', ');
 }
 
 // 实体双份：同名多处安装且并非软链共享同一实体。

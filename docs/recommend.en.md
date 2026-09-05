@@ -24,7 +24,7 @@ Ranking uses:
 - task intent, such as image, graph, slides, meeting notes, writing, translation
 - conversion direction, such as `markdown to html` or `html to markdown`
 - usage count and recency; among already relevant candidates, common categories and suites get a small personal-preference boost
-- whether the skill is available in both Claude Code and Codex
+- whether the skill is available in multiple supported tools; results list the actual tools
 
 Personal preference only applies after relevance matching. For example, if you often use a `baoyu-*` image suite, image tasks may boost that suite slightly; a meeting-note task will not recommend image skills just because they are frequent.
 
@@ -65,7 +65,7 @@ Benchmark boundaries:
 | Option | Purpose |
 |---|---|
 | `--top <N>` | Return up to N recommendations, max 20 |
-| `--tool claude\|codex\|cursor\|gemini` | Restrict to one tool |
+| `--tool claude\|codex\|cursor\|gemini\|workbuddy\|kimi\|pi` | Restrict to one tool |
 | `--category <keyword>` | Restrict by category |
 | `--why` | Show score, matched terms, and reasons |
 | `--advisor codex\|claude` | Explicitly call a local AIDE CLI for enhanced ranking |

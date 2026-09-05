@@ -4,7 +4,7 @@
 
 ## 默认只读
 
-大多数命令不会修改 Claude Code、Codex、Cursor、Gemini、WorkBuddy、Kimi 的配置、skill、MCP 或会话日志：
+大多数命令不会修改 Claude Code、Codex、Cursor、Gemini、WorkBuddy、Kimi、Pi 的配置、skill、MCP 或会话日志：
 
 ```bash
 skm
@@ -33,7 +33,7 @@ skm sessions
 
 `sources discover` 只在用户确认后访问 GitHub 官方 API，只发送 skill 名称，不发送本地路径、skill 正文或其他清单。它读取公开候选 `SKILL.md` 做验证，用户选择前不写来源。`GITHUB_TOKEN` 仅作为请求头使用，不写缓存、不显示在输出中。
 
-显式运行 `skm setup` 或 `node scripts/install.mjs` 是安装阶段的例外：它们会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/` 与 `~/.codex/skills/`。如果目标目录已有不同内容，会先备份旧目录再替换。
+显式运行 `skm setup` 或 `node scripts/install.mjs` 是安装阶段的例外：它们会把附属 `skill-navigator` 桥接 skill 安装到 `~/.claude/skills/`、`~/.codex/skills/` 与 `~/.pi/agent/skills/`。如果目标目录已有不同内容，会先备份旧目录再替换。
 
 `skm state plan` 与 `skm state list` 只读；只有显式 `skm state set` 才会写入 Claude Code 设置。
 
@@ -65,7 +65,7 @@ skm audit
 skm risks
 ```
 
-使用频率审计只来自可观测会话日志。Claude Code / Codex 的使用信号更完整；Cursor / Gemini 当前不读取敏感编辑器缓存，也不会根据目录存在推断真实使用次数。
+使用频率审计只来自可观测会话日志。Claude Code / Codex / Pi 的使用信号更完整；Cursor / Gemini / WorkBuddy / Kimi 当前不读取敏感编辑器缓存，也不会根据目录存在推断真实使用次数。
 
 确认闲置或重复后再操作。
 

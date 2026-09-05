@@ -11,7 +11,7 @@ npm i -g aide-skill-manager
 skm scan
 ```
 
-Optional bridge skill setup, so Claude Code and Codex can call your local `skm` from chat:
+Optional bridge skill setup, so Claude Code, Codex, and Pi can call your local `skm` from chat:
 
 ```bash
 skm setup
@@ -102,7 +102,7 @@ Start with read-only commands. Use dry-run before install, update, rollback, pro
 | `skm eval` | Evaluate skill quality | `[skill]`, `--all`, `--json` |
 | `skm history` | Lifecycle event log | `[skill]`, `--json` |
 | `skm setup` | Install the bridge skill | `--dry-run` |
-| `skm list` | List skills | `--category`, `--tool claude\|codex\|cursor\|gemini\|workbuddy\|kimi`, `--scope`, `--raw`, `--json` |
+| `skm list` | List skills | `--category`, `--tool claude\|codex\|cursor\|gemini\|workbuddy\|kimi\|pi`, `--scope`, `--raw`, `--json` |
 | `skm list --mcp` | List MCP servers | `--tool`, `--json` |
 | `skm search <text>` | Search skills | `--json` |
 | `skm recommend <task>` | Ranked recommendations | `--top`, `--tool`, `--category`, `--why`, `--advisor`, `--json` |
@@ -126,7 +126,7 @@ skm scan --json
 skm scan --export json --output skm-scan.json --anonymize
 ```
 
-Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, context estimates, upstream version/source/git metadata, and a static security summary, then prints the same governance overview as plain `skm`. Claude Code, Codex, Cursor, and Gemini are scanned into the same catalog; Cursor and Gemini use conservative skill-directory and MCP-config adapters. skm does not read sensitive editor caches or launch external tools.
+Writes `~/.skill-manager/catalog.json` with skill records, MCP servers, categories, install scopes, archived directories, context estimates, upstream version/source/git metadata, and a static security summary, then prints the same governance overview as plain `skm`. Claude Code, Codex, Cursor, Gemini, WorkBuddy, Kimi, and Pi are scanned into the same catalog. Pi follows the Agent Skills standard and scans `~/.pi/agent/skills`, project `.pi/skills`, and shared `.agents/skills`; Pi has no MCP config layer. skm does not read sensitive editor caches or launch external tools.
 
 Use `--anonymize` before sharing output. It redacts paths, real paths, config file locations, scan directories, workspaces, MCP commands, and upstream `source` / `repository` / `homepage` / git remote values while keeping stable JSON field names.
 
@@ -260,7 +260,7 @@ skm audit --history
 skm audit --json
 ```
 
-`audit` reads session logs to reconstruct real skill and MCP usage. Claude Code and Codex provide fuller observable usage signals; Cursor and Gemini currently focus on scanning, classification, duplicate detection, static safety checks, and report visibility. skm does not read sensitive editor caches or invent usage counts when a tool does not expose a stable log signal.
+`audit` reads session logs to reconstruct real skill and MCP usage. Claude Code, Codex, and Pi provide fuller observable skill-usage signals; Cursor, Gemini, WorkBuddy, and Kimi currently focus on scanning, classification, duplicate detection, static safety checks, and report visibility. skm does not read sensitive editor caches or invent usage counts when a tool does not expose a stable log signal.
 
 It also shows static security findings recorded by `scan`, including suspicious secret access/exfiltration wording, destructive commands, remote script execution, encoded PowerShell, privileged commands, MCP command-line secrets, plain HTTP endpoints, shell evaluation, dynamic package runners, over-privileged containers, and trust-without-confirmation settings.
 

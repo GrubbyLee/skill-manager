@@ -129,6 +129,11 @@ async function runStateSet(opts, names) {
     return;
   }
   const selectedTool = normalizeTool(tool);
+  if (selectedTool === 'pi') {
+    console.error(tr(lang, 'state.piManual', { name }));
+    process.exitCode = 1;
+    return;
+  }
   if (selectedTool && selectedTool !== 'claude') {
     printCodexManual({ name, mode: normalizedMode, lang });
     process.exitCode = 1;

@@ -4,7 +4,7 @@
 
 ## Read-Only by Default
 
-Most commands do not modify Claude Code, Codex, Cursor, Gemini, WorkBuddy, or Kimi configs, skills, MCP servers, or session logs:
+Most commands do not modify Claude Code, Codex, Cursor, Gemini, WorkBuddy, Kimi, or Pi configs, skills, MCP servers, or session logs:
 
 ```bash
 skm
@@ -34,7 +34,7 @@ Some commands update skm's own files under `~/.skill-manager`, such as catalog, 
 
 `sources discover` contacts the official GitHub API only after user consent. It sends the skill name only, not local paths, skill content, or the inventory. Public candidate `SKILL.md` files are read for verification, and no source is written before user selection. `GITHUB_TOKEN` is used only as a request header and is neither cached nor printed.
 
-Explicitly running `skm setup` or `node scripts/install.mjs` is the install-time exception: it installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/` and `~/.codex/skills/`. If a target directory already exists with different content, skm backs it up before replacing it.
+Explicitly running `skm setup` or `node scripts/install.mjs` is the install-time exception: it installs the bundled `skill-navigator` bridge skill into `~/.claude/skills/`, `~/.codex/skills/`, and `~/.pi/agent/skills/`. If a target directory already exists with different content, skm backs it up before replacing it.
 
 `skm state plan` and `skm state list` are read-only. Only explicit `skm state set` writes Claude Code settings.
 
@@ -66,7 +66,7 @@ skm audit
 skm risks
 ```
 
-Usage auditing only uses observable session logs. Claude Code and Codex provide fuller usage signals; Cursor and Gemini are scanned conservatively without reading sensitive editor caches or inventing usage counts from directory presence.
+Usage auditing only uses observable session logs. Claude Code, Codex, and Pi provide fuller skill-usage signals; Cursor, Gemini, WorkBuddy, and Kimi are scanned conservatively without reading sensitive editor caches or inventing usage counts from directory presence.
 
 ## Skill Package Safety
 

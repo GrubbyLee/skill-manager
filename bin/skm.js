@@ -35,7 +35,7 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   risks           不改 AIDE 数据的风险报告：重复、闲置、高上下文开销、MCP schema 估算、日志体积
   report          生成一页式总览报告（summary/json/html），汇总健康、风险、审计、会话与图谱概览
   web             启动本地 Web 治理工作台（127.0.0.1，来源/版本操作需显式确认）
-  scan            扫描 Claude Code、Codex、Cursor、Gemini、WorkBuddy、Kimi，生成 catalog 后展示同一份治理总览
+  scan            扫描 Claude Code、Codex、Cursor、Gemini、WorkBuddy、Kimi、Pi，生成 catalog 后展示同一份治理总览
   outdated        检查 skill 上游版本线索；--online 才访问 GitHub/Gitee 或 git remote
   sources         管理本机补充的 skill 上游地址（list/missing/add/discover/remove/check/wizard）
   state           skill 状态治理：plan 生成降载建议；list 查看 Claude 状态；set 写入 Claude 原生状态
@@ -66,7 +66,7 @@ const HELP_ZH = `skm —— AIDE skill / MCP 清点、梳理与治理工具
   --anonymize     导出时脱敏本机路径、工作区和 MCP 启动命令
 
 list 选项：
-  --tool <claude|codex|cursor|gemini|workbuddy|kimi>   只看某个工具
+  --tool <claude|codex|cursor|gemini|workbuddy|kimi|pi>   只看某个工具
   --category <关键字>      按分类过滤（模糊匹配）
   --scope <user|project|plugin>
   --mcp                   列出 MCP server 而非 skill
@@ -103,7 +103,7 @@ state 选项：
   --yes                     跳过交互确认（脚本模式）
 
 生命周期选项：
-  skm install <源> --tool <claude|codex|cursor|gemini|workbuddy|kimi> [--dry-run] [--yes]
+  skm install <源> --tool <claude|codex|cursor|gemini|workbuddy|kimi|pi> [--dry-run] [--yes]
   skm update [skill] [--tool <工具>] [--scope <范围>] [--instance <ID>] [--all] [--dry-run] [--yes]
   skm rollback <skill> [--tool <工具>] [--scope <范围>] [--instance <ID>] [--all] [--dry-run] [--yes]
   --allow-risk            人工复核后允许高危安全发现通过策略门禁
@@ -117,7 +117,7 @@ state 选项：
 
 recommend 选项：
   --top <N>               推荐数量（默认 3）
-  --tool <claude|codex|cursor|gemini|workbuddy|kimi>   只推荐某个工具可用的 skill
+  --tool <claude|codex|cursor|gemini|workbuddy|kimi|pi>   只推荐某个工具可用的 skill
   --category <关键字>      限制推荐分类
   --why                   显示更详细的命中词与分数
   --advisor <codex|claude> 显式调用本机 AIDE CLI 做增强推荐；失败时回退本地推荐
@@ -126,6 +126,7 @@ report 选项：
   --format <summary|html|json>  导出格式；不指定时显示摘要
   --output <文件>          写入文件；可按扩展名自动推断格式
   --anonymize              脱敏报告中的本机路径、工作区和 MCP 启动命令
+  兼容客户端：--tool <claude|codex|cursor|gemini|workbuddy|kimi>（同时支持 pi）
 
 web 选项：
   --port <端口>            本地监听端口（默认 17361；仅监听 127.0.0.1）
@@ -191,7 +192,7 @@ Commands:
   risks             Risk report: duplicates, idle MCP, context cost, MCP schema estimate, log size
   report            One-page overview report (summary/json/html): health, risks, usage, sessions, graph summary
   web               Start the local Web governance dashboard (127.0.0.1; source/version actions require confirmation)
-  scan              Scan Claude Code, Codex, Cursor, Gemini, WorkBuddy, and Kimi, write the catalog, then show the same governance overview
+  scan              Scan Claude Code, Codex, Cursor, Gemini, WorkBuddy, Kimi, and Pi, write the catalog, then show the same governance overview
   outdated          Check skill upstream freshness; --online accesses GitHub/Gitee or git remotes
   sources           Manage local skill upstream sources (list/missing/add/discover/remove/check/wizard)
   state             Skill state governance: plan recommendations, list Claude states, set Claude native state
@@ -220,9 +221,10 @@ Global options:
   --json            Output JSON for scripts or other tools
   --lang <zh-CN|en> Select output language; SKM_LANG=en / SKM_LANG=zh-CN also works
   --anonymize       Redact local paths, workspaces, and MCP launch commands in exports
+  Legacy clients: --tool <claude|codex|cursor|gemini|workbuddy|kimi> (Pi is also supported)
 
 list options:
-  --tool <claude|codex|cursor|gemini|workbuddy|kimi>   Show only one tool
+  --tool <claude|codex|cursor|gemini|workbuddy|kimi|pi>   Show only one tool
   --category <keyword>    Filter by category
   --scope <user|project|plugin>
   --mcp                   List MCP servers instead of skills
@@ -259,7 +261,7 @@ state options:
   --yes                     Skip interactive confirmation for scripts
 
 lifecycle options:
-  skm install <source> --tool <claude|codex|cursor|gemini|workbuddy|kimi> [--dry-run] [--yes]
+  skm install <source> --tool <claude|codex|cursor|gemini|workbuddy|kimi|pi> [--dry-run] [--yes]
   skm update [skill] [--tool <tool>] [--scope <scope>] [--instance <ID>] [--all] [--dry-run] [--yes]
   skm rollback <skill> [--tool <tool>] [--scope <scope>] [--instance <ID>] [--all] [--dry-run] [--yes]
   --allow-risk            Allow high-severity findings after explicit manual review
@@ -273,7 +275,7 @@ lifecycle options:
 
 recommend options:
   --top <N>               Number of recommendations (default 3)
-  --tool <claude|codex|cursor|gemini|workbuddy|kimi>   Recommend skills available to one tool
+  --tool <claude|codex|cursor|gemini|workbuddy|kimi|pi>   Recommend skills available to one tool
   --category <keyword>    Restrict recommendation category
   --why                   Show matched terms and score details
   --advisor <codex|claude> Explicitly call local AIDE CLI for enhanced recommendation; falls back locally on failure
@@ -392,7 +394,7 @@ if (!lang) {
   process.exit(1);
 }
 
-if (values.tool && !['claude', 'claude-code', 'codex', 'cursor', 'gemini', 'workbuddy', 'kimi'].includes(values.tool)) {
+if (values.tool && !['claude', 'claude-code', 'codex', 'cursor', 'gemini', 'workbuddy', 'kimi', 'pi'].includes(values.tool)) {
   console.error(tr(lang, 'cli.toolInvalid', { value: values.tool }));
   process.exit(1);
 }

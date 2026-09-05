@@ -58,6 +58,7 @@ function bridgeSkillTargets() {
   return [
     { tool: 'Claude Code', dir: path.join(os.homedir(), '.claude', 'skills', bridgeSkillName) },
     { tool: 'Codex', dir: path.join(os.homedir(), '.codex', 'skills', bridgeSkillName) },
+    { tool: 'Pi', dir: path.join(os.homedir(), '.pi', 'agent', 'skills', bridgeSkillName) },
   ];
 }
 

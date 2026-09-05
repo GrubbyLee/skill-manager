@@ -114,7 +114,7 @@ skm profile list
 skm profile apply writing --dry-run
 ```
 
-`profile create` 会记录当前扫描到的 skill，并尽量带上当前 Claude Code `skillOverrides` 状态。`profile apply` 只写 Claude Code 用户级 `settings.json`，写入前备份。Codex、Cursor、Gemini 的状态切换仍建议使用各自工具的原生界面。
+`profile create` 会记录当前扫描到的 skill，并尽量带上当前 Claude Code `skillOverrides` 状态。`profile apply` 只写 Claude Code 用户级 `settings.json`，写入前备份。Codex、Cursor、Gemini、WorkBuddy、Kimi、Pi 的状态切换仍建议使用各自工具的原生界面或目录配置。
 
 ## 质量评测
 

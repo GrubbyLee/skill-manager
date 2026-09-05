@@ -6,7 +6,7 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 
 `v0.1.x` 重点是把核心闭环打稳：
 
-- 扫描 Claude Code / Codex 的 skill 与 MCP
+- 扫描 Claude Code / Codex / Pi 的 skill 与 MCP（Pi 无 MCP 配置层）
 - 分类、搜索、推荐、知识图谱
 - 重复检测、使用审计、风险报告
 - skill 生命周期治理：来源、更新、回滚、锁定、策略、profile、质量评测
@@ -55,7 +55,7 @@ skill-manager 的目标是成为 AIDE skill 管理领域最好用、最可信的
 
 ## 适配器与 MCP 路线
 
-- 已完成：Claude Code / Codex skill 与 MCP 扫描
+- 已完成：Claude Code / Codex / Pi skill 扫描与会话使用审计；Claude Code / Codex skill 与 MCP 扫描
 - 已完成：Cursor / Gemini 常见 skill 目录与 MCP 配置扫描，不读取敏感缓存，不启动外部工具
 - 已完成：`scan` / `audit` 静态安全审计，覆盖 skill 文本、目录元数据与 MCP 非 env 配置字段
 - 已完成：MCP schema 常驻上下文静态估算，用于风险提示和 HTML 报告

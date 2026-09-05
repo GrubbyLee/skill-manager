@@ -47,6 +47,7 @@ function report(sessions, { json = false, lang = 'zh-CN' }) {
     total: fmtBytes(sum(sessions, 'size')),
     claude: fmtBytes(sum(sessions.filter((s) => s.tool === 'claude-code'), 'size')),
     codex: fmtBytes(sum(sessions.filter((s) => s.tool === 'codex'), 'size')),
+    pi: fmtBytes(sum(sessions.filter((s) => s.tool === 'pi'), 'size')),
   })}`);
   console.log(tr(lang, 'sessions.cleanHint', { hours: SAFE_HOURS }));
 }
